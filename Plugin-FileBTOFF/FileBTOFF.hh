@@ -39,10 +39,7 @@
 *                                                                            *
 \*===========================================================================*/
 
-
-
-#ifndef FILEOFFPLUGIN_HH
-#define FILEOFFPLUGIN_HH
+#pragma once
 
 #include <QObject>
 #include <QCheckBox>
@@ -61,54 +58,56 @@
 #include <OpenFlipper/BasePlugin/TypeInterface.hh>
 #include <OpenFlipper/BasePlugin/StatusbarInterface.hh>
 
-#include <ObjectTypes/PolyMesh/PolyMesh.hh>
-#include <ObjectTypes/TriangleMesh/TriangleMesh.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
+#include <ObjectTypes/PolyMesh/PolyMesh.hh>
 
 
 // Binary file support
 #include <OpenMesh/Core/IO/SR_store.hh>
 #include <limits>
 
-#include "OFFImporter.hh"
+#include "BTOFFImporter.hh"
 
-class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInterface,
-    LoggingInterface, ScriptInterface, StatusbarInterface
+class FileBTOFFPlugin : public QObject,
+    BaseInterface,
+    FileInterface,
+    LoadSaveInterface,
+    LoggingInterface,
+    ScriptInterface,
+    StatusbarInterface
 {
-   Q_OBJECT
-   Q_INTERFACES(FileInterface)
-   Q_INTERFACES(LoadSaveInterface)
-   Q_INTERFACES(LoggingInterface)
-   Q_INTERFACES(BaseInterface)
-   Q_INTERFACES(ScriptInterface)
-   Q_INTERFACES(StatusbarInterface)
-  Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-FileOFF")
-  signals:
-    void openedFile( int _id );
-    void addEmptyObject( DataType _type, int& _id);
+    Q_OBJECT
+    Q_INTERFACES(FileInterface)
+    Q_INTERFACES(LoadSaveInterface)
+    Q_INTERFACES(LoggingInterface)
+    Q_INTERFACES(BaseInterface)
+    Q_INTERFACES(ScriptInterface)
+    Q_INTERFACES(StatusbarInterface)
+    Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-FileBTOFF")
+
+signals:
+    void openedFile(int _id);
+    void addEmptyObject(DataType _type, int& _id);
     void load(QString _filename, DataType _type, int& _id);
-    void save(int _id , QString _filename );
+    void save(int _id , QString _filename);
     void log(Logtype _type, QString _message);
     void log(QString _message);
     void updateView();
     void updatedObject(int _identifier, const UpdateType& _type);
 
-    void deleteObject( int _id );
+    void deleteObject(int _id);
 
     // StatusbarInterface
     void showStatusMessage(QString _message, int _timeout = 0);
-    void setStatus( ApplicationStatus::applicationStatus _status);
+    void setStatus(ApplicationStatus::applicationStatus _status);
 
-  private slots:
+private slots:
 
-    void fileOpened( int /*_id*/ ){};
+    void fileOpened(int /*_id */) {};
 
-    void noguiSupported( ) {} ;
+    void noguiSupported() {} ;
 
     void initializePlugin();
-
-    /// Displays a dialog to ask how to load the mesh (triangle, polymesh , autodetect)
-    void handleTrimeshDialog();
 
     /// Slot called when user wants to save the given Load options as default
     void slotLoadDefault();
@@ -116,48 +115,45 @@ class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInte
     /// Slot called when user wants to save the given Save options as default
     void slotSaveDefault();
 
-  public :
+public:
 
-     FileOFFPlugin();
+    FileBTOFFPlugin();
 
-     ~FileOFFPlugin() {};
+    ~FileBTOFFPlugin() {};
 
-     QString name() { return (QString("FileOFF")); };
-     QString description( ) { return (QString(tr("Load/Save OFF-Files"))); };
+    QString name() { return (QString("FileBTOFF")); };
+    QString description() { return (QString(tr("Load/Save OFF-Files as BezierTriangleMesh"))); };
 
-     DataType supportedType();
+    DataType supportedType();
 
-     QString getSaveFilters();
-     QString getLoadFilters();
+    QString getSaveFilters();
+    QString getLoadFilters();
 
-     QWidget* saveOptionsWidget(QString /*_currentFilter*/);
-     QWidget* loadOptionsWidget(QString /*_currentFilter*/);
+    QWidget* saveOptionsWidget(QString /*_currentFilter*/);
+    QWidget* loadOptionsWidget(QString /*_currentFilter*/);
 
-  public slots:
+public slots:
 
     /// Loads Object and converts it to a triangle mesh if possible
     int loadObject(QString _filename);
-
-    /// Loads Object with given datatype
-    int loadObject(QString _filename, DataType _type);
 
     bool saveObject(int _id, QString _filename);
 
     QString version() { return QString("1.1"); };
 
-  private:
+private:
 
     /// Before Parsing the actual file, read all features supported
-    bool readFileOptions(QString _filename, OFFImporter& _importer);
+    bool readFileOptions(QString _filename, BTOFFImporter &_importer);
 
     /// Read OFF file and parse it
-    bool readOFFFile(QString _filename, OFFImporter& _importer);
+    bool readOFFFile(QString _filename, BTOFFImporter &_importer);
 
     /// Parse ascii OFF file
-    bool parseASCII(std::istream& _in, OFFImporter& _importer, DataType _type, QString& _objectName);
+    bool parseASCII(std::istream& _in, BTOFFImporter &_importer, QString &_objectName);
 
     /// Parse binary OFF file
-    bool parseBinary(std::istream& _in, OFFImporter& _importer, DataType _type, QString& _objectName);
+    bool parseBinary(std::istream& _in, BTOFFImporter &_importer, QString &_objectName);
 
     /// Get color type
     int getColorType(std::string& _line, bool _texCoordsAvailable);
@@ -170,46 +166,46 @@ class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInte
     bool extendedFaceColorTest(std::istream& _in, uint _nV, uint _nF, int _nB) const;
 
     // Binary reader and writer helpers
-    void readValue(std::istream& _in, float& _value) const {
+    void readValue(std::istream& _in, float &_value) const
+    {
         float tmp;
-
-        OpenMesh::IO::restore( _in , tmp, false ); //assuming LSB byte order
+        OpenMesh::IO::restore(_in , tmp, false); //assuming LSB byte order
         _value = tmp;
     }
 
-    void readValue(std::istream& _in, int& _value) const {
+    void readValue(std::istream& _in, int &_value) const
+    {
         OpenMesh::IO::int32_t tmp;
-
         OpenMesh::IO::restore( _in , tmp, false ); //assuming LSB byte order
         _value = tmp;
     }
 
-    void readValue(std::istream& _in, unsigned int& _value) const {
+    void readValue(std::istream& _in, unsigned int &_value) const
+    {
         OpenMesh::IO::uint32_t tmp;
-
         OpenMesh::IO::restore( _in , tmp, false ); //assuming LSB byte order
         _value = tmp;
     }
 
-    void writeValue(std::ostream& _out, int value) const {
-
+    void writeValue(std::ostream& _out, int value) const
+    {
         OpenMesh::IO::uint32_t tmp = value;
         OpenMesh::IO::store(_out, tmp, false);
     }
 
-    void writeValue(std::ostream& _out, unsigned int value) const {
-
+    void writeValue(std::ostream& _out, unsigned int value) const
+    {
         OpenMesh::IO::uint32_t tmp = value;
         OpenMesh::IO::store(_out, tmp, false);
     }
 
-    void writeValue(std::ostream& _out, float value) const {
-
+    void writeValue(std::ostream& _out, float value) const
+    {
         float tmp = value;
         OpenMesh::IO::store(_out, tmp, false);
     }
 
-    void trimString( std::string& _string);
+    void trimString(std::string& _string);
 
     /** \brief Function to retrieve next line
      *
@@ -218,26 +214,26 @@ class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInte
      * @param _skipEmptyLines Skip empty/comment lines? If not, empty strings will be returned if comment or (remaining) line is empty
      * @return
      */
-    bool getCleanLine( std::istream& ifs , std::string& _string, bool _skipEmptyLines = true);
+    bool getCleanLine(std::istream& ifs , std::string& _string, bool _skipEmptyLines=true);
 
     /// Check for degenerate faces before adding them
     bool checkDegenerateFace(const std::vector<VertexHandle>& _v);
 
     /// Writer function
-    template< class MeshT >
+    template<class MeshT>
     bool writeMesh(std::ostream& _out, MeshT& _mesh, BaseObject &_baseObj);
 
     /// Write binary mesh data to file
-    template< class MeshT >
-    bool writeBinaryData(std::ostream& _out, MeshT& _mesh );
+    template<class MeshT>
+    bool writeBinaryData(std::ostream& _out, MeshT& _mesh);
 
     /// Write ASCII mesh data to file
-    template< class MeshT >
-    bool writeASCIIData(std::ostream& _out, MeshT& _mesh );
+    template<class MeshT>
+    bool writeASCIIData(std::ostream& _out, MeshT& _mesh);
 
     /// backup per vertex/face texture coordinates
     template <class MeshT>
-    void backupTextureCoordinates(MeshT& _mesh);
+    void backupTextureCoordinates(MeshT &_mesh);
 
     //Option Widgets
     QWidget* loadOptions_;
@@ -254,7 +250,6 @@ class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInte
     QPushButton* saveDefaultButton_;
 
 
-    QComboBox*   triMeshHandling_;
     QCheckBox*   loadVertexColor_;
     QCheckBox*   loadFaceColor_;
     QCheckBox*   loadAlpha_;
@@ -266,16 +261,12 @@ class FileOFFPlugin : public QObject, BaseInterface, FileInterface, LoadSaveInte
     unsigned int userReadOptions_;
     unsigned int userWriteOptions_;
 
-    bool forceTriangleMesh_;
-    bool forcePolyMesh_;
-	bool forceBezierTriangleMesh_;
     bool readColorComp_;
-    OFFImporter::ObjectOptionsE trimeshOptions_;
+    BTOFFImporter::ObjectOptionsE trimeshOptions_;
+
 };
 
-#if defined(INCLUDE_TEMPLATES) && !defined(FILEOFFPLUGIN_C)
-#define FILEOFFPLUGIN_TEMPLATES
-#include "FileOFFT_impl.hh"
+#if defined(INCLUDE_TEMPLATES) && !defined(FILEBTOFFPLUGIN_C)
+#define FILEBTOFFPLUGIN_TEMPLATES
+#include "FileBTOFFT_impl.hh"
 #endif
-
-#endif //FILEOFFPLUGIN_HH

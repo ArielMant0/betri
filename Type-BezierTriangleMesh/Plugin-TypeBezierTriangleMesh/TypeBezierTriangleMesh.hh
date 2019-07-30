@@ -2,12 +2,13 @@
 
 #include <QObject>
 
-#include <Type-OpenMesh/ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenFlipper/common/Types.hh>
 #include <OpenFlipper/BasePlugin/BaseInterface.hh>
 #include <OpenFlipper/BasePlugin/LoadSaveInterface.hh>
 #include <OpenFlipper/BasePlugin/LoggingInterface.hh>
 #include <OpenFlipper/BasePlugin/TypeInterface.hh>
+
+#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
 class TypeBezierTriangleMeshPlugin : public QObject,
 	BaseInterface,

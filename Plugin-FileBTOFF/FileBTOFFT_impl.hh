@@ -43,32 +43,30 @@
 
 #define FILEOFFPLUGIN_C
 
-#include "FileOFF.hh"
+#include "FileBTOFF.hh"
 
 #include <OpenMesh/Core/Utils/color_cast.hh>
 #include <OpenMesh/Core/Geometry/VectorT.hh>
 #include <sstream>
 
 
-template< class MeshT >
-bool FileOFFPlugin::writeMesh(std::ostream& _out, MeshT& _mesh, BaseObject &_baseObj){
-
+template <class MeshT>
+bool FileBTOFFPlugin::writeMesh(std::ostream& _out, MeshT& _mesh, BaseObject &_baseObj)
+{
     /*****************
     * HEADER
     ******************/
 
     // Write option ST
-    if(_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & OFFImporter::VERTEXTEXCOORDS) ) {
+    if (_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & BTOFFImporter::VERTEXTEXCOORDS)) {
         _out << "ST";
     }
-
     // Write option C
-    if(_mesh.has_vertex_colors() && (userWriteOptions_ & OFFImporter::VERTEXCOLOR) ) {
+    if (_mesh.has_vertex_colors() && (userWriteOptions_ & BTOFFImporter::VERTEXCOLOR)){
         _out << "C";
     }
-
     // Write option N
-    if(_mesh.has_vertex_normals() && (userWriteOptions_ & OFFImporter::VERTEXNORMAL) ) {
+    if (_mesh.has_vertex_normals() && (userWriteOptions_ & BTOFFImporter::VERTEXNORMAL)){
         _out << "N";
     }
 
@@ -76,7 +74,7 @@ bool FileOFFPlugin::writeMesh(std::ostream& _out, MeshT& _mesh, BaseObject &_bas
     _out << "OFF";
 
     // Write BINARY
-    if(userWriteOptions_ & OFFImporter::BINARY) {
+    if (userWriteOptions_ & BTOFFImporter::BINARY) {
         _out << " BINARY";
     }
 
@@ -103,21 +101,21 @@ bool FileOFFPlugin::writeMesh(std::ostream& _out, MeshT& _mesh, BaseObject &_bas
     ******************/
 
     // Call corresponding write routine
-    if(userWriteOptions_ & OFFImporter::BINARY) {
+    if(userWriteOptions_ & BTOFFImporter::BINARY) {
         return writeBinaryData(_out, _mesh);
     } else {
-      if ( !OpenFlipper::Options::savingSettings() && saveOptions_ != 0)
-        _out.precision(savePrecision_->value());
+        if (!OpenFlipper::Options::savingSettings() && saveOptions_ != 0)
+            _out.precision(savePrecision_->value());
 
-      return writeASCIIData(_out, _mesh);
+        return writeASCIIData(_out, _mesh);
     }
 }
 
 //------------------------------------------------------------------------------------------------------
 
-template< class MeshT >
-bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
-
+template <class MeshT>
+bool FileBTOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh )
+{
     typename MeshT::Point p;
     typename MeshT::Normal n;
     typename OpenMesh::Vec4f c;
@@ -130,7 +128,7 @@ bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
     _out << _mesh.n_vertices() << " " << _mesh.n_faces() << " " << _mesh.n_edges();
 
     // Write vertex data
-    for(; vit != end_vit; ++vit) {
+    for (; vit != end_vit; ++vit) {
 
         _out << "\n";
 
@@ -139,7 +137,7 @@ bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
         _out << p[0] << " " << p[1] << " " << p[2];
 
         // Write vertex normals
-        if(_mesh.has_vertex_normals() && (userWriteOptions_ & OFFImporter::VERTEXNORMAL)) {
+        if (_mesh.has_vertex_normals() && (userWriteOptions_ & BTOFFImporter::VERTEXNORMAL)) {
             n = _mesh.normal(*vit);
             _out << " " << n[0] << " " << n[1] << " " << n[2];
         }
@@ -147,13 +145,13 @@ bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
         // Write vertex colors
         // Note: Vertex colors always have only three components.
         // This has to be determined since it can not be read dynamically in binary files.
-        if(_mesh.has_vertex_colors() && (userWriteOptions_ & OFFImporter::VERTEXCOLOR)) {
+        if (_mesh.has_vertex_colors() && (userWriteOptions_ & BTOFFImporter::VERTEXCOLOR)) {
             c = OpenMesh::color_cast<OpenMesh::Vec4f> (_mesh.color(*vit));
             _out << " " << std::showpoint << c[0] << " " << std::showpoint << c[1] << " " << std::showpoint << c[2] << " " << std::showpoint << c[3];
         }
 
         // Write vertex texcoords
-        if(_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & OFFImporter::VERTEXTEXCOORDS)) {
+        if (_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & BTOFFImporter::VERTEXTEXCOORDS)) {
             t = _mesh.texcoord2D(*vit);
             _out << " " << t[0] << " " << t[1];
         }
@@ -164,27 +162,25 @@ bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
     typename MeshT::FaceVertexIter fvit;
 
     // Write face data
-    for(; fit != end_fit; ++fit) {
-
+    for (; fit != end_fit; ++fit) {
         _out << "\n";
-
         // Write face valence
         _out << _mesh.valence(*fit);
-
         // Get face-vertex iterator
         fvit = _mesh.fv_iter(*fit);
 
         // Write vertex indices
-        for(;fvit.is_valid(); ++fvit) {
+        for (;fvit.is_valid(); ++fvit) {
             _out << " " << fvit->idx();
         }
 
         // Write face colors
-        if(_mesh.has_face_colors() && (userWriteOptions_ & OFFImporter::FACECOLOR ) ) {
+        if (_mesh.has_face_colors() && (userWriteOptions_ & BTOFFImporter::FACECOLOR)) {
             c = OpenMesh::color_cast<OpenMesh::Vec4f> (_mesh.color(*fit));
             _out << " " << std::showpoint << c[0] << " " << std::showpoint << c[1] << " " << std::showpoint << c[2];
 
-            if(userWriteOptions_ & OFFImporter::COLORALPHA) _out <<  " " << std::showpoint << c[3];
+            if (userWriteOptions_ & BTOFFImporter::COLORALPHA)
+                _out <<  " " << std::showpoint << c[3];
         }
     }
 
@@ -193,9 +189,9 @@ bool FileOFFPlugin::writeASCIIData(std::ostream& _out, MeshT& _mesh ) {
 
 //------------------------------------------------------------------------------------------------------
 
-template< class MeshT >
-bool FileOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh ){
-
+template <class MeshT>
+bool FileBTOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh )
+{
     Vec3f v, n;
     Vec2f t;
     OpenMesh::Vec4f c(1.0,1.0,1.0,1.0);
@@ -205,39 +201,35 @@ bool FileOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh ){
     typename MeshT::VertexIter end_vit = _mesh.vertices_end();
 
     // #vertices, #faces, #edges
-    writeValue(_out, (uint)_mesh.n_vertices() );
-    writeValue(_out, (uint)_mesh.n_faces() );
-    writeValue(_out, (uint)_mesh.n_edges() );
+    writeValue(_out, (uint)_mesh.n_vertices());
+    writeValue(_out, (uint)_mesh.n_faces());
+    writeValue(_out, (uint)_mesh.n_edges());
 
     // Write vertex data
-    for(; vit != end_vit; ++vit) {
-
+    for (; vit != end_vit; ++vit) {
         // Write vertex p[0] p[1] p[2]
         p = _mesh.point(*vit);
         writeValue(_out, p[0]);
         writeValue(_out, p[1]);
         writeValue(_out, p[2]);
-
         // Write vertex normals
-        if(_mesh.has_vertex_normals() && (userWriteOptions_ & OFFImporter::VERTEXNORMAL)) {
+        if (_mesh.has_vertex_normals() && (userWriteOptions_ & BTOFFImporter::VERTEXNORMAL)) {
             n = _mesh.normal(*vit);
             writeValue(_out, n[0]);
             writeValue(_out, n[1]);
             writeValue(_out, n[2]);
         }
-
         // Write vertex colors
         // Note: Vertex colors always have only three components.
         // This has to be determined since it can not be read dynamically in binary files.
-        if(_mesh.has_vertex_colors() && (userWriteOptions_ & OFFImporter::VERTEXCOLOR)) {
+        if (_mesh.has_vertex_colors() && (userWriteOptions_ & BTOFFImporter::VERTEXCOLOR)) {
             c = OpenMesh::color_cast<OpenMesh::Vec4f> (_mesh.color(*vit));
             writeValue(_out, c[0]);
             writeValue(_out, c[1]);
             writeValue(_out, c[2]);
         }
-
         // Write vertex texcoords
-        if(_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & OFFImporter::VERTEXTEXCOORDS)) {
+        if (_mesh.has_vertex_texcoords2D() && (userWriteOptions_ & BTOFFImporter::VERTEXTEXCOORDS)) {
             t = _mesh.texcoord2D(*vit);
             writeValue(_out, t[0]);
             writeValue(_out, t[1]);
@@ -249,7 +241,7 @@ bool FileOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh ){
     typename MeshT::FaceVertexIter fvit;
 
     // Write face data
-    for(; fit != end_fit; ++fit) {
+    for (; fit != end_fit; ++fit) {
 
         // Write face valence
         writeValue(_out, _mesh.valence(*fit));
@@ -258,15 +250,15 @@ bool FileOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh ){
         fvit = _mesh.fv_iter(*fit);
 
         // Write vertex indices
-        for(;fvit.is_valid(); ++fvit) {
+        for (;fvit.is_valid(); ++fvit) {
             writeValue(_out, fvit->idx());
         }
 
         // Write face colors
-        if(_mesh.has_face_colors() && (userWriteOptions_ & OFFImporter::FACECOLOR)) {
+        if (_mesh.has_face_colors() && (userWriteOptions_ & BTOFFImporter::FACECOLOR)) {
 
             // Number of color components
-            if(userWriteOptions_ & OFFImporter::COLORALPHA) writeValue(_out, (uint)4);
+            if (userWriteOptions_ & BTOFFImporter::COLORALPHA) writeValue(_out, (uint)4);
             else writeValue(_out, (uint)3);
 
             // Color itself
@@ -275,7 +267,7 @@ bool FileOFFPlugin::writeBinaryData(std::ostream& _out, MeshT& _mesh ){
             writeValue(_out, c[1]);
             writeValue(_out, c[2]);
 
-            if(userWriteOptions_ & OFFImporter::COLORALPHA) writeValue(_out, c[3]);
+            if (userWriteOptions_ & BTOFFImporter::COLORALPHA) writeValue(_out, c[3]);
         }
     }
 

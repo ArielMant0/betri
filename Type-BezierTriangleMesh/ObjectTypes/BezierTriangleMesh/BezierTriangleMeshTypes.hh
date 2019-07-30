@@ -2,9 +2,7 @@
 
 //== INCLUDES =================================================================
 
-//#include <ObjectTypes/TriangleMesh/TriangleMesh.hh>
-#include <Type-OpenMesh/ObjectTypes/TriangleMesh/TriangleMeshTypes.hh>
-//#include <OpenFlipper/libs_required/ACG/Math/BezierCurveT.hh>
+#include <ObjectTypes/TriangleMesh/TriangleMeshTypes.hh>
 
 struct BezierTriangleTraits : public TriTraits
 {

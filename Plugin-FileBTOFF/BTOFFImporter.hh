@@ -39,11 +39,7 @@
 *                                                                            *
 \*===========================================================================*/
 
-
-
-
-#ifndef OFFIMPORTER_HH
-#define OFFIMPORTER_HH
+#pragma once
 
 
 //=== INCLUDES ================================================================
@@ -55,55 +51,50 @@
 // OpenMesh
 #include <OpenFlipper/common/GlobalDefines.hh>
 #include <OpenMesh/Core/Geometry/VectorT.hh>
-#include <ObjectTypes/PolyMesh/PolyMesh.hh>
-#include <ObjectTypes/TriangleMesh/TriangleMesh.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenFlipper/common/BaseObject.hh>
 
 //=== IMPLEMENTATION ==========================================================
 
-typedef int VertexHandle;
-typedef int FaceHandle;
-typedef std::vector<VertexHandle> VHandles;
-typedef std::vector<OpenMesh::VertexHandle> OMVHandles;
-typedef OpenMesh::Vec4f Vec4f;
-typedef OpenMesh::Vec3f Vec3f;
-typedef OpenMesh::Vec2f Vec2f;
-typedef OpenMesh::Vec4uc Vec4uc;
-typedef OpenMesh::Vec3uc Vec3uc;
+using VertexHandle = int;
+using FaceHandle = int;
+using VHandles = std::vector<VertexHandle>;
+using OMVHandles = std::vector<OpenMesh::VertexHandle>;
+using Vec4f = OpenMesh::Vec4f;
+using Vec3f = OpenMesh::Vec3f;
+using Vec2f = OpenMesh::Vec2f;
+using Vec4uc = OpenMesh::Vec4uc;
+using Vec3uc = OpenMesh::Vec3uc;
 
 
-class OFFImporter
+class BTOFFImporter
 {
-  public:
+public:
 
-	  enum ObjectOptionsE
-	  {
-		  NONE = 0,
-		  BINARY = 1,
-		  TRIMESH = 1 << 1,
-		  POLYMESH = 1 << 2,
-		  VERTEXNORMAL = 1 << 3,
-		  VERTEXTEXCOORDS = 1 << 4,
-		  VERTEXCOLOR = 1 << 5,
-		  FACECOLOR = 1 << 6,
-		  COLORALPHA = 1 << 7,
-		  FORCE_NOCOLOR = 1 << 8,
-		  FORCE_NONORMALS = 1 << 9,
-		  FORCE_NOTEXTURES = 1 << 10,
-		  BEZIERMESH = 1 << 11
+    enum ObjectOptionsE
+    {
+        NONE = 0,
+        BINARY = 1,
+        VERTEXNORMAL = 1 << 1,
+        VERTEXTEXCOORDS = 1 << 2,
+        VERTEXCOLOR = 1 << 3,
+        FACECOLOR = 1 << 4,
+        COLORALPHA = 1 << 5,
+        FORCE_NOCOLOR = 1 << 6,
+        FORCE_NONORMALS = 1 << 7,
+        FORCE_NOTEXTURES = 1 << 8
     };
 
-    typedef uint ObjectOptions;
+    using ObjectOptions = uint;
 
     /// constructor
-    OFFImporter();
+    BTOFFImporter();
 
     /// base class needs virtual destructor
-    ~OFFImporter();
+    ~BTOFFImporter();
 
     /// add initial object
-    void addObject( BaseObject* _object );
+    void addObject(BaseObject* _object);
 
     unsigned int maxFaceValence() const { return maxFaceValence_; }
 
@@ -124,12 +115,7 @@ class OFFImporter
     /// add a normal
     int addNormal(const Vec3f& _normal);
 
-    /// get a pointer to the active polyMesh
-    PolyMesh* polyMesh();
-
-    /// get a pointer to the active triMesh
-    TriMesh* triMesh();
-
+    /// get a pointer to the active mesh
 	BezierTMesh* btMesh();
 
     /// set vertex texture coordinate
@@ -152,9 +138,6 @@ class OFFImporter
     bool hasTextureCoords();
     bool hasVertexColors();
     bool hasFaceColors();
-    bool isTriangleMesh();
-	bool isBezierTMesh();
-    bool isPolyMesh();
     bool isBinary();
 
     /// Global Properties
@@ -208,20 +191,6 @@ public:
     // file path
     QString path_;
 
-    // polyMesh data
-    std::map< int, PolyMesh::VertexHandle > vertexMapPoly_;
-
-    std::vector< PolyMesh::FaceHandle > faceMapPoly_;
-
-    PolyMesh* polyMesh_;
-
-    // triMesh data
-    std::map< int, TriMesh::VertexHandle > vertexMapTri_;
-
-    std::vector< TriMesh::FaceHandle > faceMapTri_;
-
-    TriMesh* triMesh_;
-
 	// bezier triangle mesh data
 	std::map<int, BezierTMesh::VertexHandle> vertexMapBT_;
 
@@ -241,6 +210,3 @@ private:
     unsigned int maxFaceValence_;
 };
 
-//=============================================================================
-#endif // OFFIMPORTER_HH
-//=============================================================================
