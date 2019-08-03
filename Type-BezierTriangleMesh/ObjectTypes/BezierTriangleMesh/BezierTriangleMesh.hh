@@ -8,12 +8,12 @@
 
 //== INCLUDES =================================================================
 
-#include <ObjectTypes/MeshObject/MeshObjectT.hh>
+#include <ObjectTypes/BTBaseMeshObject/BTBaseMeshObjectT.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMeshTypes.hh>
 #include <OpenFlipper/common/ObjectTypeDLLDefines.hh>
 
  /// Type for a MeshObject containing a bezier triangle mesh
-class OBJECTTYPEDLLEXPORTONLY BTMeshObject : public MeshObject<BezierTMesh> {
+class OBJECTTYPEDLLEXPORTONLY BTMeshObject : public BTBaseMeshObject<BezierTMesh> {
 
 public:
 	/** \brief copy constructor

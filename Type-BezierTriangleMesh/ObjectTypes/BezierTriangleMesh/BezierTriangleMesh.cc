@@ -8,10 +8,10 @@
 #include <ACG/QtScenegraph/QtTranslationManipulatorNode.hh>
 
 
-BTMeshObject::BTMeshObject(const BTMeshObject &_object) : MeshObject<BezierTMesh>(_object) {}
+BTMeshObject::BTMeshObject(const BTMeshObject &_object) : BTBaseMeshObject<BezierTMesh>(_object) {}
 
 
-BTMeshObject::BTMeshObject(DataType _typeId) : MeshObject<BezierTMesh>(_typeId) {}
+BTMeshObject::BTMeshObject(DataType _typeId) : BTBaseMeshObject<BezierTMesh>(_typeId) {}
 
 
 BTMeshObject::~BTMeshObject() {}
