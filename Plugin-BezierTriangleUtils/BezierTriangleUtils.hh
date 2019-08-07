@@ -2,5 +2,10 @@
 
 namespace betri
 {
-    void addBezierTriangles(BezierTMesh &btmesh);
+    void addBezierTriangles(BezierTMesh &mesh);
+
+	void remesh(BezierTMesh &mesh);
+
+	void voronoi(BezierTMesh &mesh, unsigned int size);
+
 }

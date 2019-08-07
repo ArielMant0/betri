@@ -60,4 +60,13 @@ struct BezierTriangleTraits : public TriTraits
 
 //== TYPEDEFS =================================================================
 
-using BezierTMesh = OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>;
+//using BezierTMesh = OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>;
+
+class BezierTMesh : public OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>
+{
+public:
+
+	void degreeElevation(BezierTMesh::FaceHandle &fh);
+
+	void degreeReduction(BezierTMesh::FaceHandle &fh);
+};

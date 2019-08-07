@@ -77,4 +77,6 @@ private slots:
 	void setTessAmount(int);
 	void setTessType(int);
 
+	void callVoronoi();
+
 };
