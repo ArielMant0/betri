@@ -43,6 +43,8 @@
 
 #include <OpenFlipper/Utils/FileIO/NumberParsing.hh>
 #include <OpenFlipper/Utils/Memory/RAMInfo.hh>
+#include <OpenFlipper/common/GlobalOptions.hh> // TODO: ?
+#include <OpenFlipper/BasePlugin/PluginFunctions.hh>  // TODO: ?
 
 #include <QMessageBox>
 #include <QVBoxLayout>

@@ -7,7 +7,6 @@
 //=============================================================================
 
 #include <OpenFlipper/common/Types.hh>
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
 /** The Namespace PluginFunctions contains functions for all plugins. These functions should be used to get the
  *  objects to work on or to set modes in the examiner widget. */

@@ -9,7 +9,6 @@ struct BezierTriangleTraits : public TriTraits
 
 	FaceTraits {
 	private:
-
 		// all control points of the face (ccw starting from he)
 		// IDEA: is it better to store 2 float coeffs (linear combination)?
 		std::vector<Point> m_cps;
@@ -45,6 +44,11 @@ struct BezierTriangleTraits : public TriTraits
 		auto cpEnd() const
 		{
 			return m_cps.end();
+		}
+
+		Point getCPoint(int index) const
+		{
+			return m_cps[index];
 		}
 
 		unsigned int degree() const

@@ -6,7 +6,8 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
+#include "BezierTriangleMesh.hh"
+#include <OpenFlipper/BasePlugin/PluginFunctions.hh>
 
 namespace PluginFunctions {
 

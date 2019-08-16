@@ -5,6 +5,8 @@
 
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
+#include <OpenFlipper/common/GlobalOptions.hh>
+
 #include "OpenFlipper/BasePlugin/PluginFunctions.hh"
 
 #include "BezierTriangleUtils.hh"
