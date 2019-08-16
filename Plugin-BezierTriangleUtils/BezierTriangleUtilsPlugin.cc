@@ -196,7 +196,7 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 	if (o_it != PluginFunctions::objectsEnd()) {
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
-		const auto size = mesh->n_faces()-1;// / 2;
+		const auto size = mesh->n_faces() / 2;
 		betri::voronoi(*mesh, size);
 		emit log(LOGINFO, "Performed Voronoi Partition!");
 		emit updatedObject(meshObj->id());
