@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <fstream> // TODO
+#include <functional> // TODO
 
 //== NAMESPACES ===============================================================
 
@@ -1325,132 +1326,153 @@ generateHighlightColor(ACG::Vec4f _color)
 //----------------------------------------------------------------------------
 
 template <class MeshT>
+BezierTMesh::Point BezierTriangleMeshNode<MeshT>::
+evaluateCasteljau(Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5)
+{
+	auto tmpPointA = cp0 * at[0] + cp1 * at[1] + cp5 * at[2];
+	auto tmpPointB = cp1 * at[0] + cp2 * at[1] + cp3 * at[2];
+	auto tmpPointC = cp3 * at[0] + cp4 * at[1] + cp5 * at[2];
+
+	auto result = tmpPointA * at[0] + tmpPointB * at[1] + tmpPointC * at[2];
+
+	return result;
+}
+
+template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::
 tesselateMeshCPU()
 {
+	std::function<Point(double, double)> getPointPos = [](double u, double v) { return Point(u, v, 1.0 - u - v); };
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+
 	std::ofstream out("02tessellate.txt", std::ios::out | std::ofstream::app);
 
-	const int ITERATIONS = 10;
-	const bool loopRefinement = false;
+	// TODO make this dynamic
+	// TODO does it make sence to have two different stepsizes?
+	// TODO Capital letters?
+	// TODO 10 geht nicht
+	const int ITERATIONS = 3;
+	assert(ITERATIONS >= 0); // TODO
 
-	for (int i = 0; i < ITERATIONS; i++) {
-		// Iterate over all faces
-		for (auto &face : bezierTriangleMesh_.faces()) {
+	// Additional Points per edge
+	int POINTS = sumMOne(ITERATIONS);
+	int POINTSUM = sumMOne(POINTS + 2);
+	double STEPSIZE = 1.0 / (double(POINTS) + 1.0);
 
-			// TODO Early return if no controllpoints are set
-
-			// Get vertex handles of this face
-			auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
-			auto vh0 = *(vertexHandle++);
-			auto vh1 = *(vertexHandle++);
-			auto vh2 = *(vertexHandle);
-
-			//out << " verhandle0: " << vh0 << " verhandle-dref-value: " << bezierTriangleMesh_.point(vh0) << "\n";
-			//out << " verhandle1: " << vh1 << " verhandle-dref-value: " << bezierTriangleMesh_.point(vh1) << "\n";
-			//out << " verhandle2: " << vh2 << " verhandle-dref-value: " << bezierTriangleMesh_.point(vh2) << "\n";
+	Point cp0, cp1, cp2, cp3, cp4, cp5;
+	// Iterate over all faces
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		// TODO is this nessessary?
+		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
+		auto vh0 = *(vertexHandle++);
+		auto vh1 = *(vertexHandle++);
+		auto vh2 = *(vertexHandle);
 		
-			Point cp0, cp1, cp2, cp3, cp4, cp5;
-			int testScalar = i == 0 ? 1.0 : 0.0;
+		// Delete the old face
+		bezierTriangleMesh_.delete_face(face, false);
 
-			if (i == 0) {
-				 cp0 = bezierTriangleMesh_.point(vh0);
-				 cp1 = (bezierTriangleMesh_.point(vh0) * 0.5 + bezierTriangleMesh_.point(vh1) * 0.5) + Point(0.0, 0.0, testScalar);
-				 cp2 = bezierTriangleMesh_.point(vh1);
-				 cp3 = (bezierTriangleMesh_.point(vh1) * 0.5 + bezierTriangleMesh_.point(vh2) * 0.5) + Point(0.0, 0.0, testScalar);
-				 cp4 = bezierTriangleMesh_.point(vh2);
-				 cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
+		// Get the controlpoints of this face
+		if (true) {
+			int testScalar = 1.0;
+			cp0 = bezierTriangleMesh_.point(vh0);
+			cp1 = (bezierTriangleMesh_.point(vh0) * 0.5 + bezierTriangleMesh_.point(vh1) * 0.5) + Point(0.0, 0.0, testScalar);
+			cp2 = bezierTriangleMesh_.point(vh1);
+			cp3 = (bezierTriangleMesh_.point(vh1) * 0.5 + bezierTriangleMesh_.point(vh2) * 0.5) + Point(0.0, 0.0, testScalar);
+			cp4 = bezierTriangleMesh_.point(vh2);
+			cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
+		}
+		else {
+			// TODO read the controllpoints from the mesh data
+			auto faceControlP = bezierTriangleMesh_.data(face);
+			cp0 = faceControlP.getCPoint(0);
+			cp1 = faceControlP.getCPoint(1);
+			cp2 = faceControlP.getCPoint(2);
+			cp3 = faceControlP.getCPoint(3);
+			cp4 = faceControlP.getCPoint(4);
+			cp5 = faceControlP.getCPoint(5);
+		}
+
+		
+		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(POINTSUM);
+		// Iterate in two directions (u,v) which can use to determine the point at which
+		// the beziertriangle should be evaluated
+		int handleIt = 0;
+		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
+			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
+
+				// Get the 3D-position
+				auto toEval = getPointPos(u, v);
+				//auto toEval = Point(u, v, 1.0 - u - v);
+
+				auto resultPoint = evaluateCasteljau(toEval, cp0, cp1, cp2, cp3, cp4, cp5);
+
+				// Add Point
+				// TODO dont add the Points that are already in there (3 starting points)
+				auto newPointHandle = bezierTriangleMesh_.add_vertex(resultPoint);
+				newHandleVector[handleIt++] = newPointHandle;
 			}
-			/*
-			out << "cp0: " << cp0 << "\n";
-			out << "cp1: " << cp1 << "\n";
-			out << "cp2: " << cp2 << "\n";
-			out << "cp3: " << cp3 << "\n";
-			out << "cp4: " << cp4 << "\n";
-			out << "cp5: " << cp5 << "\n";
-			*/
-			else {
-				// TODO read the controllpoints from the mesh data
-				auto faceControlP = bezierTriangleMesh_.data(face);
-				 cp0 = faceControlP.getCPoint(0);
-				 cp1 = faceControlP.getCPoint(1);
-				 cp2 = faceControlP.getCPoint(2);
-				 cp3 = faceControlP.getCPoint(3);
-				 cp4 = faceControlP.getCPoint(4);
-				cp5 = faceControlP.getCPoint(5);
-			}
-			/*
-			out << "cp0: " << cp0 << "\n";
-			out << "cp1: " << cp1 << "\n";
-			out << "cp2: " << cp2 << "\n";
-			out << "cp3: " << cp3 << "\n";
-			out << "cp4: " << cp4 << "\n";
-			out << "cp5: " << cp5 << "\n";
-			*/
+		}
+
+		// Example - first half of the triangles
+		// 0 1 5 b=5
+		// 1 2 6 b=5
+		// 2 3 7 b=5
+		// 3 4 8 b=5
+		// pos1+2 pos2+2 pos3+1 b=5+4
+		// 5 6 9 b=9
+		// 6 7 10 b=9
+		// 7 8 11 b=9
+		// pos1+2 pos2+2 pos3+1 b=5+4+3
+		// 9 10 12 b=12
+		// 10 11 13 b=12
+		// pos1+2 pos2+2 pos3+1 b=5+4+3+2
+		// 12 13 14 b=14
+
+		int pos1 = 0;
+		int pos2 = 1;
+		int pos3 = POINTS + 2;
+		int border = POINTS + 2;
+		int boderAdd = border-1;
+		
+		//out << "handlevectorsize: " << newHandleVector.size() << "\n";
+		//out << "POINTS: " << POINTS << " POINTSUM: " << POINTSUM << "\n";
+		/*
+		for (int h = 0; h < newHandleVector.size(); h++) {
+			out << "Inhalt " << newHandleVector[h] << " an Stelle " << h << "\n";
+		}
+		out.flush();
+		*/
+		// Iterate all added Points and add pairs of three as a new face
+		for (; pos3 < newHandleVector.size(); ) {
+			// bottom triangle
+			auto faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos1], newHandleVector[pos2], newHandleVector[pos3]);
+			// Add the controllPoints to the face
+			bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
 			
-			// Punkt values berechnen
-			auto tmpPointA = (cp0 + cp1 + cp5) / 3;
-			auto tmpPointB = (cp1 + cp2 + cp3) / 3;
-			auto tmpPointC = (cp3 + cp4 + cp5) / 3;
+			//out << "border: " << border << " pos2: " << pos2 << "\n";
+			//out.flush();
 
-			//out << "tmpA: " << tmpPointA << "\n";
-			//out << "tmpB: " << tmpPointB << "\n";
-			//out << "tmpC: " << tmpPointC << "\n";
-
-			bezierTriangleMesh_.delete_face(face, false);
-
-			// Midpunkt berechnen und adden
-			// Midpoint should be the only new Point in the Vertexarray
-			auto midPoint = (tmpPointA + tmpPointB + tmpPointC) / 3;
-
-			if (loopRefinement) {
-				auto newPoint1 = bezierTriangleMesh_.add_vertex((bezierTriangleMesh_.point(vh0) + bezierTriangleMesh_.point(vh1)) / 2);
-				auto newPoint2 = bezierTriangleMesh_.add_vertex((bezierTriangleMesh_.point(vh1) + bezierTriangleMesh_.point(vh2)) / 2);
-				auto newPoint3 = bezierTriangleMesh_.add_vertex((bezierTriangleMesh_.point(vh2) + bezierTriangleMesh_.point(vh0)) / 2);
-
-				auto faceHandle = bezierTriangleMesh_.add_face(vh0, newPoint1, newPoint3);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh0), cp1, bezierTriangleMesh_.point(vh1), tmpPointB, midPoint, tmpPointA }));
-
-				faceHandle = bezierTriangleMesh_.add_face(vh1, newPoint2, newPoint1);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh1), cp3, bezierTriangleMesh_.point(vh2), tmpPointC, midPoint, tmpPointB }));
-
-				faceHandle = bezierTriangleMesh_.add_face(vh2, newPoint3, newPoint2);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh2), cp5, bezierTriangleMesh_.point(vh0), tmpPointA, midPoint, tmpPointC }));
-
-				faceHandle = bezierTriangleMesh_.add_face(newPoint1, newPoint2, newPoint3);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh2), cp5, bezierTriangleMesh_.point(vh0), tmpPointA, midPoint, tmpPointC }));
+			if (pos2 + 1 < border) {
+				// top triangle
+				faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos2], newHandleVector[pos3+1], newHandleVector[pos3]);
+				// Add the controllPoints to the face
+				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
 			}
 
-			if (!loopRefinement) { // i % 2 == 0
-				auto midPointHandle = bezierTriangleMesh_.add_vertex(midPoint);
-				//out << "midpoint: " << midPoint << " midhandle " << midPointHandle << "\n";
-
-				//tmpPointA = (bezierTriangleMesh_.point(vh0) + midPoint) / 2;
-				//tmpPointB = (bezierTriangleMesh_.point(vh1) + midPoint) / 2;
-				//tmpPointC = (bezierTriangleMesh_.point(vh2) + midPoint) / 2;
-
-				// Add Face and attach the control Points
-				// be aware that the control Points are from Type point
-				auto faceHandle = bezierTriangleMesh_.add_face(vh0, vh1, midPointHandle);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh0), cp1, bezierTriangleMesh_.point(vh1), tmpPointB, midPoint, tmpPointA }));
-
-				//out << "facehandle: " << faceHandle << "\n";
-
-				faceHandle = bezierTriangleMesh_.add_face(vh1, vh2, midPointHandle);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh1), cp3, bezierTriangleMesh_.point(vh2), tmpPointC, midPoint, tmpPointB }));
-
-				faceHandle = bezierTriangleMesh_.add_face(vh2, vh0, midPointHandle);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh2), cp5, bezierTriangleMesh_.point(vh0), tmpPointA, midPoint, tmpPointC }));
-			}/*
-			else {
-				midPoint = (cp1 + cp4) / 2;
-				auto cpHandle = bezierTriangleMesh_.add_vertex(cp1);
-
-				auto faceHandle = bezierTriangleMesh_.add_face(vh0, cpHandle, vh2);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh0), (cp0 + cp1) / 2, cp1, midPoint, bezierTriangleMesh_.point(vh2), cp5 }));
-
-				faceHandle = bezierTriangleMesh_.add_face(cpHandle, vh1, vh2);
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ bezierTriangleMesh_.point(vh1), cp3, bezierTriangleMesh_.point(vh2), midPoint, cp1, (cp1 + cp2) / 2 }));
-			}*/
+			if (pos2 + 1 == border) {
+				border += boderAdd--;
+				pos1++;
+				pos2++;
+			}
+			pos1++;
+			pos2++;
+			pos3++;
 		}
 	}
 }

@@ -248,6 +248,7 @@ private:
 
 	ACG::Vec4f generateHighlightColor(ACG::Vec4f _color);
 
+	BezierTMesh::Point evaluateCasteljau(Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5);
 	void tesselateMeshCPU();  // TODO richtige stelle finden
 
 	/// update vertex + index buffer of surface mesh
