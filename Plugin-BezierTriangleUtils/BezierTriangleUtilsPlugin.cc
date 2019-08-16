@@ -9,6 +9,7 @@
 #include <qspinbox.h>
 #include <qcheckbox.h>
 
+//#include <OpenFlipper/common/UpdateType.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 
@@ -147,8 +148,7 @@ void BezierTriangleUtilsPlugin::convertMesh()
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
 	if (o_it != PluginFunctions::objectsEnd()) {
 		BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(*o_it)->mesh();
-		betri::addBezierTriangles(*mesh);
-		emit log(LOGINFO, "Added Bezier Triangles!");
+		emit log(LOGINFO, "Nothing happend, wow!");
 	}
 }
 
@@ -194,11 +194,12 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 {
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
 	if (o_it != PluginFunctions::objectsEnd()) {
-		BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(*o_it)->mesh();
-		const auto size = mesh->n_vertices() / 20;
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
+		BezierTMesh *mesh = meshObj->mesh();
+		const auto size = mesh->n_faces()-1;// / 2;
 		betri::voronoi(*mesh, size);
 		emit log(LOGINFO, "Performed Voronoi Partition!");
-
+		emit updatedObject(meshObj->id());
 		// DEBUG //
 		/*using VH = BezierTMesh::VertexHandle;
 		using ID = unsigned int;

@@ -49,7 +49,7 @@ private:
 signals:
 
 	void updateView();
-    void updatedObject(int _identifier, const UpdateType& _type);
+    void updatedObject(int _identifier);
 
 	void log(Logtype _type, QString _message);
     void log(QString _message);

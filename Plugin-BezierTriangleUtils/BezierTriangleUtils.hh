@@ -1,9 +1,7 @@
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMeshTypes.hh>
+#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
 namespace betri
 {
-    void addBezierTriangles(BezierTMesh &mesh);
-
 	void remesh(BezierTMesh &mesh);
 
 	void voronoi(BezierTMesh &mesh, unsigned int size);

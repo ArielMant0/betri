@@ -4,6 +4,8 @@
 
 #include <Type-OpenMesh/ObjectTypes/TriangleMesh/TriangleMeshTypes.hh>
 
+//#include <OpenFlipper/libs_required/OpenMesh/src/OpenMesh/Core/Mesh/TriConnectivity.hh>
+
 struct BezierTriangleTraits : public TriTraits
 {
 
@@ -12,12 +14,18 @@ struct BezierTriangleTraits : public TriTraits
 		// all control points of the face (ccw starting from he)
 		// IDEA: is it better to store 2 float coeffs (linear combination)?
 		std::vector<Point> m_cps;
+		unsigned int m_degree;
 
 	public:
 
-		void setControlPoints(std::vector<Point> &points)
+		void setControlPoints(std::vector<Point> points)
 		{
 			m_cps = std::move(points);
+		}
+
+		void setControlPoints(std::vector<Point> &points)
+		{
+			m_cps = points;
 		}
 
 		void setPoint(int index, Point &point)
@@ -32,6 +40,12 @@ struct BezierTriangleTraits : public TriTraits
 		void addPoint(Point &point)
 		{
 			m_cps.push_back(point);
+		}
+
+		void clear()
+		{
+			m_cps.clear();
+			m_degree = 0;
 		}
 
 		// returns an iterator to the beginning of all control points
@@ -53,20 +67,14 @@ struct BezierTriangleTraits : public TriTraits
 
 		unsigned int degree() const
 		{
-			return m_cps.size() / 3;
+			return m_degree;
+		}
+
+		void degree(unsigned int degree)
+		{
+			m_degree = degree;
 		}
 	};
 };
 
 //== TYPEDEFS =================================================================
-
-//using BezierTMesh = OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>;
-
-class BezierTMesh : public OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>
-{
-public:
-
-	void degreeElevation(BezierTMesh::FaceHandle &fh);
-
-	void degreeReduction(BezierTMesh::FaceHandle &fh);
-};

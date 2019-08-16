@@ -198,6 +198,7 @@ int BTOFFImporter::addFace(const VHandles& _indices)
     }
 
     BezierTMesh::FaceHandle fh = btMesh()->add_face(vertices);
+	btMesh()->addCPsToFace(fh);
 
     if (fh.is_valid()) {
         faceMapBT_.push_back(fh);
