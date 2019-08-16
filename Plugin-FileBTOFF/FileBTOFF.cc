@@ -604,7 +604,7 @@ bool FileBTOFFPlugin::parseASCII(
                 sstr >> c3[1];
                 sstr >> c3[2];
                 if (userReadOptions_ & BTOFFImporter::VERTEXCOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c3));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c3));
                     _importer.setVertexColor(vh, cidx);
                 }
                 break;
@@ -615,7 +615,7 @@ bool FileBTOFFPlugin::parseASCII(
                 sstr >> c4[2];
                 sstr >> c4[3];
                 if (userReadOptions_ & BTOFFImporter::VERTEXCOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c4) );
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c4) );
                     _importer.setVertexColor(vh, cidx);
                     _importer.addOption(BTOFFImporter::COLORALPHA);
                 }
@@ -626,7 +626,7 @@ bool FileBTOFFPlugin::parseASCII(
                 c3f[1] = getFloat(sstr);
                 c3f[2] = getFloat(sstr);
                 if (userReadOptions_ & BTOFFImporter::VERTEXCOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c3f));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c3f));
                     _importer.setVertexColor(vh, cidx);
                 }
                 break;
@@ -637,7 +637,7 @@ bool FileBTOFFPlugin::parseASCII(
                 c4f[2] = getFloat(sstr);
                 c4f[3] = getFloat(sstr);
                 if (userReadOptions_ & BTOFFImporter::VERTEXCOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c4f));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c4f));
                     _importer.setVertexColor(vh, cidx);
                     _importer.addOption(BTOFFImporter::COLORALPHA);
                 }
@@ -728,7 +728,7 @@ bool FileBTOFFPlugin::parseASCII(
                   sstr >> c3[1];
                   sstr >> c3[2];
                 if (userReadOptions_ & BTOFFImporter::FACECOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c3));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c3));
                     _importer.setFaceColor(fh, cidx);
                 }
                 break;
@@ -739,7 +739,7 @@ bool FileBTOFFPlugin::parseASCII(
                 sstr >> c4[2];
                 sstr >> c4[3];
                 if (userReadOptions_ & BTOFFImporter::FACECOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c4));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c4));
                     _importer.setFaceColor(fh, cidx);
                     _importer.addOption(BTOFFImporter::COLORALPHA);
                 }
@@ -750,7 +750,7 @@ bool FileBTOFFPlugin::parseASCII(
                 c3f[1] = getFloat(sstr);
                 c3f[2] = getFloat(sstr);
                 if (userReadOptions_ & BTOFFImporter::FACECOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c3f));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c3f));
                     _importer.setFaceColor(fh, cidx);
                 }
                 break;
@@ -761,7 +761,7 @@ bool FileBTOFFPlugin::parseASCII(
                 c4f[2] = getFloat(sstr);
                 c4f[3] = getFloat(sstr);
                 if (userReadOptions_ & BTOFFImporter::FACECOLOR) {
-                    int cidx = _importer.addColor(OpenMesh::color_cast<PolyMesh::Color>(c4f));
+                    int cidx = _importer.addColor(OpenMesh::color_cast<BezierTMesh::Color>(c4f));
                     _importer.setFaceColor(fh, cidx);
                     _importer.addOption(BTOFFImporter::COLORALPHA);
                 }

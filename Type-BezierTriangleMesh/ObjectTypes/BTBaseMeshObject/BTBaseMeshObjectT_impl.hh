@@ -1,4 +1,4 @@
-#define BTBASEMESHOBJECT_C
+#define BTMESHOBJECT_C
 
 //== INCLUDES =================================================================
 

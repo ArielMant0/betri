@@ -59,8 +59,6 @@
 #include <OpenFlipper/BasePlugin/StatusbarInterface.hh>
 
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
-#include <ObjectTypes/PolyMesh/PolyMesh.hh>
-
 
 // Binary file support
 #include <OpenMesh/Core/IO/SR_store.hh>
