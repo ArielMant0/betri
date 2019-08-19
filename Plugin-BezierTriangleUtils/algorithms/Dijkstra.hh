@@ -5,46 +5,54 @@
 
 #include <queue>
 #include <unordered_set>
+#include <fstream>
 
 namespace betri
 {
 
+using VH = BezierTMesh::VertexHandle;
+using EH = BezierTMesh::EdgeHandle;
+using HH = BezierTMesh::HalfedgeHandle;
+using FH = BezierTMesh::FaceHandle;
+using P = BezierTMesh::Point;
+
+using ID = int;
+static const VH INVALID_V = BezierTMesh::InvalidVertexHandle;
+static const HH INVALID_H = BezierTMesh::InvalidHalfedgeHandle;
+static const EH INVALID_E = BezierTMesh::InvalidEdgeHandle;
+static const FH INVALID_F = BezierTMesh::InvalidFaceHandle;
+
+struct Dijkstra
+{
+	static constexpr char *REGION = "region";
+	static constexpr char *PREDECESSOR = "pred";
+	static constexpr char *DISTANCE = "dist";
+	static constexpr char *CROSSED = "crossed";
+};
+
 template <class Container>
-void dijkstra(
-	BezierTMesh &mesh,
-	Container &seeds,
-	const char *regionName="region",
-	const char *predecessorName="predecessor",
-	const char *distanceName="dist",
-	const char *edgeCrossName="crossed"
-) {
-	using VH = BezierTMesh::VertexHandle;
-	using EH = BezierTMesh::EdgeHandle;
-	using HH = BezierTMesh::HalfedgeHandle;
-	using FH = BezierTMesh::FaceHandle;
-	using P = BezierTMesh::Point;
-
-	using ID = int;
-	const EH INVALID_E = BezierTMesh::InvalidEdgeHandle;
-	const FH INVALID_F = BezierTMesh::InvalidFaceHandle;
-
+void dijkstra(BezierTMesh &mesh, Container &seeds) {
 	// queues used for dijkstra (one for each region)
 	std::vector<std::queue<FH>> queues;
 	queues.reserve(seeds.size());
 
 	// temporary property to easily access region from vertex
-	auto id = OpenMesh::getOrMakeProperty<FH, ID>(mesh, regionName);
-	auto pred = OpenMesh::getOrMakeProperty<FH, FH>(mesh, predecessorName);
-	auto dist = OpenMesh::getOrMakeProperty<FH, double>(mesh, distanceName);
-	auto crossed = OpenMesh::getOrMakeProperty<EH, bool>(mesh, edgeCrossName);
+	auto id = OpenMesh::getOrMakeProperty<FH, ID>(mesh, Dijkstra::REGION);
+	auto pred = OpenMesh::getOrMakeProperty<FH, FH>(mesh, Dijkstra::PREDECESSOR);
+	auto dist = OpenMesh::getOrMakeProperty<FH, double>(mesh, Dijkstra::DISTANCE);
+	auto crossed = OpenMesh::getOrMakeProperty<EH, bool>(mesh, Dijkstra::CROSSED);
 
-	const double INF = std::numeric_limits<double>::infinity();
+	const double INF = std::numeric_limits<double>::max();
 	// initialize face properties
 	for (auto &face : mesh.faces()) {
 		id[face] = -1;
 		pred[face] = INVALID_F;
 		dist[face] = INF;
 	}
+
+#ifdef PRINT
+	std::ofstream out("dijkstra-log.txt", std::ios::out);
+#endif
 
 	ID i = 0;
 	for (auto &face : seeds) {
@@ -55,8 +63,11 @@ void dijkstra(
 		queues.push_back(f);
 	}
 
-	int notEmpty = 0;
-	while (notEmpty > 0) {
+	int notEmpty;
+	do {
+		// reset not empty counter
+		notEmpty = 0;
+
 		// do one dijkstra iteration for each region/seed
 		for (auto &q : queues) {
 			if (!q.empty()) {
@@ -64,6 +75,10 @@ void dijkstra(
 
 				auto face = q.front();
 				q.pop();
+
+#ifdef PRINT
+				out << "predecessor for " << face << " is " << pred[face] << std::endl;
+#endif
 
 				P p1 = mesh.calc_face_centroid(face);
 				double d = std::numeric_limits<double>::max();
@@ -99,12 +114,22 @@ void dijkstra(
 					id[nextF] = id[face];
 					q.push(nextF);
 					crossed[nextE] = true;
+#ifdef PRINT
+					out << "next face " << nextF << " (" << dist[nextF] << "), crossing edge ";
+					out << nextE << '(' << crossed[nextE] << ")\n";
+#endif
 				}
 			}
 		}
-		// reset not empty counter
-		notEmpty = 0;
+	} while (notEmpty > 0);
+#ifdef PRINT
+	for (const auto &f : mesh.faces()) {
+		out << "face " << f << '(' << id[f] << ") has distance " << dist[f] << '\n';
 	}
+	out.close();
+#endif
 }
 
 }
+
+#define PRINT
