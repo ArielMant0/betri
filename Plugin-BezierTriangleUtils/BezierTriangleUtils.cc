@@ -65,6 +65,23 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 
 	// find next edge of a region border
 	// (always return the halfedge that is adjacent to face with id f1)
+	auto findStartBorder = [&](const VH &v, ID f1, ID f2, EH forbidden) {
+		for (auto h = mesh.voh_begin(v); h != mesh.voh_end(v); ++h) {
+			const ID id1 = id[mesh.face_handle(*h)];
+			const ID id2 = id[mesh.opposite_face_handle(*h)];
+			const EH edge = mesh.edge_handle(*h);
+			// if edge was not crossed and is adjacent to the given region
+			if (!crossed[edge] && edge != forbidden && id1 == f1 && id2 == f2) {
+				return *h;
+			} else if (!crossed[edge] && edge != forbidden && id1 == f2 && id2 == f1) {
+				return mesh.opposite_halfedge_handle(*h);
+			}
+		}
+		return INVALID_H;
+	};
+
+	// find next edge of a region border
+	// (always return the halfedge that is adjacent to face with id f1)
 	auto findNextBorder = [&](const VH &v, ID f1, EH forbidden) {
 		for (auto h = mesh.voh_begin(v); h != mesh.voh_end(v); ++h) {
 			const ID id1 = id[mesh.face_handle(*h)];
@@ -73,7 +90,7 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 			// if edge was not crossed and is adjacent to the given region
 			if (!crossed[edge] && edge != forbidden && id1 == f1 && id2 != f1) {
 				return *h;
-			} else if (!crossed[edge] && edge != forbidden && id1 != f1 && id2 != f1) {
+			} else if (!crossed[edge] && edge != forbidden && id1 == f1 && id2 != f1) {
 				return mesh.opposite_halfedge_handle(*h);
 			}
 		}
@@ -115,7 +132,7 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 #ifdef PRINT
 		out << "trying to find path between regions " << id_1 << " and " << id_2 << "\n";
 #endif
-		HH start = findNextBorder(v, id_1, INVALID_E);
+		HH start = findStartBorder(v, id_1, id_2, INVALID_E);
 		//auto b_it = borders[id_1].begin();
 		//HH start = firstBorder(*b_it, id_1);
 		HH he = start, begin = start;
@@ -159,7 +176,8 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 		if (hasVertex[e1] == INVALID_V) {
 			hasVertex[e1] = nmesh.add_vertex(mesh.calc_edge_midpoint(e1));
 		}
-		path.push_back(hasVertex[e1]);
+		path.push_front(hasVertex[e1]);
+		path.push_front(vertices[id[f11]]);
 
 		while (pred[f11] != INVALID_F) {
 			// find next edge
@@ -175,15 +193,19 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 			if (hasVertex[edge] == INVALID_V) {
 				hasVertex[edge] = nmesh.add_vertex(mesh.calc_edge_midpoint(edge));
 			}
-			path.push_front(hasVertex[edge]);
 			e1 = edge;
 			f11 = pred[f11];
+			path.push_front(hasVertex[edge]);
+			path.push_front(vertices[id[f11]]);
 		}
 
 #ifdef PRINT
 		out << "\tadded path vertices for region 1 (current path length: ";
 		out << path.size() << ')' << std::endl;
 #endif
+
+		//path.push_front(vertices[id[f22]]);
+
 		while (pred[f22] != INVALID_F) {
 			edge = findCrossedEdge(f22, e2, id_2);
 			if (edge == INVALID_E) {
@@ -197,9 +219,10 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 			if (hasVertex[edge] == INVALID_V) {
 				hasVertex[edge] = nmesh.add_vertex(mesh.calc_edge_midpoint(edge));
 			}
-			path.push_back(hasVertex[edge]);
 			e2 = edge;
 			f22 = pred[f22];
+			path.push_back(hasVertex[edge]);
+			path.push_back(vertices[id[f22]]);
 		}
 #ifdef PRINT
 		out << "\tadded path vertices for region 2 (total path length: ";
@@ -208,42 +231,57 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 		return path;
 	};
 
-	std::unordered_set<FH> seedFaces;
+	std::unordered_set<FH> check;
+	std::vector<FH> seedFaces; // need a vertex to keep correct iterator order
 	std::vector<VH> points;
+
 	// for each vertex in the mesh
 	for (const auto &v : mesh.vertices()) {
 		// check how many different regions are around that vertex
 		for (auto vf = mesh.vf_begin(v); vf != mesh.vf_end(v); ++vf) {
-			seedFaces.insert(seeds[id[*vf]]);
-#ifdef PRINT
-			out << "vertex adj to region " << id[*vf] << "\n";
-			int i = 0;
-			for (auto eh = mesh.fe_begin(*vf); eh != mesh.fe_end(*vf); ++eh) {
-				if (!crossed[*eh]) i++;
-			}
-			out << "\tface is incident to " << i << " borders\n";
-#endif
+			if (check.insert(seeds[id[*vf]]).second) seedFaces.push_back(seeds[id[*vf]]);
+//#ifdef PRINT
+//			out << "vertex adj to region " << id[*vf] << "\n";
+//			int i = 0;
+//			for (auto eh = mesh.fe_begin(*vf); eh != mesh.fe_end(*vf); ++eh) {
+//				if (!crossed[*eh]) i++;
+//			}
+//			out << "\tface is incident to " << i << " borders\n";
+//#endif
 		}
 
 #ifdef PRINT
-			out << "vertex adj to " << seedFaces.size() << " regions" << std::endl;
+			out << "\nvertex adj to " << seedFaces.size() << " regions" << std::endl;
 #endif
 		// only do sth if we found at least 3 regions
 		if (seedFaces.size() > 2) {
+			//points.push_back(nmesh.add_vertex(mesh.point(v)));
 			for (auto f = seedFaces.begin(); f != seedFaces.end(); ++f) {
-				points.push_back(vertices[id[*f]]);
 				// get next face
 				auto next = std::next(f, 1);
 				if (next == seedFaces.end()) {
 					next = seedFaces.begin();
 				}
+				points.push_back(vertices[id[*f]]);
 				// add all points from shortest path between two regions
-				auto path = shortestPath(v, *f, *next);
-				points.insert(points.end(), path.begin(), path.end());
+				//auto path = shortestPath(v, *f, *next);
+				//points.insert(points.end(), path.begin(), path.end());
+
+				// TODO: triangulate manually? (each 2 points with seed)
+	/*			for (auto &vertex : path) {
+					nmesh.add_face(midVertex, vertex, last);
+					last = vertex;
+				}*/
 			}
-			nmesh.add_face(points);
+#ifdef PRINT
+			out << "\tadding face with " << points.size() << " vertices" << std::endl;
+#endif
+			const auto fh = nmesh.add_face(points);
+			//nmesh.data(fh).setControlPoints(path);
 			points.clear();
 		}
+		seedFaces.clear();
+		check.clear();
 
 //			for (auto vhe = mesh.voh_begin(v); vhe != mesh.voh_end(v); ++vhe) {
 //				points.push_back(vertices[id[*f]]);
@@ -263,7 +301,6 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 //			nmesh.add_face(points);
 //			points.clear();
 //		}
-		seedFaces.clear();
 	}
 
 #ifdef PRINT
