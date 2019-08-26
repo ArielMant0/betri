@@ -80,7 +80,9 @@ public:
 		controlNetSelIndices_(0),
 		controlNetLineIndices_(0),
 		invalidateControlNetMesh_(true),
-		invalidateControlNetMeshSel_(true)
+		invalidateControlNetMeshSel_(true),
+		controlPointsChanged_(true), // TODO
+		oldFaceCount_(0) // TODO
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
@@ -123,6 +125,9 @@ public:
 
 	/// update bounding box
 	void boundingBox(Vec3d& _bbMin, Vec3d& _bbMax);
+
+	// TODO
+	void setControlPoints();
 
 	/// draw lines and normals
 	void draw(GLState& _state, const DrawModes::DrawMode& _drawMode);
@@ -252,7 +257,7 @@ private:
 	void tesselateMeshCPU();  // TODO richtige stelle finden
 
 	/// update vertex + index buffer of surface mesh
-	void updateSurfaceMesh(int _vertexCountU = 50, int _vertexCountV = 50);
+	void updateSurfaceMesh();//int _vertexCountU = 50, int _vertexCountV = 50); TODO
 
 	/// update vertex + index buffer of control net mesh
 	void updateControlNetMesh();
@@ -334,6 +339,10 @@ private:
 	VertexDeclaration controlNetDecl_;
 	bool invalidateControlNetMesh_;
 	bool invalidateControlNetMeshSel_;
+
+	// TODO
+	bool controlPointsChanged_;
+	int oldFaceCount_;
 
 	// GPU based evaluation
 	TextureBuffer knotTexBufferU_;

@@ -234,8 +234,36 @@ getRenderObjects(IRenderer* _renderer, GLState& _state, const DrawModes::DrawMod
 template <class MeshT>
 void
 BezierTriangleMeshNode<MeshT>::
+setControlPoints() 
+{
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
+		auto vh0 = *(vertexHandle++);
+		auto vh1 = *(vertexHandle++);
+		auto vh2 = *(vertexHandle);
+
+		int testScalar = 1.0;
+		auto cp0 = bezierTriangleMesh_.point(vh0);
+		auto cp1 = (bezierTriangleMesh_.point(vh0) * 0.5 + bezierTriangleMesh_.point(vh1) * 0.5) + Point(0.0, 0.0, testScalar);
+		auto cp2 = bezierTriangleMesh_.point(vh1);
+		auto cp3 = (bezierTriangleMesh_.point(vh1) * 0.5 + bezierTriangleMesh_.point(vh2) * 0.5) + Point(0.0, 0.0, testScalar);
+		auto cp4 = bezierTriangleMesh_.point(vh2);
+		auto cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
+
+		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+	}
+}
+
+template <class MeshT>
+void
+BezierTriangleMeshNode<MeshT>::
 draw(GLState& _state, const DrawModes::DrawMode& _drawMode)
 {
+	if (controlPointsChanged_) {
+		setControlPoints();
+		controlPointsChanged_ = false;
+	}
+
 	GLenum prev_depth = _state.depthFunc();
 
 	glPushAttrib(GL_ENABLE_BIT);
@@ -390,15 +418,15 @@ BezierTriangleMeshNode<MeshT>::
 render(GLState& _state, bool _fill)
 {
 	// draw the control net (includes selection on the net)
-	/*
-	if (render_control_net_)
+	
+	if (true || render_control_net_) // TODO diese variable muss setzbar sein
 	{
-		if (bspline_draw_mode_ == NORMAL)
+		//if (bspline_draw_mode_ == NORMAL)
 			drawControlNet(_state);
-		else if (bspline_draw_mode_ == FANCY)
-			drawFancyControlNet(_state);
+		//else if (bspline_draw_mode_ == FANCY)
+		//	drawFancyControlNet(_state);
 	}
-	*/
+	
 
 	// draw the spline curve itself, depending on the type of visualization
 	if (render_bspline_surface_)
@@ -415,11 +443,20 @@ render(GLState& _state, bool _fill)
 
 //----------------------------------------------------------------------------
 
+/**
+ * This method is evaluated once everytime the user moves the Camera.
+ * This works since there are no dynamic elements (lights) that whould change the image.
+ */
 template <class MeshT>
 void
 BezierTriangleMeshNode<MeshT>::
 drawSurface(GLState& _state, bool _fill)
 {
+#ifdef DEBUG
+	std::ofstream out("01render-log.txt", std::ios::out | std::ofstream::app);
+	out << "Hallo" << "\n";
+#endif
+
 	updateSurfaceMesh();
 
 	surfaceVBO_.bind();
@@ -483,12 +520,12 @@ void
 BezierTriangleMeshNode<MeshT>::
 drawControlNet(GLState& _state)
 {
-	/*
+	
 	// remember old color
 	Vec4f base_color_old = _state.base_color();
 
 	// draw control net
-  //   glPushAttrib(GL_ENABLE_BIT);
+	//   glPushAttrib(GL_ENABLE_BIT);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 
 	ACG::GLState::disable(GL_CULL_FACE);
@@ -498,8 +535,8 @@ drawControlNet(GLState& _state)
 
 	// update controlnet buffers
 	updateControlNetMesh();
-	updateControlNetMeshSel();
-
+	//updateControlNetMeshSel();
+	
 	// bind vbo containing all control points
 	controlNetVBO_.bind();
 	controlNetDecl_.activateFixedFunction();
@@ -507,7 +544,7 @@ drawControlNet(GLState& _state)
 	// draw points
 
 	// draw selection
-	if (controlNetSelIndices_)
+	if (controlNetSelIndices_) // TODO
 	{
 		glColor(generateHighlightColor(controlnet_color_));
 		glPointSize(10);
@@ -517,21 +554,21 @@ drawControlNet(GLState& _state)
 		glDrawElements(GL_POINTS, controlNetSelIndices_, GL_UNSIGNED_INT, 0);
 	}
 
+	
 	// draw all points
 	glColor(controlnet_color_);
 
 	float point_size_old = _state.point_size();
 	glPointSize(point_size_old + 4);
 
-	GLsizei numControlPoints = bezierTriangleMesh_.n_control_points_m() * bezierTriangleMesh_.n_control_points_n();
+	GLsizei numControlPoints = 6 * oldFaceCount_; // TODO get the total number of control Points for the whole mesh - multiply by the number of original faces - how to get the controlpoints after one iteration?
 	glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 	glPointSize((int)point_size_old);
-
-
+	/*
+	
 	// draw line segments
 
-	
 	// draw selection
 	if( bezierTriangleMesh_.edge_selections_available())
 	{
@@ -562,16 +599,16 @@ drawControlNet(GLState& _state)
 	  glLineWidth(line_width_old);
 	  glColor( base_color_old );
 	}
-  
+	*/
 	// draw all line segments
+	
 	glColor(controlnet_color_);
-
+	
 	float line_width_old = _state.line_width();
 	glLineWidth(line_width_old + 2.0);
-
+	
 	controlNetLineIBO_.bind();
 	glDrawElements(GL_LINES, controlNetLineIndices_, GL_UNSIGNED_INT, 0);
-
 
 	// restore gl states
 	controlNetDecl_.deactivateFixedFunction();
@@ -580,9 +617,9 @@ drawControlNet(GLState& _state)
 
 	glColor(base_color_old);
 	glLineWidth(line_width_old);
-
+	
 	glPopAttrib();
-	*/
+	
 }
 
 //----------------------------------------------------------------------------
@@ -1331,7 +1368,7 @@ evaluateCasteljau(Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp
 {
 	auto tmpPointA = cp0 * at[0] + cp1 * at[1] + cp5 * at[2];
 	auto tmpPointB = cp1 * at[0] + cp2 * at[1] + cp3 * at[2];
-	auto tmpPointC = cp3 * at[0] + cp4 * at[1] + cp5 * at[2];
+	auto tmpPointC = cp5 * at[0] + cp3 * at[1] + cp4 * at[2];
 
 	auto result = tmpPointA * at[0] + tmpPointB * at[1] + tmpPointC * at[2];
 
@@ -1350,18 +1387,44 @@ tesselateMeshCPU()
 		}
 		return sum;
 	};
+	std::function<int(int)> mulTwoPOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i < count; i++) {
+			sum = sum * 2 + 1;
+		}
+		return sum;
+	};
+	assert(mulTwoPOne(0) == 0); // TODO asserts dont do stuff
+	assert(mulTwoPOne(1) == 1);
+	assert(mulTwoPOne(2) == 3);
+	assert(mulTwoPOne(3) == 7);
+	assert(mulTwoPOne(4) == 15);
+	assert(mulTwoPOne(5) == 31);
 
-	std::ofstream out("02tessellate.txt", std::ios::out | std::ofstream::app);
+	//std::ofstream out("02tessellate.txt", std::ios::out | std::ofstream::app);
+	/*	
+	out << mulTwoPOne(0) << "\n";
+	out << mulTwoPOne(1) << "\n";
+	out << mulTwoPOne(2) << "\n";
+	out << mulTwoPOne(3) << "\n";
+	out << mulTwoPOne(4) << "\n";
+	out << mulTwoPOne(5) << "\n";
+	*/
 
 	// TODO make this dynamic
 	// TODO does it make sence to have two different stepsizes?
 	// TODO Capital letters?
-	// TODO 10 geht nicht
-	const int ITERATIONS = 3;
+	// TODO 10, 4 geht nicht  3 falsch
+	// TODO calculate the other two values if one of them is given
+	oldFaceCount_ = bezierTriangleMesh_.n_faces();
+
+	const int ITERATIONS = 2;
 	assert(ITERATIONS >= 0); // TODO
 
 	// Additional Points per edge
-	int POINTS = sumMOne(ITERATIONS);
+	//int POINTS = sumMOne(ITERATIONS);
+	int POINTS = mulTwoPOne(ITERATIONS);
+	// Sum of all new Trianglevertices
 	int POINTSUM = sumMOne(POINTS + 2);
 	double STEPSIZE = 1.0 / (double(POINTS) + 1.0);
 
@@ -1378,26 +1441,15 @@ tesselateMeshCPU()
 		bezierTriangleMesh_.delete_face(face, false);
 
 		// Get the controlpoints of this face
-		if (true) {
-			int testScalar = 1.0;
-			cp0 = bezierTriangleMesh_.point(vh0);
-			cp1 = (bezierTriangleMesh_.point(vh0) * 0.5 + bezierTriangleMesh_.point(vh1) * 0.5) + Point(0.0, 0.0, testScalar);
-			cp2 = bezierTriangleMesh_.point(vh1);
-			cp3 = (bezierTriangleMesh_.point(vh1) * 0.5 + bezierTriangleMesh_.point(vh2) * 0.5) + Point(0.0, 0.0, testScalar);
-			cp4 = bezierTriangleMesh_.point(vh2);
-			cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
-		}
-		else {
-			// TODO read the controllpoints from the mesh data
-			auto faceControlP = bezierTriangleMesh_.data(face);
-			cp0 = faceControlP.getCPoint(0);
-			cp1 = faceControlP.getCPoint(1);
-			cp2 = faceControlP.getCPoint(2);
-			cp3 = faceControlP.getCPoint(3);
-			cp4 = faceControlP.getCPoint(4);
-			cp5 = faceControlP.getCPoint(5);
-		}
 
+		// TODO read the controllpoints from the mesh data
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		cp0 = faceControlP.getCPoint(0);
+		cp1 = faceControlP.getCPoint(1);
+		cp2 = faceControlP.getCPoint(2);
+		cp3 = faceControlP.getCPoint(3);
+		cp4 = faceControlP.getCPoint(4);
+		cp5 = faceControlP.getCPoint(5);
 		
 		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(POINTSUM);
 		// Iterate in two directions (u,v) which can use to determine the point at which
@@ -1440,7 +1492,7 @@ tesselateMeshCPU()
 		int border = POINTS + 2;
 		int boderAdd = border-1;
 		
-		//out << "handlevectorsize: " << newHandleVector.size() << "\n";
+		//out << "handlevectorsize: " << newHandleVector.size() << " Stepsize: " << STEPSIZE << "\n";
 		//out << "POINTS: " << POINTS << " POINTSUM: " << POINTSUM << "\n";
 		/*
 		for (int h = 0; h < newHandleVector.size(); h++) {
@@ -1477,14 +1529,21 @@ tesselateMeshCPU()
 	}
 }
 
+/**
+ * This method is only evaluated if the Mesh was changed (invalidateSurfaceMesh_)
+ * This is the case if updateGeometry() is called.
+ */
 template <class MeshT>
 void
 BezierTriangleMeshNode<MeshT>::
-updateSurfaceMesh(int _vertexCountU, int _vertexCountV)
+updateSurfaceMesh()//int _vertexCountU, int _vertexCountV) TODO
 {
 	
 	if (!invalidateSurfaceMesh_)
 		return;
+
+	std::ofstream out("01updateSurfaceMesh-log.txt", std::ios::out | std::ofstream::app);
+	out << "Hallo2" << "\n";
 
 	surfaceVBO_.del();
 	surfaceIBO_.del();
@@ -1695,33 +1754,38 @@ void
 BezierTriangleMeshNode<MeshT>::
 updateControlNetMesh()
 {
-	/*
+	std::ofstream out("03controlPMUpdate.txt", std::ios::out | std::ofstream::app);
+	
 	if (!invalidateControlNetMesh_)
 		return;
 
 	// vertex layout:
 	//  float3 pos
 
+	// TODO HÄ?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
-	int numU = bezierTriangleMesh_.n_control_points_m(),
-		numV = bezierTriangleMesh_.n_control_points_n();
+	int controlPointsPerFace = 6;
+	int controlPointCountSum = bezierTriangleMesh_.n_faces() * controlPointsPerFace; // TODO * facecount - doppelte - hier oldFaceCount_ oder nicht ?
 
 	// create vertex buffer
-	GLsizeiptr vboSize = bezierTriangleMesh_.n_control_points_m() *  bezierTriangleMesh_.n_control_points_n() * controlNetDecl_.getVertexStride(); // bytes
+	GLsizeiptr vboSize = controlPointCountSum * controlNetDecl_.getVertexStride(); // bytes
 	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
-	// write counter
 	int elementOffset = 0;
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		// write counter
 
-	for (int k = 0; k < numV; ++k)
-	{
-		for (int i = 0; i < numU; ++i)
-		{
-			Point pt = bezierTriangleMesh_.get_control_point(i, k);
+		//auto faceControlP = bezierTriangleMesh_.data(face);
+		//Point pt = faceControlP.getCPoint(i); // TODO
+
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		Point cp;
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cp = faceControlP.getCPoint(i);
 			for (int m = 0; m < 3; ++m)
-				vboData[elementOffset++] = pt[m];
+				vboData[elementOffset++] = cp[m];
 		}
 	}
 
@@ -1730,45 +1794,37 @@ updateControlNetMesh()
 
 	vboData.clear();
 
-
-
+	
 	// create index buffer for line segments
-	//  horizontal + vertical cross lines, 2 indices per segment
-	int numIndices = 2 * ((numU - 1) * (numV)+(numU) * (numV - 1));
+	// horizontal + vertical cross lines, 2 indices per segment
+	int numIndices = controlPointCountSum * 2;
 	std::vector<int> iboData(numIndices);
-
+	
 	// index counter
 	int idxOffset = 0;
 
-	// horizontal lines
-	for (int k = 0; k < numV; ++k)
-	{
-		for (int i = 0; i < numU - 1; ++i)
-		{
-			iboData[idxOffset++] = k * numU + i;
-			iboData[idxOffset++] = k * numU + i + 1;
-		}
-	}
+	for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); face_index++) { // TODO oldFaceCount_ ??
 
-	// vertical lines
-	for (int k = 0; k < numV - 1; ++k)
-	{
-		for (int i = 0; i < numU; ++i)
+		for (int i = 0; i < controlPointsPerFace; ++i)
 		{
-			iboData[idxOffset++] = k * numU + i;
-			iboData[idxOffset++] = (k + 1) * numU + i;
+			int add = controlPointsPerFace * face_index;
+			if (i == controlPointsPerFace - 1) { // TODO
+				iboData[idxOffset++] = i + add;
+				iboData[idxOffset++] = 0 + add;
+			}
+			else {
+				iboData[idxOffset++] = i + add;
+				iboData[idxOffset++] = i + 1 + add;
+			}
 		}
 	}
 
 	if (numIndices)
 		controlNetLineIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
 
-
 	controlNetLineIndices_ = numIndices;
 
-
 	invalidateControlNetMesh_ = false;
-	*/
 }
 
 //----------------------------------------------------------------------------
