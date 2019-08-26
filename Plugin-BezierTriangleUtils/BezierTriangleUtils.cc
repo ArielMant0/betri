@@ -2,6 +2,7 @@
 #include "algorithms/Dijkstra.hh"
 
 #include <queue>
+#include <unordered_set>
 #include <map>
 #include <random>
 
@@ -19,14 +20,13 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 	//using FH = BezierTMesh::FaceHandle;
 	//using ID = int;
 
+	dijkstra(mesh, seeds);
+
+	return;
+
 #ifdef PRINT
 	std::ofstream out("voronoi-log.txt", std::ios::out);
 	out << seeds.size() << " seeds\n\n";
-#endif
-
-	dijkstra(mesh, seeds);
-
-#ifdef PRINT
 	out << "finished dijkstra" << std::endl;
 #endif
 

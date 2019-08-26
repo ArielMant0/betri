@@ -194,11 +194,10 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 {
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
 	if (o_it != PluginFunctions::objectsEnd()) {
-		PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
-
+		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
-		const auto size = mesh->n_faces() * 0.5;
+		const auto size = mesh->n_faces() * 0.2;
 		betri::voronoi(*mesh, size);
 		emit log(LOGINFO, "Performed Voronoi Partition!");
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
