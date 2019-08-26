@@ -57,5 +57,6 @@ private slots:
 	void initializePlugin() override;
 
 	void convertMesh();
+	void tessellateMesh();
 
 };

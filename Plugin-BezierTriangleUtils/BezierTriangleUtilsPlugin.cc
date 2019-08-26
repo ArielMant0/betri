@@ -21,13 +21,16 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	);
 	QPushButton *loadButton = new QPushButton(tr("Add Bezier Triangles"));
 	QPushButton *decimateButton = new QPushButton(tr("Decimate"));
+	QPushButton *tessellationButton = new QPushButton(tr("Tessellate"));
 
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(loadButton, 0, 0);
 	grid->addWidget(decimateButton, 1, 0);
+	grid->addWidget(tessellationButton, 2, 0);
 	m_tool->setLayout(grid);
 
 	connect(loadButton, SIGNAL(clicked()), this, SLOT(convertMesh()));
+	connect(tessellationButton, SIGNAL(clicked()), this, SLOT(tessellateMesh()));
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
 }
@@ -40,4 +43,9 @@ void BezierTriangleUtilsPlugin::convertMesh()
 		betri::addBezierTriangles(*mesh);
 		emit log(LOGINFO, "Added Bezier Triangles!");
 	}
+}
+
+void BezierTriangleUtilsPlugin::tessellateMesh()
+{
+	emit log(LOGINFO, "Tessellated Bezier Triangles!");
 }
