@@ -4,6 +4,7 @@
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 #include <OpenFlipper/libs_required/ACG/GL/ColorTranslator.hh>
+#include <OpenFlipper/libs_required/ACG/Utils/HuePartitioningColors.hh>
 
 #include <set>
 
@@ -41,11 +42,11 @@ void dijkstra(BezierTMesh &mesh, Container &seeds, bool useColors=true)
 	auto dist = OpenMesh::getOrMakeProperty<FH, double>(mesh, Dijkstra::DISTANCE);
 	auto crossed = OpenMesh::getOrMakeProperty<EH, bool>(mesh, Dijkstra::CROSSED);
 
-	ACG::ColorTranslator colorTrans;
-	colorTrans.initialize(&PluginFunctions::viewerProperties().glState());
 	std::vector<BezierTMesh::Color> colors;
-	if (useColors && !mesh.has_face_colors()) {
-		mesh.request_face_colors();
+	if (useColors) {
+		colors.reserve(seeds.size());
+		ACG::HuePartitioningColors::generateNColors(seeds.size(), std::back_inserter(colors));
+		if (!mesh.has_face_colors()) mesh.request_face_colors();
 	}
 
 	using QElem = std::pair<double, FH>;
@@ -78,17 +79,7 @@ void dijkstra(BezierTMesh &mesh, Container &seeds, bool useColors=true)
 
 	// look at all seeds
 	ID i = 0;
-	BezierTMesh::Color regionColor(0.f, 0.f, 0.f, 1.f);
 	for (auto &face : seeds) {
-		if (useColors) {
-			const auto col = colorTrans.index2color(i);
-			colors.push_back(BezierTMesh::Color(
-				(float)col[0] / 255,
-				(float)col[1] / 255,
-				(float)col[2] / 255,
-				1.f //(float)col[3] / 255
-			));
-		}
 		addToRegion(face, i++, 0.0);
 	}
 

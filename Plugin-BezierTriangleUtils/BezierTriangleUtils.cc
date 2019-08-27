@@ -12,17 +12,9 @@ namespace betri
 /**
  * Performs face-based dijkstra on the mesh (for the given seeds)
  */
-void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
+void partition(BezierTMesh &mesh, std::vector<FH> &seeds, bool useColors=true)
 {
-	//using VH = BezierTMesh::VertexHandle;
-	//using EH = BezierTMesh::EdgeHandle;
-	//using HH = BezierTMesh::HalfedgeHandle;
-	//using FH = BezierTMesh::FaceHandle;
-	//using ID = int;
-
-	dijkstra(mesh, seeds);
-
-	return;
+	dijkstra(mesh, seeds, useColors);
 
 #ifdef PRINT
 	std::ofstream out("voronoi-log.txt", std::ios::out);
@@ -36,17 +28,6 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 	auto dist = OpenMesh::getProperty<FH, double>(mesh, Dijkstra::DISTANCE);
 	auto crossed = OpenMesh::getProperty<EH, bool>(mesh, Dijkstra::CROSSED);
 
-	//std::vector<std::unordered_set<EH>> borders;
-	//borders.reserve(seeds.size());
-	//for (int i = 0; i < seeds.size(); ++i) {
-	//	borders.push_back(std::unordered_set<EH>());
-	//}
-	//for (auto &edge : mesh.edges()) {
-	//	if (!crossed[edge]) {
-	//		borders[id[mesh.face_handle(mesh.halfedge_handle(edge, 0))]].insert(edge);
-	//		borders[id[mesh.face_handle(mesh.halfedge_handle(edge, 1))]].insert(edge);
-	//	}
-	//}
 	// new mesh
 	BezierTMesh nmesh;
 
@@ -231,8 +212,12 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 		return path;
 	};
 
+	if (useColors && !nmesh.has_face_colors()) {
+		nmesh.request_face_colors();
+	}
+
 	std::unordered_set<FH> check;
-	std::vector<FH> seedFaces; // need a vertex to keep correct iterator order
+	std::vector<FH> seedFaces; // need a vector to keep correct iterator order
 	std::vector<VH> points;
 
 	// for each vertex in the mesh
@@ -276,7 +261,19 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 #ifdef PRINT
 			out << "\tadding face with " << points.size() << " vertices" << std::endl;
 #endif
+			auto before = nmesh.n_faces();
 			const auto fh = nmesh.add_face(points);
+
+			if (useColors) {
+				if (fh.is_valid()) {
+					nmesh.set_color(fh, mesh.color(*seedFaces.begin()));
+				} else {
+					auto col = mesh.color(*seedFaces.begin());
+					for (size_t i = before; i < nmesh.n_faces(); ++i) {
+						nmesh.set_color(mesh.face_handle(i), col);
+					}
+				}
+			}
 			//nmesh.data(fh).setControlPoints(path);
 			points.clear();
 		}
@@ -320,7 +317,9 @@ void partition(BezierTMesh &mesh, std::vector<FH> &seeds)
 	}
 	for (const auto &f : nmesh.faces()) {
 		std::vector<VH> faces(nmesh.fv_begin(f), nmesh.fv_end(f));
-		mesh.add_face(faces);
+		const auto fh = mesh.add_face(faces);
+		if (useColors) mesh.set_color(fh, nmesh.color(f));
+
 	}
 
 	mesh.remove_property(*id);
@@ -382,7 +381,7 @@ void voronoi(BezierTMesh &mesh, unsigned int size)
 		}
 	}
 
-	partition(mesh, seeds);
+	partition(mesh, seeds, false);
 }
 
 }
