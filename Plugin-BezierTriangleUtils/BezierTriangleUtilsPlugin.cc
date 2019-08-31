@@ -193,30 +193,13 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 void BezierTriangleUtilsPlugin::callVoronoi()
 {
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
-	if (o_it != PluginFunctions::objectsEnd()) {
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
-		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
-		BezierTMesh *mesh = meshObj->mesh();
-		const auto size = mesh->n_faces() * 0.2;
-		betri::voronoi(*mesh, size);
+		betri::voronoiRemesh((*o_it));
 		emit log(LOGINFO, "Performed Voronoi Partition!");
+
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
-
-		// DEBUG //
-		/*using VH = BezierTMesh::VertexHandle;
-		using ID = unsigned int;
-
-		std::vector<ID> regions;
-		regions.reserve(size);
-		for (auto i = 0; i < size; ++i) {
-			regions.push_back(0);
-		}
-		auto id = OpenMesh::getProperty<VH, ID>(*mesh, "region");
-		for (const auto &vh : mesh->vertices()) {
-			regions[id[vh]]++;
-		}
-		for (ID i = 0; i < regions.size(); ++i) {
-			emit log(LOGINFO, tr("region %1 contains %2 vertices").arg(i).arg(regions[i]));
-		}*/
 	}
 }
+

@@ -2,8 +2,9 @@
 
 namespace betri
 {
-	void remesh(BezierTMesh &mesh);
 
-	void voronoi(BezierTMesh &mesh, unsigned int size);
+void voronoiRemesh(BaseObjectData *object);
+
+void decimate(BaseObjectData *object);
 
 }
