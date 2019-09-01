@@ -17,19 +17,17 @@ void Parametrization::prepare()
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
 
-	// compute number of inner vertices and number of boundary vertices
 	nv_total_ = m_mesh.n_vertices();
+	// should always be total-3
 	nv_inner_ = 0;
+	// should always be 3
 	nv_bdry_  = 0;
+
 	// also map the indices of inner vertices to equation system vertices [0, nv_inner_-1]
-	for (VertexIter v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it)
-	{
-		if (m_mesh.is_boundary(*v_it))
-		{
+	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
+		if (m_mesh.is_boundary(*v_it)) {
 			nv_bdry_++;
-		}
-		else
-		{
+		} else {
 			sysid(*v_it) = nv_inner_;
 			nv_inner_++;
 		}
@@ -58,13 +56,6 @@ void Parametrization::cleanup()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::setWeightType(WeightType _weight_type)
-{
-	m_weightType = _weight_type;
-}
-
-//-----------------------------------------------------------------------------
-
 void Parametrization::calcWeights()
 {
 	VertexIter        v_it, v_end(m_mesh.vertices_end());
@@ -77,23 +68,18 @@ void Parametrization::calcWeights()
 	Scalar            w, area;
 
 	// Uniform weighting
-	if (m_weightType == Uniform)
-	{
-		for (e_it = m_mesh.edges_begin(); e_it != e_end; ++e_it)
-		{
+	if (m_weightType == Uniform) {
+		for (e_it = m_mesh.edges_begin(); e_it != e_end; ++e_it) {
 			weight(*e_it) = 1.0;
 		}
 
-		for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it)
-		{
+		for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
 			weight(*v_it) = 1.0 / m_mesh.valence(*v_it);
 		}
 	}
 	// Cotangent weighting
-	else if (m_weightType == Cotangent)
-	{
-		for (e_it = m_mesh.edges_begin(); e_it != e_end; ++e_it)
-		{
+	else if (m_weightType == Cotangent) {
+		for (e_it = m_mesh.edges_begin(); e_it != e_end; ++e_it) {
 			w = 0.0;
 
 			// Compute cotangent edge weights
@@ -122,8 +108,7 @@ void Parametrization::calcWeights()
 		}
 
 
-		for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it)
-		{
+		for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
 			area = 0.0;
 
 			// Compute vertex weights:
@@ -148,75 +133,53 @@ void Parametrization::calcWeights()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::initCoords()
+void Parametrization::initCoords(std::array<BezierTMesh::Point, 3> &triangle)
 {
 	// INSERT CODE:
-	// Map boundary vertices onto circle in texture space
+	// Map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
-	// Map interior vertices to circle's center
-	//--- start strip ---
+	// Map interior vertices to triangle center
 
 	VertexIter      v_it, v_end(m_mesh.vertices_end());
 	VertexHandle    vh;
 	HalfedgeHandle  hh;
 
-	std::vector<VertexHandle>  loop;
-
 	// find 1st boundary vertex
-	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it)
-	{
+	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
 		if (m_mesh.is_boundary(*v_it))
 			break;
 	}
 
 	// boundary found ?
-	if (v_it == v_end)
-	{
+	if (v_it == v_end) {
 		std::cerr << "No boundary found\n";
 		return;
+	}
+
+	// reset all coordinates to triangle midpoint
+	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
+		hmap(*v_it) = Vec2(0.33f, 0.33f);
 	}
 
 	// get boundary loop
 	vh = v_it.handle();
 	hh = m_mesh.halfedge_handle(vh);
+	int i = 0;
 	assert(m_mesh.is_boundary(hh));
 	do
 	{
-		loop.push_back(m_mesh.to_vertex_handle(hh));
+		hmap(m_mesh.to_vertex_handle(hh)) = { triangle[i][0], triangle[i++][1] };
+		assert(i <= 3);
 		hh = m_mesh.next_halfedge_handle(hh);
 	} while (hh != m_mesh.halfedge_handle(vh));
-
-	// reset all texture coordinates to (0.5, 0.5)
-	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it)
-	{
-		hmap(*v_it) = Vec2(0.5, 0.5);
-	}
-
-	// map loop to circle
-	int i, n = loop.size();
-	Scalar angle, l, length, normFactor;
-
-	for (i = 0, length = 0.0; i < n; ++i) {
-		length += (m_mesh.point(loop[i]) - m_mesh.point(loop[(i+1)%n])).norm();
-	}
-
-	normFactor = 1.0 / length * 2.0 * M_PI;
-	for (i = 0, l = 0.0; i < n; ++i)
-	{
-		angle = l*normFactor;
-		hmap(loop[i]) = Vec2(0.5*cos(angle)+0.5, 0.5*sin(angle)+0.5);
-		l += (m_mesh.point(loop[i]) - m_mesh.point(loop[(i+1)%n])).norm();
-	}
-
-	//--- end strip ---
 }
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::solve()
+void Parametrization::solve(std::array<BezierTMesh::Point, 3> &triangle)
 {
 	// make sure the boundary has been mapped to a circle (we need these texcoords in add_row_to_system_matrix)
-	initCoords();
+	initCoords(triangle);
 
 	// also make sure the weights have been computed
 	calcWeights();
@@ -231,10 +194,10 @@ void Parametrization::solve()
 	rhsv.setZero();
 
 	// resulting texture coordinates for u and v
-	EigenVectorT resu(nv_inner_);
-	resu.setZero();
-	EigenVectorT resv(nv_inner_);
-	resv.setZero();
+	EigenVectorT resultU(nv_inner_);
+	resultU.setZero();
+	EigenVectorT resultV(nv_inner_);
+	resultV.setZero();
 
 	// the matrix is build/initialized from a set of triplets (i.e. (rowid, colid, value))
 
@@ -253,10 +216,9 @@ void Parametrization::solve()
 	// Smooth parameterization using Laplacian relaxation.
 	//--- start strip ---
 
-	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it)
-	{
-		if (!m_mesh.is_boundary(*v_it)) // skip boundary vertices
-		{
+	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
+		// skip boundary vertices
+		if (!m_mesh.is_boundary(*v_it)) {
 			add_row_to_system(triplets, rhsu, rhsv, *v_it);
 		}
 	}
@@ -278,20 +240,19 @@ void Parametrization::solve()
 	 * the vertexweight in add_row_to_system to 1. (this should NOT change the result)
 	 */
 	Eigen::BiCGSTAB<EigenSpMatT> bicg(A); // performs a Biconjugate gradient stabilized method
-	resu = bicg.solve(rhsu);
+	resultU = bicg.solve(rhsu);
 	if (bicg.info() != Eigen::Success)
 		std::cerr << "solve failed!" << std::endl;
 
-	resv = bicg.solve(rhsv);
+	resultV = bicg.solve(rhsv);
 	if (bicg.info() != Eigen::Success)
 		std::cerr << "solve failed!" << std::endl;
 
 	// write back to hmap
-	for (VertexIter v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it)
-	{
-		if (!m_mesh.is_boundary(*v_it)) // skip boundary vertices
-		{
-			hmap(*v_it) = Vec2(resu[sysid(*v_it)], resv[sysid(*v_it)]);
+	for (VertexIter v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
+		// skip boundary vertices
+		if (!m_mesh.is_boundary(*v_it)) {
+			hmap(*v_it) = Vec2(resultU[sysid(*v_it)], resultV[sysid(*v_it)]);
 		}
 	}
 }
@@ -320,20 +281,19 @@ void Parametrization::add_row_to_system(
 	Scalar weightsum(0.);
 	Scalar vertexweight(weight(_origvh));
 
-	for (auto vv_it = m_mesh.vv_begin(_origvh); vv_it != m_mesh.vv_end(_origvh); ++vv_it)
-	{
+	for (auto vv_it = m_mesh.vv_begin(_origvh); vv_it != m_mesh.vv_end(_origvh); ++vv_it) {
 		EdgeHandle eh = m_mesh.edge_handle(vv_it.current_halfedge_handle());
 		Scalar w = weight(eh);
 		w *= vertexweight;
 		weightsum += w;
 
-		if (m_mesh.is_boundary(*vv_it)) // update rhs (u,v)
-		{
+		// update rhs (u,v)
+		if (m_mesh.is_boundary(*vv_it)) {
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];
 		}
-		else // update matrix
-		{
+		// update matrix
+		else {
 			_triplets.push_back(EigenTripletT(sysid(_origvh), sysid(*vv_it), w));
 		}
 	}

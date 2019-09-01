@@ -42,12 +42,22 @@ public:
 		Cotangent, Uniform
 	};
 
-
 	/// Constructor
-	Parametrization(BezierTMesh& _mesh, WeightType weights) : m_mesh(_mesh), m_weightType(weights)
+	Parametrization(
+		std::vector<BezierTMesh::Point> &vertices,
+		std::vector<std::array<int, 3>> &faces,
+		WeightType weights=Cotangent
+	) : m_mesh(), m_weightType(weights)
 	{
+		std::vector<BezierTMesh::VertexHandle> vHandles;
+		for (const auto &v : vertices) {
+			vHandles.push_back(m_mesh.add_vertex(v));
+		}
+		for (const auto &f : faces) {
+			m_mesh.add_face(vHandles[f[0]], vHandles[f[1]], vHandles[f[2]]);
+		}
+
 		prepare();
-		calcWeights();
 	}
 
 	/// Destructor
@@ -72,17 +82,8 @@ public:
 	Vec2& hmap (VertexHandle _vh) { return m_mesh.property(m_hmap, _vh); }
 	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
-	// set weighting mode
-	void setWeightType(WeightType weight);
-
-	// computes weights
-	void calcWeights();
-
-	// initialize texture coordinates
-	void initCoords();
-
 	// directly solve parametrization
-	void solve();
+	void solve(std::array<BezierTMesh::Point, 3> &triangle);
 
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";
@@ -91,6 +92,12 @@ public:
 
 
 private:
+
+	// computes weights
+	void calcWeights();
+
+	// initialize texture coordinates
+	void initCoords(std::array<BezierTMesh::Point, 3> &triangle);
 
 	// Function for adding the entries of one row in the equation system
 	void add_row_to_system(
@@ -103,7 +110,7 @@ private:
 
 private:
 
-    BezierTMesh& m_mesh;
+    BezierTMesh m_mesh;
 
     // helper variables
     size_t nv_total_;

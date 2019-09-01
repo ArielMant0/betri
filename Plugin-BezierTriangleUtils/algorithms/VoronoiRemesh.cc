@@ -1,5 +1,7 @@
 #include "VoronoiRemesh.hh"
 
+#include "Parametrization.hh"
+
 #include <queue>
 #include <unordered_set>
 #include <map>
@@ -76,6 +78,8 @@ void VoronoiRemesh::partition(std::vector<VoronoiRemesh::FH> &seeds, bool useCol
 #ifdef PRINT
 	out << "finished dijkstra" << std::endl;
 #endif
+
+	return;
 
 	// new m_mesh
 	BezierTMesh nmesh;
@@ -309,6 +313,8 @@ void VoronoiRemesh::partition(std::vector<VoronoiRemesh::FH> &seeds, bool useCol
 	// parameterization (harmonic map)
 	//////////////////////////////////////////////////////////
 
+	/*Parametrization param(m_mesh);
+	param.solve();*/
 
 	//////////////////////////////////////////////////////////
 	// replace original mesh
@@ -330,11 +336,13 @@ void VoronoiRemesh::partition(std::vector<VoronoiRemesh::FH> &seeds, bool useCol
 		std::vector<VH> faces(nmesh.fv_begin(f), nmesh.fv_end(f));
 		const auto fh = m_mesh.add_face(faces);
 		if (useColors) {
+			auto col = nmesh.color(f);
+			col[3] = 1.f;
 			if (fh.is_valid()) {
-				m_mesh.set_color(fh, nmesh.color(f));
+				m_mesh.set_color(fh, col);
 			} else {
 				for (int i = before; i < m_mesh.n_faces(); ++i) {
-					m_mesh.set_color(m_mesh.face_handle(i), nmesh.color(f));
+					m_mesh.set_color(m_mesh.face_handle(i), col);
 				}
 			}
 			before = m_mesh.n_faces();
@@ -348,6 +356,13 @@ void VoronoiRemesh::partition(std::vector<VoronoiRemesh::FH> &seeds, bool useCol
 #endif
 
 	m_mesh.garbage_collection();
+
+	if (useColors) {
+		PluginFunctions::setDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
+			ACG::SceneGraph::DrawModes::HIDDENLINE
+		);
+	}
 }
 
 void VoronoiRemesh::dijkstra(std::vector<VoronoiRemesh::FH> &seeds, bool useColors)
@@ -358,6 +373,9 @@ void VoronoiRemesh::dijkstra(std::vector<VoronoiRemesh::FH> &seeds, bool useColo
 		ACG::HuePartitioningColors::generateNColors(seeds.size(), std::back_inserter(colors));
 		if (!m_mesh.has_face_colors()) {
 			m_mesh.request_face_colors();
+		}
+		if (!m_mesh.has_edge_colors()) {
+			m_mesh.request_edge_colors();
 		}
 	}
 
@@ -402,6 +420,14 @@ void VoronoiRemesh::dijkstra(std::vector<VoronoiRemesh::FH> &seeds, bool useColo
 	ID i = 0;
 	for (auto &face : seeds) {
 		addToRegion(face, i++, 0.0);
+		if (useColors) {
+			auto darker = colors[i - 1];
+			darker[3] = 0.5f;
+			//darker[0] = std::max(0.f, darker[0] - 0.5f);
+			//darker[1] = std::max(0.f, darker[1] - 0.5f);
+			//darker[2] = std::max(0.f, darker[2] - 0.5f);
+			m_mesh.set_color(face, darker);
+		}
 	}
 
 	while (!q.empty()) {
@@ -418,13 +444,17 @@ void VoronoiRemesh::dijkstra(std::vector<VoronoiRemesh::FH> &seeds, bool useColo
 		// iterate over all incident halfedges of this face
 		for (auto he = m_mesh.fh_begin(face); he != m_mesh.fh_end(face); ++he) {
 			auto &f = m_mesh.opposite_face_handle(*he);
+			auto &edge = m_mesh.edge_handle(*he);
 			const P p2 = m_mesh.calc_face_centroid(f);
 			// distance to the next face
 			const double update = dist(face) + (p1 - p2).norm();
 			// update neighbor face distance if the value can be improved
-			if (update < dist(f)) {
+			if (!isCrossed(edge) && update < dist(f)) {
 				pred(f) = face;
 				crossed(*he) = true;
+				if (useColors) {
+					 m_mesh.set_color(edge, colors[id(face)]);
+				}
 				addToRegion(f, id(face), update);
 			}
 		}
@@ -443,10 +473,29 @@ void VoronoiRemesh::dijkstra(std::vector<VoronoiRemesh::FH> &seeds, bool useColo
 	out.close();
 #endif
 
+	auto allRegionsSame = [&](const VH &v) {
+		const ID region = id(m_mesh.cvf_begin(v));
+		return !std::any_of(m_mesh.cvf_begin(v), m_mesh.cvf_end(v), [&](const FH &f) {
+			return id(f) != region;
+		});
+	};
+
 	if (useColors) {
+		BezierTMesh::Color boundaryColor(0.f, 0.f, 0.f, 1.f);
+		for (auto edge : m_mesh.edges()) {
+			const auto he = m_mesh.halfedge_handle(edge, 0);
+			if (!isCrossed(edge) && allRegionsSame(m_mesh.to_vertex_handle(he))) {
+				m_mesh.set_color(edge, colors[id(m_mesh.face_handle(he))]);
+			} else if (!isCrossed(edge) && allRegionsSame(m_mesh.from_vertex_handle(he))) {
+				m_mesh.set_color(edge, colors[id(m_mesh.opposite_face_handle(he))]);
+			} else if (!isCrossed(edge) || id(m_mesh.face_handle(he)) != id(m_mesh.opposite_face_handle(he))) {
+				crossed(edge) = false;
+				m_mesh.set_color(edge, boundaryColor);
+			}
+		}
 		PluginFunctions::setDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
-			ACG::SceneGraph::DrawModes::HIDDENLINE
+			ACG::SceneGraph::DrawModes::EDGES_COLORED
 		);
 	}
 }
