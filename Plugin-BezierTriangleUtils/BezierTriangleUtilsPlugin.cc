@@ -194,12 +194,24 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 {
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
-		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
-		betri::voronoiRemesh((*o_it));
+
+		int ctrl_id;
+		BaseObjectData *obj;
+		BTMeshObject *ctrl_obj;
+
+		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+		PluginFunctions::getObject(ctrl_id, obj);
+		ctrl_obj = PluginFunctions::btMeshObject(obj);
+		ctrl_obj->setName("control mesh");
+		ctrl_obj->show();
+		ctrl_obj->target(false);
+
+		betri::voronoiRemesh(*o_it, obj);
 		emit log(LOGINFO, "Performed Voronoi Partition!");
 
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		emit updatedObject(ctrl_id, UPDATE_ALL);
 	}
 }
 

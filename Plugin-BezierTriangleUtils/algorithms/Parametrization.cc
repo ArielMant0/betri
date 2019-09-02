@@ -16,25 +16,6 @@ void Parametrization::prepare()
 
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
-
-	nv_total_ = m_mesh.n_vertices();
-	// should always be total-3
-	nv_inner_ = 0;
-	// should always be 3
-	nv_bdry_  = 0;
-
-	// also map the indices of inner vertices to equation system vertices [0, nv_inner_-1]
-	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
-		if (m_mesh.is_boundary(*v_it)) {
-			nv_bdry_++;
-		} else {
-			sysid(*v_it) = nv_inner_;
-			nv_inner_++;
-		}
-	}
-
-	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
-	std::cerr << " inner vertices, the total number is " << nv_total_  << std::endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -133,9 +114,8 @@ void Parametrization::calcWeights()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::initCoords(std::array<BezierTMesh::Point, 3> &triangle)
+void Parametrization::initCoords(int id)
 {
-	// INSERT CODE:
 	// Map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
 	// Map interior vertices to triangle center
@@ -150,25 +130,42 @@ void Parametrization::initCoords(std::array<BezierTMesh::Point, 3> &triangle)
 			break;
 	}
 
-	// boundary found ?
+	// not boundary found => this cannot work
 	if (v_it == v_end) {
 		std::cerr << "No boundary found\n";
 		return;
 	}
 
-	// reset all coordinates to triangle midpoint
+	//auto vec1 = triangle[1] - triangle[0];
+	//auto vec2 = triangle[2] - triangle[0];
+	//auto vec3 = triangle[2] - triangle[1];
+	//auto vec4 = -vec1;
+
+	//// compute angles inside the triangle
+	//const double angle1 = acos((vec1 | vec2) / (vec1.norm() * vec2.norm()));
+	//const double angle2 = acos((vec4 | vec3) / (vec4.norm() * vec3.norm()));
+	//const double angle3 = 180.0 - angle1 - angle2;
+
+	// position boundary vertices on a unit circle such that angles are preserved
+	//const std::array<Vec2, 3> boundary = {
+	//	Vec2(0.f, 0.5f),
+	//	Vec2(cos(angle1), sin(angle1)),
+	//	Vec2(cos(angle1+angle2), sin(angle1+angle2))
+	//};
+
+	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
-		hmap(*v_it) = Vec2(0.33f, 0.33f);
+		hmap(*v_it) = Vec2(0.5f, 0.5f);
 	}
 
-	// get boundary loop
+	// assign boundary coordinates
 	vh = v_it.handle();
 	hh = m_mesh.halfedge_handle(vh);
 	int i = 0;
 	assert(m_mesh.is_boundary(hh));
 	do
 	{
-		hmap(m_mesh.to_vertex_handle(hh)) = { triangle[i][0], triangle[i++][1] };
+		//hmap(m_mesh.to_vertex_handle(hh)) = boundary[i++];
 		assert(i <= 3);
 		hh = m_mesh.next_halfedge_handle(hh);
 	} while (hh != m_mesh.halfedge_handle(vh));
@@ -176,12 +173,45 @@ void Parametrization::initCoords(std::array<BezierTMesh::Point, 3> &triangle)
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::solve(std::array<BezierTMesh::Point, 3> &triangle)
-{
-	// make sure the boundary has been mapped to a circle (we need these texcoords in add_row_to_system_matrix)
-	initCoords(triangle);
+void Parametrization::solve(
+	const std::array<VertexHandle,3> boundary,
+	const int rId,
+	const char *idName
+) {
+	m_outer = { boundary.begin(), boundary.end() };
+	m_mesh.get_property_handle(m_id, idName);
 
-	// also make sure the weights have been computed
+	// calculate coordinates
+	initCoords(rId);
+
+	// should always be 3 because boundary is a triangular region of the mesh
+	nv_bdry_ = m_outer.size();
+	assert(nv_bdry_ == 3);
+	nv_inner_ = 0;
+
+	auto allSame = [&](const VertexHandle &v) {
+		for (auto f_it = m_mesh.cvf_begin(v); f_it != m_mesh.cvf_end(v); ++f_it) {
+			if (id(*f_it) != rId) return false;
+		}
+		return true;
+	};
+
+	// also map the indices of inner vertices to equation system vertices [0, nv_inner_-1]
+	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
+		if (allSame(*v_it)) {
+			if (m_mesh.is_boundary(*v_it)) {
+				nv_bdry_++;
+			} else {
+				sysid(*v_it) = nv_inner_;
+				nv_inner_++;
+			}
+		}
+	}
+
+	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
+	std::cerr << " inner vertices, the total number is " << nv_total_ << std::endl;
+
+	// calculate weights
 	calcWeights();
 
 	// system matrix
@@ -216,12 +246,12 @@ void Parametrization::solve(std::array<BezierTMesh::Point, 3> &triangle)
 	// Smooth parameterization using Laplacian relaxation.
 	//--- start strip ---
 
-	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
-		// skip boundary vertices
-		if (!m_mesh.is_boundary(*v_it)) {
-			add_row_to_system(triplets, rhsu, rhsv, *v_it);
-		}
-	}
+	//for (auto &v : vertices) {
+	//	// skip boundary vertices
+	//	if (!v.second) {
+	//		add_row_to_system(triplets, rhsu, rhsv, v.first);
+	//	}
+	//}
 	//--- end strip ---
 	std::cerr << " number of triplets (i.e. number of non-zeros) " << triplets.size();
 	std::cerr << ", per row " << (triplets.size()/nv_inner_) << std::endl;

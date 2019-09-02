@@ -23,6 +23,8 @@ public:
 	// Useful typedefs
 	typedef BezierTMesh::VertexHandle      VertexHandle;
 	typedef BezierTMesh::EdgeHandle        EdgeHandle;
+	typedef BezierTMesh::FaceHandle        FaceHandle;
+
 	typedef BezierTMesh::HalfedgeHandle    HalfedgeHandle;
 	typedef BezierTMesh::VertexIter        VertexIter;
 	typedef BezierTMesh::VertexVertexIter  VertexVertexIter;
@@ -37,38 +39,25 @@ public:
 	typedef Eigen::Triplet<Scalar>      EigenTripletT;
 	typedef Eigen::VectorXd             EigenVectorT;
 
+	using Vertices = std::vector<VertexHandle>;
+
 	enum WeightType
 	{
 		Cotangent, Uniform
 	};
 
-	/// Constructor
-	Parametrization(
-		std::vector<BezierTMesh::Point> &vertices,
-		std::vector<std::array<int, 3>> &faces,
-		WeightType weights=Cotangent
-	) : m_mesh(), m_weightType(weights)
+	Parametrization(BezierTMesh &mesh) : m_mesh(mesh)
 	{
-		std::vector<BezierTMesh::VertexHandle> vHandles;
-		for (const auto &v : vertices) {
-			vHandles.push_back(m_mesh.add_vertex(v));
-		}
-		for (const auto &f : faces) {
-			m_mesh.add_face(vHandles[f[0]], vHandles[f[1]], vHandles[f[2]]);
-		}
-
 		prepare();
 	}
 
-	/// Destructor
-	~Parametrization()
-	{
-		cleanup();
-	}
-
-	// add/remove needed properties for weights, texture coords etc.
-	void prepare();
-	void cleanup();
+	//	std::vector<BezierTMesh::Point> &vertices,
+	//	std::vector<std::array<int, 2>> &edges,
+	//	WeightType weights=Cotangent
+	//) : m_weightType(weights)
+	//{
+	//	prepare();
+	//}
 
 	/** Useful helper functions!
 	 * use these for getting and setting the:
@@ -82,8 +71,11 @@ public:
 	Vec2& hmap (VertexHandle _vh) { return m_mesh.property(m_hmap, _vh); }
 	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
+	int& id (FaceHandle _fh) { return m_mesh.property(m_id, _fh); }
+
+
 	// directly solve parametrization
-	void solve(std::array<BezierTMesh::Point, 3> &triangle);
+	void solve(const std::array<VertexHandle, 3> boundary, const int rId, const char *idName);
 
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";
@@ -93,11 +85,15 @@ public:
 
 private:
 
+	// add/remove needed properties for weights, texture coords etc.
+	void prepare();
+	void cleanup();
+
 	// computes weights
 	void calcWeights();
 
 	// initialize texture coordinates
-	void initCoords(std::array<BezierTMesh::Point, 3> &triangle);
+	void initCoords(int id);
 
 	// Function for adding the entries of one row in the equation system
 	void add_row_to_system(
@@ -110,7 +106,9 @@ private:
 
 private:
 
-    BezierTMesh m_mesh;
+    BezierTMesh &m_mesh;
+	Vertices m_inner;
+	Vertices m_outer;
 
     // helper variables
     size_t nv_total_;
@@ -119,9 +117,11 @@ private:
 
     // OpenMesh mesh properties holding the texture coordinates and weights
     OpenMesh::VPropHandleT<Vec2>         m_hmap;
-    OpenMesh::VPropHandleT<Scalar>       m_vweight;
-    OpenMesh::EPropHandleT<Scalar>       m_eweight;
-    OpenMesh::VPropHandleT<int>          m_sysid;
+	OpenMesh::VPropHandleT<Scalar>       m_vweight;
+	OpenMesh::EPropHandleT<Scalar>       m_eweight;
+	OpenMesh::VPropHandleT<int>          m_sysid;
+	OpenMesh::FPropHandleT<int>          m_id;
+
 
 	WeightType m_weightType;
 };

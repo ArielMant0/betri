@@ -3,7 +3,7 @@
 namespace betri
 {
 
-void voronoiRemesh(BaseObjectData *object);
+void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors=true);
 
 void decimate(BaseObjectData *object);
 

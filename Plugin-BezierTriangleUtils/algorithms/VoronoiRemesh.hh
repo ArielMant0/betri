@@ -21,44 +21,39 @@ public:
 		static constexpr char *DISTANCE = "dist";
 		static constexpr char *CROSSED = "crossed";
 
-		static constexpr char *TRITOFACE = "ttf";
 		static constexpr char *FACETOTRI = "ftt";
+		static constexpr char *TRITOFACE = "ttf";
+		static constexpr char *TRIBOUND = "tribound";
+
 	};
 
-	struct TriangleToFace
+	struct FaceToTri
 	{
-		std::vector<FH> faces;
-
-		void set(std::vector<FH> &faces_)
-		{
-			faces = faces_;
-		}
+		std::vector<VH> verts;
 
 		std::vector<P> points(BezierTMesh &mesh)
 		{
 			std::vector<P> result;
-			std::transform(faces.begin(), faces.end(), std::back_inserter(result),
-				[mesh](BezierTMesh::FaceHandle &f) { return mesh.calc_face_centroid(f); }
+			std::transform(verts.begin(), verts.end(), std::back_inserter(result),
+				[mesh](BezierTMesh::VertexHandle &v) { return mesh.point(v); }
 			);
+			return result;
 		}
 	};
 
-	struct FaceToTriangle
+	struct TriToFace
 	{
 		FH triangle;
+		double hmap;
 
-		void set(FH &face)
+		void set(FH &face, double hValue)
 		{
 			triangle = face;
-		}
-
-		BezierTMesh::Point point(BezierTMesh &mesh)
-		{
-			return mesh.calc_face_centroid(triangle);
+			hmap = hValue;
 		}
 	};
 
-	VoronoiRemesh(BezierTMesh &mesh) : m_mesh(mesh)
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl) : m_mesh(mesh), m_ctrl(ctrl)
 	{
 		prepare();
 	}
@@ -73,17 +68,19 @@ public:
 
 	void remesh(unsigned int size);
 
+	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
+
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
 	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
 	double& dist(FH fh) { return m_mesh.property(m_distance, fh); }
 
-	FaceToTriangle& ftt(FH fh) { return m_mesh.property(m_ftt, fh); }
-	TriangleToFace& ttf(FH fh) { return m_mesh.property(m_ttf, fh); }
+	TriToFace& ftt(FH fh) { return m_mesh.property(m_ttf, fh); }
+	FaceToTri& ttf(FH fh) { return m_mesh.property(m_ftt, fh); }
 
-	char& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
-	char& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
+	short& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
+	short& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
 
-	bool isCrossed(EH eh) { return (int)crossed(eh) == 1; }
+	bool isCrossed(EH eh) { return crossed(eh) == 1; }
 	bool isCrossed(HH he) { return isCrossed(m_mesh.edge_handle(he)); }
 
 private:
@@ -92,18 +89,21 @@ private:
 
 	void dijkstra(std::vector<FH> &seeds, bool useColors=true);
 
+	void preventiveEdgeSplits(unsigned int size);
+
 	// member variables
-	BezierTMesh &m_mesh;
+	BezierTMesh &m_mesh, &m_ctrl;
 
 	// property handles
-	OpenMesh::FPropHandleT<ID>       m_region;
-	OpenMesh::FPropHandleT<FH>       m_pred;
-	OpenMesh::FPropHandleT<double>   m_distance;
+	OpenMesh::FPropHandleT<ID>        m_region;
+	OpenMesh::FPropHandleT<FH>        m_pred;
+	OpenMesh::FPropHandleT<double>    m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
-	OpenMesh::EPropHandleT<char>     m_crossed;
+	OpenMesh::EPropHandleT<short>      m_crossed;
 
-	OpenMesh::FPropHandleT<TriangleToFace> m_ttf;
-	OpenMesh::FPropHandleT<FaceToTriangle> m_ftt;
+	OpenMesh::FPropHandleT<TriToFace> m_ttf;
+	OpenMesh::FPropHandleT<FaceToTri> m_ftt;
+	OpenMesh::VPropHandleT<short>     m_tribound;
 };
 
 }
