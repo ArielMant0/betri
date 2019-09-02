@@ -81,7 +81,8 @@ public:
 		controlNetLineIndices_(0),
 		invalidateControlNetMesh_(true),
 		invalidateControlNetMeshSel_(true),
-		controlPointsChanged_(true), // TODO
+		controlPointsChangedR_(true), // TODO
+		controlPointsChangedC_(true), // TODO
 		oldFaceCount_(0) // TODO
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
@@ -127,7 +128,8 @@ public:
 	void boundingBox(Vec3d& _bbMin, Vec3d& _bbMax);
 
 	// TODO
-	void setControlPoints();
+	void setControlPointsCircular();
+	void setControlPointsColumnwise();
 
 	/// draw lines and normals
 	void draw(GLState& _state, const DrawModes::DrawMode& _drawMode);
@@ -259,6 +261,14 @@ private:
 	/// update vertex + index buffer of surface mesh
 	void updateSurfaceMesh();//int _vertexCountU = 50, int _vertexCountV = 50); TODO
 
+	void VBOfromMesh();
+
+	int pointsBefore(int level);
+	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
+	BezierTMesh::Point oneEntry(int i, int j, int k, BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
+	BezierTMesh::Point newPosition(BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
+	void VBOtesselatedFromMesh();
+
 	/// update vertex + index buffer of control net mesh
 	void updateControlNetMesh();
 
@@ -267,6 +277,10 @@ private:
 
 	/// update texture resources for gpu-based spline evaluation
 	void updateTexBuffers();
+
+///////////////////////////////////////////////////////////////////////////////
+// Private Membervariables
+///////////////////////////////////////////////////////////////////////////////
 
 private:
 
@@ -341,13 +355,15 @@ private:
 	bool invalidateControlNetMeshSel_;
 
 	// TODO
-	bool controlPointsChanged_;
+	bool controlPointsChangedC_;
+	bool controlPointsChangedR_;
 	int oldFaceCount_;
 
 	// GPU based evaluation
 	TextureBuffer knotTexBufferU_;
 	TextureBuffer knotTexBufferV_;
 	Texture2D controlPointTex_;
+
 };
 
 //=============================================================================
