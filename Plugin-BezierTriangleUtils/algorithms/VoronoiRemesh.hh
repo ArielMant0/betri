@@ -13,6 +13,7 @@ public:
 	using HH = BezierTMesh::HalfedgeHandle;
 	using FH = BezierTMesh::FaceHandle;
 	using P = BezierTMesh::Point;
+	using Color = BezierTMesh::Color;
 
 	struct Props
 	{
@@ -53,7 +54,11 @@ public:
 		}
 	};
 
-	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl) : m_mesh(mesh), m_ctrl(ctrl)
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true) :
+		m_mesh(mesh),
+		m_ctrl(ctrl),
+		m_useColors(colors),
+		m_colors()
 	{
 		prepare();
 	}
@@ -77,29 +82,32 @@ public:
 	TriToFace& ftt(FH fh) { return m_mesh.property(m_ttf, fh); }
 	FaceToTri& ttf(FH fh) { return m_mesh.property(m_ftt, fh); }
 
-	short& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
-	short& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
+	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
+	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
 
-	bool isCrossed(EH eh) { return crossed(eh) == 1; }
+	bool isCrossed(EH eh) { return crossed(eh) >= 0; }
 	bool isCrossed(HH he) { return isCrossed(m_mesh.edge_handle(he)); }
 
 private:
 
-	void partition(std::vector<FH> &seeds, bool useColors=true);
+	using QElem = std::pair<double, FH>;
 
-	void dijkstra(std::vector<FH> &seeds, bool useColors=true);
+	void partition();
 
 	void preventiveEdgeSplits(unsigned int size);
 
 	// member variables
 	BezierTMesh &m_mesh, &m_ctrl;
 
+	bool m_useColors;
+	std::vector<Color> m_colors;
+
 	// property handles
 	OpenMesh::FPropHandleT<ID>        m_region;
 	OpenMesh::FPropHandleT<FH>        m_pred;
 	OpenMesh::FPropHandleT<double>    m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
-	OpenMesh::EPropHandleT<short>      m_crossed;
+	OpenMesh::EPropHandleT<ID>        m_crossed;
 
 	OpenMesh::FPropHandleT<TriToFace> m_ttf;
 	OpenMesh::FPropHandleT<FaceToTri> m_ftt;
