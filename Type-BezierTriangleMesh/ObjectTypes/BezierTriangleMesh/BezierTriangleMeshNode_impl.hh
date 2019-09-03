@@ -65,7 +65,7 @@ availableDrawModes() const
 
 //----------------------------------------------------------------------------
 // BIG TODO
-static const int GRAD = 2; // 1 = linear, 2 = quadratisch
+static const int GRAD = 5; // 1 = linear, 2 = quadratisch
 static const int ITERATIONS = 4;
 
 template <class MeshT>
@@ -175,6 +175,7 @@ getRenderObjects(IRenderer* _renderer, GLState& _state, const DrawModes::DrawMod
 				ro.setUniform("tessAmount", mulTwoPOne(ITERATIONS) + 1);
 
 				// TODO warum geht das, aber uniform geht nicht?
+				// Liegt das an der for-schleife
 				QString shaderMacro;
 				shaderMacro.sprintf("#define GRAD %i", GRAD);
 				ro.shaderDesc.macros.push_back(shaderMacro);
@@ -532,9 +533,9 @@ render(GLState& _state, bool _fill)
 	
 	if (render_control_net_) // TODO diese variable muss setzbar sein
 	{
-		if (false && bspline_draw_mode_ == NORMAL)
+		if (bspline_draw_mode_ == NORMAL)
 			drawControlNet(_state);
-		else if (true || bspline_draw_mode_ == FANCY)
+		else if (bspline_draw_mode_ == FANCY)
 			drawFancyControlNet(_state);
 	}
 	
