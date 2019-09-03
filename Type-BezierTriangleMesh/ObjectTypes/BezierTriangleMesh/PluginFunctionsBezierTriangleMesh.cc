@@ -11,6 +11,16 @@
 
 namespace PluginFunctions {
 
+void betriOption(betri::BezierOption option, int value)
+{
+	betri::option(option, value);
+}
+
+int betriOption(betri::BezierOption option)
+{
+	return betri::option(option);
+}
+
 bool getSourceMeshes(std::vector<BezierTMesh*> &_meshes)
 {
 	_meshes.clear();

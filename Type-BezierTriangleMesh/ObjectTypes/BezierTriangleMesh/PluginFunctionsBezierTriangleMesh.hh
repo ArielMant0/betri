@@ -7,10 +7,18 @@
 //=============================================================================
 
 #include <OpenFlipper/common/Types.hh>
+#include <ObjectTypes/BezierTriangleMesh/globals/BezierOptions.hh>
+//#include <OpenFlipper/common/ObjectTypeDLLDefines.hh>
 
 /** The Namespace PluginFunctions contains functions for all plugins. These functions should be used to get the
  *  objects to work on or to set modes in the examiner widget. */
 namespace PluginFunctions {
+
+OBJECTTYPEDLLEXPORT
+void betriOption(betri::BezierOption option, int value);
+
+OBJECTTYPEDLLEXPORT
+int betriOption(betri::BezierOption option);
 
 //=======================================
 // Get Source/Target objects

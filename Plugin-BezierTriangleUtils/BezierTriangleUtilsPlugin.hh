@@ -7,6 +7,10 @@
 
 #include <OpenFlipper/common/Types.hh>
 
+#include <ObjectTypes/BezierTriangleMesh/globals/BezierOptions.hh>
+
+#include <qlineedit.h> // TODO
+
 class BezierTriangleUtilsPlugin : public QObject,
 	BaseInterface,
 	ToolboxInterface,
@@ -35,9 +39,13 @@ public:
 private:
 
 	QWidget *m_tool;
+	QLineEdit *echoLineEdit; // TODO
 
 	void switchViewMode();
 
+///////////////////////////////////////////////////////////////////////////////
+// Signals
+///////////////////////////////////////////////////////////////////////////////
 signals:
 
 	void updateView();
@@ -48,15 +56,25 @@ signals:
 
 	void addToolbox(QString name, QWidget *widget, QIcon *icon);
 
+///////////////////////////////////////////////////////////////////////////////
+// Slots
+///////////////////////////////////////////////////////////////////////////////
 public slots:
 
 	QString version() { return QString("1.0.0"); };
 
 private slots:
 
+	void echoChanged(int);
+
 	void initializePlugin() override;
+
 
 	void convertMesh();
 	void tessellateMesh();
+
+	// option setting function
+	void setTessAmount(int);
+	void setTessType(int);
 
 };
