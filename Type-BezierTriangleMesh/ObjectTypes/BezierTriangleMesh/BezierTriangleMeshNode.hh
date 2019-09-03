@@ -55,10 +55,11 @@ public:
 		pick_radius_(1.0),
 		resolution_(16),
 		controlnet_color_(Vec4f(34.f / 255.f, 139.f / 255.f, 34.f / 255.f, 1.f)),
+		controlpoints_color_(Vec4f(255.f / 255.f, 0.f / 255.f, 0.f / 255.f, 1.f)),
 		controlnet_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
 		surface_color_(Vec4f(178.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, 1.0f)),
 		surface_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
-		render_control_net_(false),
+		render_control_net_(true), // TODO
 		render_bspline_surface_(true),
 		adaptive_sampling_(false),
 		controlPointSelectionTexture_valid_(false),
@@ -295,6 +296,7 @@ private:
 	int resolution_;
 
 	Vec4f controlnet_color_;
+	Vec4f controlpoints_color_; // TODO
 	Vec4f controlnet_highlight_color_;
 
 	Vec4f surface_color_;

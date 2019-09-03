@@ -66,7 +66,7 @@ availableDrawModes() const
 //----------------------------------------------------------------------------
 // BIG TODO
 static const int GRAD = 2; // 1 = linear, 2 = quadratisch
-static const int ITERATIONS = 5;
+static const int ITERATIONS = 4;
 
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::
@@ -79,7 +79,6 @@ getRenderObjects(IRenderer* _renderer, GLState& _state, const DrawModes::DrawMod
 
 	// TODO 
 	if (controlPointsChangedR_) {
-		std::cerr << "in setControlPointsColumnwise" << std::endl;
 
 		setControlPointsColumnwise();
 		controlPointsChangedR_ = false;
@@ -236,17 +235,29 @@ getRenderObjects(IRenderer* _renderer, GLState& _state, const DrawModes::DrawMod
 
 		// all control points
 		{
-			/*
 			ro.name = "BezierTriangleMesh_ControlPoint";
 			ro.setupPointRendering(_state.point_size() + 4.0f, screenSize);
 
-			ro.emissive = Vec3f(controlnet_color_[0], controlnet_color_[1], controlnet_color_[2]);
+			ro.emissive = Vec3f(controlpoints_color_[0], controlpoints_color_[1], controlpoints_color_[2]);
 
-			GLsizei numPoints = bezierTriangleMesh_.n_control_points_m() * bezierTriangleMesh_.n_control_points_n();
-			ro.glDrawArrays(GL_POINTS, 0, numPoints);
+			// TODO
+			std::function<int(int)> sumMOne = [](int count) {
+				int sum = 0;
+				for (int i = 0; i <= count; i++) {
+					sum += i;
+				}
+				return sum;
+			};
+
+			// Additional Points per edge
+			int POINTS = GRAD - 1;
+			// Sum of all new Trianglevertices
+			int POINTSUM = sumMOne(POINTS + 2);
+
+			GLsizei numControlPoints = POINTSUM * bezierTriangleMesh_.n_faces();
+			ro.glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 			_renderer->addRenderObject(&ro);
-			*/
 		}
 
 		ro.resetPointRendering();
@@ -294,6 +305,15 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::
 setControlPointsColumnwise()
 {
+	// TODO this function is now atleast three times in the code
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
@@ -301,6 +321,29 @@ setControlPointsColumnwise()
 		auto vh1 = *(vertexHandle++);
 		auto vh2 = *(vertexHandle);
 
+		std::vector<Point> cp_vec = std::vector<Point>();
+
+		//const float STEPSIZE = round((1.0 / GRAD) * 100) / 100;
+		// TODO 1.01 ...
+		const float STEPSIZE = 1.0 / GRAD;
+		int i = 0;
+		for (double u = 0.0; u <= 1.01; u += STEPSIZE) {
+			for (double v = 0.0; u + v <= 1.01; v += STEPSIZE) {
+				double w = 1 - u - v;
+				Point p = bezierTriangleMesh_.point(vh0) * u + bezierTriangleMesh_.point(vh1) * v + bezierTriangleMesh_.point(vh2) * w;
+				// If it isnt an cornerpoint
+				if (i != 0 && i != GRAD && i != sumMOne(GRAD + 1) - 1) {
+					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
+					p += n/2.5;
+				}
+				i++;
+				cp_vec.push_back(p);
+				//std::cerr << cp_vec.size() << " " << u << " " << v << " " << w << " " << std::endl;
+			}
+		}
+
+		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>(cp_vec));
+		/*
 		Point n1 = bezierTriangleMesh_.normal(vh0) * 0.25 + bezierTriangleMesh_.normal(vh1) * 0.25;
 		Point n2 = bezierTriangleMesh_.normal(vh1) * 0.25 + bezierTriangleMesh_.normal(vh2) * 0.25;
 		Point n3 = bezierTriangleMesh_.normal(vh2) * 0.25 + bezierTriangleMesh_.normal(vh0) * 0.25;
@@ -313,7 +356,7 @@ setControlPointsColumnwise()
 		auto cp5 = bezierTriangleMesh_.point(vh2);
 		auto cp3 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + n3;
 
-		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));*/
 	}
 }
 
@@ -326,7 +369,6 @@ draw(GLState& _state, const DrawModes::DrawMode& _drawMode)
 {
 	// TODO
 	if (controlPointsChangedC_) {
-		std::cerr << "in setControlPointsCircular" << std::endl;
 		//setControlPointsCircular();
 		setControlPointsColumnwise();
 		controlPointsChangedC_ = false;
@@ -488,12 +530,12 @@ render(GLState& _state, bool _fill)
 {
 	// draw the control net (includes selection on the net)
 	
-	if (true || render_control_net_) // TODO diese variable muss setzbar sein
+	if (render_control_net_) // TODO diese variable muss setzbar sein
 	{
-		//if (bspline_draw_mode_ == NORMAL)
+		if (false && bspline_draw_mode_ == NORMAL)
 			drawControlNet(_state);
-		//else if (bspline_draw_mode_ == FANCY)
-		//	drawFancyControlNet(_state);
+		else if (true || bspline_draw_mode_ == FANCY)
+			drawFancyControlNet(_state);
 	}
 	
 
@@ -502,8 +544,9 @@ render(GLState& _state, bool _fill)
 	{
 		if (bspline_selection_draw_mode_ == NONE)
 			drawSurface(_state, _fill);
-		//else if (bspline_selection_draw_mode_ == CONTROLPOINT)
-		//	drawTexturedSurface(_state, cp_selection_texture_idx_);
+		// TODO wo kommt die textur her und wie wird eingestellt das die gesampled wird?
+		else if (bspline_selection_draw_mode_ == CONTROLPOINT)
+			drawTexturedSurface(_state, cp_selection_texture_idx_);
 		//else if (bspline_selection_draw_mode_ == KNOTVECTOR)
 		//	drawTexturedSurface(_state, knot_selection_texture_idx_);
 	}
@@ -603,7 +646,7 @@ drawControlNet(GLState& _state)
 
 	// update controlnet buffers
 	updateControlNetMesh();
-	//updateControlNetMeshSel();
+	updateControlNetMeshSel();
 	
 	// bind vbo containing all control points
 	controlNetVBO_.bind();
@@ -624,12 +667,27 @@ drawControlNet(GLState& _state)
 
 	
 	// draw all points
-	glColor(controlnet_color_);
+	glColor(controlpoints_color_);
 
 	float point_size_old = _state.point_size();
 	glPointSize(point_size_old + 4);
 
-	GLsizei numControlPoints = 6 * oldFaceCount_; // TODO get the total number of control Points for the whole mesh - multiply by the number of original faces - how to get the controlpoints after one iteration?
+	// TODO
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+
+	// Additional Points per edge
+	int POINTS = GRAD - 1;
+	// Sum of all new Trianglevertices
+	int POINTSUM = sumMOne(POINTS + 2);
+
+	//GLsizei numControlPoints = 6 * oldFaceCount_; // TODO get the total number of control Points for the whole mesh - multiply by the number of original faces - how to get the controlpoints after one iteration?
+	GLsizei numControlPoints = POINTSUM * bezierTriangleMesh_.n_faces();
 	glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 	glPointSize((int)point_size_old);
@@ -697,7 +755,7 @@ void
 BezierTriangleMeshNode<MeshT>::
 drawFancyControlNet(GLState& _state)
 {
-	/*
+	
 	// remember old color
 	Vec4f base_color_old = _state.base_color();
 
@@ -716,7 +774,7 @@ drawFancyControlNet(GLState& _state)
 
 	// draw points
 	double sphereRadius = _state.point_size() * 0.05;
-
+	/*
 	// draw selection
 	if (bezierTriangleMesh_.controlpoint_selections_available())
 	{
@@ -739,14 +797,35 @@ drawFancyControlNet(GLState& _state)
 
 		glPointSize(point_size_old);
 	}
-
+	*/
+	
 	// draw all points
-	glColor(controlnet_color_);
+	glColor(controlpoints_color_);
 
-	for (unsigned int i = 0; i < bezierTriangleMesh_.n_control_points_m(); ++i)
-		for (unsigned int j = 0; j < bezierTriangleMesh_.n_control_points_n(); ++j)
-			draw_sphere(bezierTriangleMesh_(i, j), sphereRadius, _state, fancySphere_);
+	// TODO
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
 
+	// Additional Points per edge
+	int POINTS = GRAD - 1;
+	// Sum of all new Trianglevertices
+	int POINTSUM = sumMOne(POINTS + 2);
+
+	const int controlPointsPerFace = POINTSUM;
+
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		Point cp;
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cp = faceControlP.getCPoint(i);
+			draw_sphere(cp, sphereRadius, _state, fancySphere_);
+		}
+	}
 
 	// draw line segments
 
@@ -754,7 +833,42 @@ drawFancyControlNet(GLState& _state)
 
 	glColor(controlnet_color_);
 
-	// draw bspline control net
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		Point cp;
+
+		int pos1 = 0;
+		int pos2 = 1;
+		int pos3 = POINTS + 2;
+		int border = POINTS + 2;
+		int boderAdd = POINTS + 2 - 1;
+
+		for (; pos3 < POINTSUM; ) {
+			Point p1 = faceControlP.getCPoint(pos1);
+			Point p2 = faceControlP.getCPoint(pos2);
+			Point p3 = faceControlP.getCPoint(pos3);
+			// TODO warum hier p2-p1?
+			draw_cylinder(p1, p2 - p1, cylinderRadius, _state);
+			draw_cylinder(p2, p3 - p2, cylinderRadius, _state);
+			draw_cylinder(p3, p1 - p3, cylinderRadius, _state);
+
+			//std::cerr << pos1 << " " << pos2 << " " << pos3 << " " << (bottomTriangles * 3) << " " << POINTSUM << std::endl;
+
+			if (pos2 + 1 == border) {
+				border += boderAdd--;
+				pos1++;
+				pos2++;
+			}
+
+			pos1++;
+			pos2++;
+			pos3++;
+
+		}
+	}
+
+	/* OLD
+	// draw bezierTriangle control net
 	for (unsigned int i = 0; i < bezierTriangleMesh_.n_control_points_m(); ++i)
 	{
 		for (int j = 0; j < (int)bezierTriangleMesh_.n_control_points_n() - 1; ++j)
@@ -764,22 +878,12 @@ drawFancyControlNet(GLState& _state)
 			draw_cylinder(p, p_next - p, cylinderRadius, _state);
 		}
 	}
-
-	for (int j = 0; j < (int)bezierTriangleMesh_.n_control_points_n(); ++j)
-	{
-		for (int i = 0; i < (int)bezierTriangleMesh_.n_control_points_m() - 1; ++i)
-		{
-			Vec3d p = bezierTriangleMesh_(i, j);
-			Vec3d p_next = bezierTriangleMesh_(i + 1, j);
-			draw_cylinder(p, p_next - p, cylinderRadius, _state);
-		}
-	}
-
+	*/
 	// reset old color
 	glColor(base_color_old);
 
 	glPopAttrib();
-	*/
+	
 }
 
 //----------------------------------------------------------------------------
@@ -858,8 +962,22 @@ pick_vertices(GLState& _state)
 
 	_state.pick_set_name(0);
 
+	// TODO
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+
+	// Additional Points per edge
+	int POINTS = GRAD - 1;
+	// Sum of all new Trianglevertices
+	int POINTSUM = sumMOne(POINTS + 2);
+
 	int face_id = 0;
-	int controlPointsPerFace = 6;
+	int controlPointsPerFace = POINTSUM;
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
@@ -1808,7 +1926,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 
 				// TODO ist das so richtig? welcher PUnkt ist der der mit u multipliziert werden muss?
 				// store normal
-				normal = bezierTriangleMesh_.normal(vh2) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh0) * (1-u-v);
+				normal = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * (1-u-v);
 				for (int m = 0; m < 3; ++m)
 					vboData[elementOffset++] = float(normal[m]);
 
@@ -2057,9 +2175,28 @@ updateControlNetMesh()
 #ifdef RENDER_DEBUG
 	std::ofstream out("03controlPMUpdate.txt", std::ios::out | std::ofstream::app);
 #endif
-
 	if (!invalidateControlNetMesh_)
 		return;
+
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+	std::function<int(int)> mulTwoPOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i < count; i++) {
+			sum = sum * 2 + 1;
+		}
+		return sum;
+	};
+
+	// Additional Points per edge
+	int POINTS = GRAD - 1;
+	// Sum of all new Trianglevertices
+	int POINTSUM = sumMOne(POINTS + 2);
 
 	// vertex layout:
 	//  float3 pos
@@ -2068,7 +2205,7 @@ updateControlNetMesh()
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
-	int controlPointsPerFace = 6;
+	int controlPointsPerFace = POINTSUM;
 	int controlPointCountSum = bezierTriangleMesh_.n_faces() * controlPointsPerFace; // TODO * facecount - doppelte - hier oldFaceCount_ oder nicht ?
 
 	// create vertex buffer
@@ -2096,28 +2233,7 @@ updateControlNetMesh()
 
 	vboData.clear();
 
-	
-	std::function<int(int)> sumMOne = [](int count) {
-		int sum = 0;
-		for (int i = 0; i <= count; i++) {
-			sum += i;
-		}
-		return sum;
-	};
-	std::function<int(int)> mulTwoPOne = [](int count) {
-		int sum = 0;
-		for (int i = 0; i < count; i++) {
-			sum = sum * 2 + 1;
-		}
-		return sum;
-	};
-
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
-
-	// Additional Points per edge
-	int POINTS = GRAD - 1;
-	// Sum of all new Trianglevertices
-	int POINTSUM = sumMOne(POINTS + 2);
 
 	int bottomTriangles = sumMOne(GRAD);
 	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
@@ -2211,14 +2327,15 @@ void
 BezierTriangleMeshNode<MeshT>::
 updateControlNetMeshSel()
 {
-	/*
+	
 	if (!invalidateControlNetMeshSel_)
 		return;
 
 	controlNetSelIBO_.del();
-
+	/*
 	if (bezierTriangleMesh_.controlpoint_selections_available())
 	{
+		
 		int numU = bezierTriangleMesh_.n_control_points_m(),
 			numV = bezierTriangleMesh_.n_control_points_n();
 
@@ -2257,10 +2374,10 @@ updateControlNetMeshSel()
 
 			controlNetSelIBO_.upload(numSel * 4, &iboData[0], GL_STATIC_DRAW);
 		}
+		
 	}
-
-	invalidateControlNetMeshSel_ = false;
 	*/
+	invalidateControlNetMeshSel_ = false;
 }
 
 //----------------------------------------------------------------------------
@@ -2301,7 +2418,27 @@ updateTexBuffers()
 #ifdef GL_VERSION_3_0
 
 	// TODO
-	const int controlPointsPerFace = 6;
+	std::function<int(int)> sumMOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i <= count; i++) {
+			sum += i;
+		}
+		return sum;
+	};
+	std::function<int(int)> mulTwoPOne = [](int count) {
+		int sum = 0;
+		for (int i = 0; i < count; i++) {
+			sum = sum * 2 + 1;
+		}
+		return sum;
+	};
+
+	// Additional Points per edge
+	int POINTS = GRAD - 1;
+	// Sum of all new Trianglevertices
+	int POINTSUM = sumMOne(POINTS + 2);
+
+	const int controlPointsPerFace = POINTSUM;
 	const size_t controlPointBufSize = controlPointsPerFace * bezierTriangleMesh_.n_faces();
 
 	if (controlPointBufSize)
