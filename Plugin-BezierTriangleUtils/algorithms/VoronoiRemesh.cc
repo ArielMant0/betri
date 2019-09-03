@@ -220,7 +220,7 @@ void VoronoiRemesh::partition()
 		int countFace = 0, countEdge = 0;
 		for (auto he = m_mesh.cfh_begin(f); he != m_mesh.cfh_end(f); ++he) {
 			if (!isCrossed(*he) && id(m_mesh.opposite_face_handle(*he))) countEdge++;
-			if (id(m_mesh.face_handle(*he)) == tile) countFace++;
+			if (id(m_mesh.opposite_face_handle(*he)) == tile) countFace++;
 		}
 		return countFace == countEdge;
 	};
