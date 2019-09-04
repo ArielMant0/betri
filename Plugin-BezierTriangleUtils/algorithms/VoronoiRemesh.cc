@@ -12,7 +12,7 @@
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 #include <OpenFlipper/BasePlugin/PluginFunctions.hh>
 #include <OpenFlipper/libs_required/ACG/GL/ColorTranslator.hh>
-#include <OpenFlipper/libs_required/ACG/Utils/HuePartitioningColors.hh>
+#include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>
 
 #define PRINT
 
@@ -152,6 +152,7 @@ void VoronoiRemesh::preventiveEdgeSplits(unsigned int size)
  */
 void VoronoiRemesh::partition()
 {
+	ACG::HaltonColors cGenerator;
 	if (m_useColors) {
 		if (!m_mesh.has_face_colors()) {
 			m_mesh.request_face_colors();
@@ -168,6 +169,9 @@ void VoronoiRemesh::partition()
 	// add a face to a region
 	const auto grow = [&](FH &face, FH predFace = INVALID_F, double distance = 0.0) {
 		id(face) = predFace == INVALID_F ? seeds.size()-1 : id(predFace);
+		if (m_useColors) {
+			m_mesh.set_color(face, m_colors[id(face)]);
+		}
 		pred(face) = predFace;
 		auto pair = QElem(dist(face), face);
 		auto it = q.find(pair);
@@ -182,7 +186,15 @@ void VoronoiRemesh::partition()
 	const auto addSeedFace = [&](FH &face) {
 		assert(!isSeedFace(face));
 		seeds.insert(face);
+		if (m_useColors) {
+			m_colors.push_back(cGenerator.generateNextColor());
+		}
 		grow(face);
+
+		// reduce alpha so seed faces are visible
+		auto c = m_colors[id(face)];
+		c[3] = 0.5f;
+		m_mesh.set_color(face, c);
 
 		P p1 = m_mesh.calc_face_centroid(face);
 		for (auto he = m_mesh.fh_begin(face); he != m_mesh.fh_end(face); ++he) {
@@ -210,19 +222,21 @@ void VoronoiRemesh::partition()
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<unsigned int> dis(0, m_mesh.n_faces()-1);
-	//for (int i = 0; i < m_mesh.n_faces() * 0.1; ++i) {
-	//	auto f = m_mesh.face_handle(dis(gen));
-	//	if (!isSeedFace(f)) addSeedFace(f);
-	//}
 	addSeedFace(m_mesh.face_handle(dis(gen)));
 
-	const auto homeomorphicDisk = [&](FH &f, ID tile) {
-		int countFace = 0, countEdge = 0;
-		for (auto he = m_mesh.cfh_begin(f); he != m_mesh.cfh_end(f); ++he) {
-			if (!isCrossed(*he) && id(m_mesh.opposite_face_handle(*he))) countEdge++;
-			if (id(m_mesh.opposite_face_handle(*he)) == tile) countFace++;
+	const auto isAdjTo = [&](const VH &v, ID tile) {
+		for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
+			if (id(*f) == tile) return true;
 		}
-		return countFace == countEdge;
+		return false;
+	};
+
+	const auto homeomorphicDisk = [&](FH &f, VH &v, ID tile) {
+		int countEdge = 0;
+		for (auto he = m_mesh.cfh_begin(f); he != m_mesh.cfh_end(f); ++he) {
+			if (id(m_mesh.opposite_face_handle(*he)) != tile) countEdge++;
+		}
+		return !(isAdjTo(v, tile) && countEdge == 2);
 	};
 
 	const auto adjTiles = [&](const VH &v) {
@@ -241,19 +255,14 @@ void VoronoiRemesh::partition()
 			auto e = m_mesh.edge_handle(*voh);
 			auto id11 = id(m_mesh.face_handle(*voh));
 			auto id22 = id(m_mesh.opposite_face_handle(*voh));
-			if (!isCrossed(e) && marked[e] == 0 && (id11 == id1 && id22 == id2)// || id11 == id2 && id22 == id1)
-			) {
+			if (marked[e] == 0 && id11 == id1 && id22 == id2) {
 				return *voh;
 			}
 		}
 		return INVALID_H;
 	};
 
-	int iter = 0;
 	do {
-		std::cerr << "iteration: " << iter++ << ", seeds: " << seeds.size() << ", q: ";
-		std::cerr << q.size() << std::endl;
-
 		// grow tiles until M is covered or COND 1 is violated
 		while (!q.empty()) {
 
@@ -281,25 +290,20 @@ void VoronoiRemesh::partition()
 							crossed(*he) = -1;
 						}
 					}
+					crossed(*he) = id(face);
+					auto v = m_mesh.to_vertex_handle(m_mesh.next_halfedge_handle(opp));
 					// COND 1: if not homeomorphic to disk (new face is adj to boundary across
 					// which lies a face of the same tile) add face as new seed
-					if (!homeomorphicDisk(f, id(face))
-						//m_mesh.to_vertex_handle(m_mesh.next_halfedge_handle(opp)),
-					) {
-						std::cerr << "\tVIOLATION 1 (q size: " << q.size() << ")\n";
+					if (!homeomorphicDisk(f, v, id(face))) {
+						crossed(*he) = -1;
 						addSeedFace(f);
 						stop = true;
 						break;
 					}
-					crossed(*he) = id(face);
 					grow(f, face, update);
-					std::cerr << "\tupdating face " << f << " from " << before << " to " << id(f) << "\n";
 				}
 			}
 		}
-		/*for (auto &f : m_mesh.faces()) {
-			assert(id(f) >= 0);
-		}*/
 		// COND 2: if more than one shared boundary per pair of tiles exists, add one of the
 		// faces adj to the cut as a new seed face
 		std::vector<std::vector<short>> cuts;
@@ -313,110 +317,83 @@ void VoronoiRemesh::partition()
 		}
 
 		for (auto &edge : m_mesh.edges()) {
-			if (!isCrossed(edge) && marked[edge] == 0) {
-				FH face = m_mesh.face_handle(m_mesh.halfedge_handle(edge, 0));
-				ID id1 = id(face);
-				ID id2 = id(m_mesh.face_handle(m_mesh.halfedge_handle(edge, 1)));
+			HH forward = m_mesh.halfedge_handle(edge, 0);
+			HH backward = m_mesh.halfedge_handle(edge, 1);
 
+			FH face = m_mesh.face_handle(forward);
+			ID id1 = id(face);
+			ID id2 = id(m_mesh.face_handle(backward));
+			if (marked[edge] == 0) {
+				// check id
 				if (id1 >= cuts.size() || id2 >= cuts.size() ||
 					id1 == id2 || id1 == -1 || id2 == -1) continue;
 
-				HH forward = m_mesh.halfedge_handle(edge, 0);
-				HH backward = m_mesh.halfedge_handle(edge, 1);
-
-				while (forward != INVALID_H && backward != INVALID_H) {
+				while (forward != INVALID_H || backward != INVALID_H) {
 					if (forward != INVALID_H) {
+						if (isSeedFace(face)) {
+							face = m_mesh.face_handle(forward);
+						}
 						marked[m_mesh.edge_handle(forward)] = 1;
-						m_mesh.set_color(m_mesh.edge_handle(forward), Color(1.f, 0.f, 0.f, 1.f));
 						forward = nextCutEdge(forward, id1, id2);
 					}
 					if (backward != INVALID_H) {
+						if (isSeedFace(face)) {
+							face = m_mesh.face_handle(backward);
+						}
 						marked[m_mesh.edge_handle(backward)] = 1;
-						m_mesh.set_color(m_mesh.edge_handle(backward), Color(1.f, 0.f, 0.f, 1.f));
 						backward = nextCutEdge(backward, id2, id1);
 					}
-
-					if (isSeedFace(face)) face = m_mesh.face_handle(forward);
-					if (isSeedFace(face)) face = m_mesh.face_handle(backward);
-
 				};
 				// deal with cut if necessary
 				if (id1 < id2) {
 					cuts[id1][id2 - id1]++;
 					if (cuts[id1][id2 - id1] > 1) {
-						std::cerr << "\tVIOLATION 2 (" << cuts[id1][id2 - id1] << " cuts)\n";
-						if (!isSeedFace(face)) addSeedFace(face);
-						else std::cerr << "\t\tCOULT NOT FIND NON SEED FACE\n";
+						addSeedFace(face);
 					}
 				} else {
 					cuts[id2][id1 - id2]++;
 					if (cuts[id2][id1 - id2] > 1) {
-						std::cerr << "\tVIOLATION 2 (" << cuts[id2][id1 - id2] <<" cuts)\n";
-						if (!isSeedFace(face)) addSeedFace(face);
-						else std::cerr << "\t\tCOULT NOT FIND NON SEED FACE\n";
+						addSeedFace(face);
 					}
 				}
 			}
 		}
 
-		int count = 0;
 		// COND 3: if one vertex is adj to more than 3 regions, add one adj face as a new seed face
 		for (auto &v : m_mesh.vertices()) {
-			int adj = adjTiles(v);
-			if  (adj > 3) {
-				std::cerr << "\tVIOLATION 3 (" << adj;
-				count++;
+			if  (adjTiles(v) > 3) {
+				int before = seeds.size();
 				for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
 					if (!isSeedFace(*f)) {
 						addSeedFace(*f);
-						std::cerr << ", " << adjTiles(v);
 						break;
 					}
 				}
-				std::cerr << ")\n";
+				assert(seeds.size() > before);
 			}
 		}
-		std::cerr << count << " have more than 3 adj tiles\n";
 
 	} while (!q.empty());
 
 
+	
 	if (m_useColors) {
-		m_colors.reserve(seeds.size());
-		ACG::HuePartitioningColors::generateNColors(seeds.size(), std::back_inserter(m_colors));
-		// TODO: color faces
-		for (auto &face : m_mesh.faces()) {
-			assert(id(face) >= 0 && id(face) < seeds.size());
-			if (isSeedFace(face)) {
-				auto col = m_colors[id(face)];
-				col[3] = 0.5f;
-				m_mesh.set_color(face, col);
+		BezierTMesh::Color boundaryColor(0.f, 0.f, 0.f, 1.f);
+		for (auto edge : m_mesh.edges()) {
+			const auto he = m_mesh.halfedge_handle(edge, 0);
+			const auto f1 = m_mesh.face_handle(he);
+			const auto f2 = m_mesh.opposite_face_handle(he);
+			if (id(f1) == id(f2)) {
+				crossed(edge) = id(f1);
+				m_mesh.set_color(edge, m_colors[id(f1)]);
 			} else {
-				m_mesh.set_color(face, m_colors[id(face)]);
+				m_mesh.set_color(edge, boundaryColor);
 			}
-			//std::cerr << "id: " << id(face) << ", dist: " << dist(face) << ", pred: " << pred(face) <<"\n";
 		}
 	}
 
-	BezierTMesh::Color boundaryColor(0.f, 0.f, 0.f, 1.f);
-
-	for (auto edge : m_mesh.edges()) {
-		//const auto he = m_mesh.halfedge_handle(edge, 0);
-		if (isCrossed(edge)) {
-			m_mesh.set_color(edge, m_colors[crossed(edge)]);
-		} else {
-			m_mesh.set_color(edge, boundaryColor);
-		}
-		/*if (id(m_mesh.face_handle(he)) == id(m_mesh.opposite_face_handle(he))) {
-			if (!isCrossed(he)) crossed(he) = id(m_mesh.face_handle(he));
-			if (m_useColors) m_mesh.set_color(edge, m_colors[crossed(edge)]);
-		} else if (id(m_mesh.face_handle(he)) != id(m_mesh.opposite_face_handle(he))) {
-			if (isCrossed(edge)) crossed(edge) = -1;
-			if (m_useColors) m_mesh.set_color(edge, boundaryColor);
-		}*/
-	}
-
-	std::cerr << "used " << seeds.size() << '/' << m_mesh.n_faces() << " faces as seeds" << std::endl;
+	std::cerr << "used " << seeds.size() << '/' << m_mesh.n_faces();
+	std::cerr << " faces as seeds" << std::endl;
 }
 
 void VoronoiRemesh::remesh(unsigned int size)
