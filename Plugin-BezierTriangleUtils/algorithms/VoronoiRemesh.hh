@@ -28,29 +28,27 @@ public:
 
 	};
 
-	struct FaceToTri
+	struct TriToVertex
 	{
-		std::vector<VH> verts;
+		std::set<VH> inner; // inner vertices
+		std::set<VH> outer; // outer boundary vertices (found using shortest paths)
 
-		std::vector<P> points(BezierTMesh &mesh)
+		void set(std::set<VH> &in, std::set<VH> &out)
 		{
-			std::vector<P> result;
-			std::transform(verts.begin(), verts.end(), std::back_inserter(result),
-				[mesh](BezierTMesh::VertexHandle &v) { return mesh.point(v); }
-			);
-			return result;
+			inner = in;
+			outer = out;
 		}
 	};
 
-	struct TriToFace
+	struct VertexToTri
 	{
-		FH triangle;
-		double hmap;
+		FH face; // delaunay triangle in control mesh (invalid if border)
+		double u, v; // parameterization
 
-		void set(FH &face, double hValue)
+		void set(double uVal, double vVal)
 		{
-			triangle = face;
-			hmap = hValue;
+			u = uVal;
+			v = vVal;
 		}
 	};
 
@@ -58,7 +56,9 @@ public:
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_useColors(colors),
-		m_colors()
+		m_colors(),
+		m_seeds(),
+		m_boundary()
 	{
 		prepare();
 	}
@@ -79,8 +79,8 @@ public:
 	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
 	double& dist(FH fh) { return m_mesh.property(m_distance, fh); }
 
-	TriToFace& ftt(FH fh) { return m_mesh.property(m_ttf, fh); }
-	FaceToTri& ttf(FH fh) { return m_mesh.property(m_ftt, fh); }
+	TriToVertex& ttv(FH fh) { return m_ctrl.property(m_ttv, fh); }
+	VertexToTri& vtt(VH vh) { return m_mesh.property(m_vtt, vh); }
 
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
 	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
@@ -94,24 +94,25 @@ private:
 
 	void partition();
 
-	void preventiveEdgeSplits(unsigned int size);
+	void preventiveEdgeSplits();
 
 	// member variables
 	BezierTMesh &m_mesh, &m_ctrl;
 
 	bool m_useColors;
 	std::vector<Color> m_colors;
+	std::set<FH> m_seeds;
+	std::vector<EH> m_boundary;
 
 	// property handles
-	OpenMesh::FPropHandleT<ID>        m_region;
-	OpenMesh::FPropHandleT<FH>        m_pred;
-	OpenMesh::FPropHandleT<double>    m_distance;
+	OpenMesh::FPropHandleT<ID>			  m_region;
+	OpenMesh::FPropHandleT<FH>			  m_pred;
+	OpenMesh::FPropHandleT<double>		  m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
-	OpenMesh::EPropHandleT<ID>        m_crossed;
+	OpenMesh::EPropHandleT<ID>			  m_crossed;
 
-	OpenMesh::FPropHandleT<TriToFace> m_ttf;
-	OpenMesh::FPropHandleT<FaceToTri> m_ftt;
-	OpenMesh::VPropHandleT<short>     m_tribound;
+	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
+	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;
 };
 
 }
