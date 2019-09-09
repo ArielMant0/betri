@@ -1,13 +1,12 @@
 #include "Parametrization.hh"
 
+#include <cmath>
+
 namespace betri
 {
 
 void Parametrization::prepare()
 {
-	if(!m_mesh.get_property_handle(m_hmap, hmapName))
-		m_mesh.add_property(m_hmap, hmapName);
-
 	if(!m_mesh.get_property_handle(m_vweight, vweightName))
 		m_mesh.add_property(m_vweight, vweightName);
 
@@ -16,15 +15,15 @@ void Parametrization::prepare()
 
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
+
+	// TODO: only needs to be done once?
+	calcWeights();
 }
 
 //-----------------------------------------------------------------------------
 
 void Parametrization::cleanup()
 {
-	if (m_mesh.get_property_handle(m_hmap, hmapName))
-		m_mesh.remove_property(m_hmap);
-
 	if (m_mesh.get_property_handle(m_vweight,  vweightName))
 		m_mesh.remove_property(m_vweight);
 
@@ -114,105 +113,68 @@ void Parametrization::calcWeights()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::initCoords(int id)
+void Parametrization::initCoords(const FaceHandle &face)
 {
 	// Map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
 	// Map interior vertices to triangle center
 
-	VertexIter      v_it, v_end(m_mesh.vertices_end());
-	VertexHandle    vh;
-	HalfedgeHandle  hh;
-
-	// find 1st boundary vertex
-	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
-		if (m_mesh.is_boundary(*v_it))
-			break;
-	}
-
-	// not boundary found => this cannot work
-	if (v_it == v_end) {
-		std::cerr << "No boundary found\n";
-		return;
-	}
-
-	//auto vec1 = triangle[1] - triangle[0];
-	//auto vec2 = triangle[2] - triangle[0];
-	//auto vec3 = triangle[2] - triangle[1];
-	//auto vec4 = -vec1;
-
-	//// compute angles inside the triangle
-	//const double angle1 = acos((vec1 | vec2) / (vec1.norm() * vec2.norm()));
-	//const double angle2 = acos((vec4 | vec3) / (vec4.norm() * vec3.norm()));
-	//const double angle3 = 180.0 - angle1 - angle2;
-
-	// position boundary vertices on a unit circle such that angles are preserved
-	//const std::array<Vec2, 3> boundary = {
-	//	Vec2(0.f, 0.5f),
-	//	Vec2(cos(angle1), sin(angle1)),
-	//	Vec2(cos(angle1+angle2), sin(angle1+angle2))
-	//};
-
+	size_t innerIdx = 0;
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
-	for (v_it = m_mesh.vertices_begin(); v_it != v_end; ++v_it) {
-		hmap(*v_it) = Vec2(0.5f, 0.5f);
+	for (auto &v : *m_inner) {
+		hmap(v) = Vec2(0.5f, 0.5f);
+		sysid(v) = innerIdx++;
 	}
+
+	Scalar length = 0.0;
+	// TODO: order is important!, maybe start from one boundary edge and go further from there
+	for (auto v = m_outer->begin(); v != m_outer->end(); ++v) {
+		auto next = std::next(v);
+		if (next == m_outer->end()) next = m_outer->begin();
+		length += (m_mesh.point(*v) - m_mesh.point(*next)).norm();
+	}
+
+	constexpr float turn = 135.0 * M_PI / 180.0;
+	const float cosTerm = std::cos(turn);
+	const float sinTerm = std::sin(turn);
+
+	// triangle circumference (unit triangle) ratio
+	Scalar ratio = (2 + sqrt(2.0)) / length;
+	// current position on the circumference and direction
+	Vec2 pos{ 0.f, 0.f }, dir{ 1.f, 0.f };
 
 	// assign boundary coordinates
-	vh = v_it.handle();
-	hh = m_mesh.halfedge_handle(vh);
-	int i = 0;
-	assert(m_mesh.is_boundary(hh));
-	do
-	{
-		//hmap(m_mesh.to_vertex_handle(hh)) = boundary[i++];
-		assert(i <= 3);
-		hh = m_mesh.next_halfedge_handle(hh);
-	} while (hh != m_mesh.halfedge_handle(vh));
-}
-
-//-----------------------------------------------------------------------------
-
-void Parametrization::solve(
-	const std::array<VertexHandle,3> boundary,
-	const int rId,
-	const char *idName
-) {
-	m_outer = { boundary.begin(), boundary.end() };
-	m_mesh.get_property_handle(m_id, idName);
-
-	// calculate coordinates
-	initCoords(rId);
-
-	// should always be 3 because boundary is a triangular region of the mesh
-	nv_bdry_ = m_outer.size();
-	assert(nv_bdry_ == 3);
-	nv_inner_ = 0;
-
-	auto allSame = [&](const VertexHandle &v) {
-		for (auto f_it = m_mesh.cvf_begin(v); f_it != m_mesh.cvf_end(v); ++f_it) {
-			if (id(*f_it) != rId) return false;
-		}
-		return true;
-	};
-
-	// also map the indices of inner vertices to equation system vertices [0, nv_inner_-1]
-	for (auto v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
-		if (allSame(*v_it)) {
-			if (m_mesh.is_boundary(*v_it)) {
-				nv_bdry_++;
-			} else {
-				sysid(*v_it) = nv_inner_;
-				nv_inner_++;
-			}
+	// TODO: order is important!, maybe get corner vertex (by looking at all vertices of the
+	//		 seed face) and then walking along the edge from there
+	for (auto v = m_outer->begin(); v != m_outer->end(); ++v) {
+		auto next = std::next(v);
+		if (next == m_outer->end()) next = m_outer->begin();
+		Scalar l = (m_mesh.point(*v) - m_mesh.point(*next)).norm();
+		pos += dir * l;
+		hmap(*v) = pos;
+		// if we reached a corner of the triangle, go to next corner
+		if (isCorner(*v, face)) {
+			const float tmp = dir[0];
+			dir[0] = tmp * cosTerm - dir[1] * sinTerm;
+			dir[1] = tmp * sinTerm + dir[1] * cosTerm;
 		}
 	}
+}
+
+void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle &face)
+{
+	m_inner = &inner;
+	m_outer = &outer;
+
+	nv_bdry_ = m_inner->size();
+	nv_inner_ = m_outer->size();
+	nv_total_ = nv_inner_ + nv_bdry_;
+
+	// calculate coordinates
+	initCoords(face);
 
 	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
 	std::cerr << " inner vertices, the total number is " << nv_total_ << std::endl;
-
-	// calculate weights
-	calcWeights();
 
 	// system matrix
 	EigenSpMatT A(nv_inner_, nv_inner_);
@@ -242,19 +204,16 @@ void Parametrization::solve(
 
 	// INSERT CODE:
 	// for all inner vertices, setup the corresponding row of the linear systems (u and v)
-	// TODO: Call add_row_to_system for all inner vertices
+	// call add_row_to_system for all inner vertices
 	// Smooth parameterization using Laplacian relaxation.
 	//--- start strip ---
 
-	//for (auto &v : vertices) {
-	//	// skip boundary vertices
-	//	if (!v.second) {
-	//		add_row_to_system(triplets, rhsu, rhsv, v.first);
-	//	}
-	//}
+	for (const auto &v : *m_inner) {
+		add_row_to_system(triplets, rhsu, rhsv, v);
+	}
 	//--- end strip ---
 	std::cerr << " number of triplets (i.e. number of non-zeros) " << triplets.size();
-	std::cerr << ", per row " << (triplets.size()/nv_inner_) << std::endl;
+	std::cerr << ", per row " << (triplets.size() / nv_inner_) << std::endl;
 
 	// now we have all triplets to setup the matrix A
 	A.setFromTriplets(triplets.begin(), triplets.end());
@@ -279,11 +238,16 @@ void Parametrization::solve(
 		std::cerr << "solve failed!" << std::endl;
 
 	// write back to hmap
-	for (VertexIter v_it = m_mesh.vertices_begin(); v_it != m_mesh.vertices_end(); ++v_it) {
-		// skip boundary vertices
-		if (!m_mesh.is_boundary(*v_it)) {
-			hmap(*v_it) = Vec2(resultU[sysid(*v_it)], resultV[sysid(*v_it)]);
-		}
+	for (const auto &v : *m_inner) {
+		hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
+	}
+}
+
+//-----------------------------------------------------------------------------
+
+void Parametrization::solve() {
+	for (const auto &face : m_ctrl.faces()) {
+		solveLocal(ttv(face).inner, ttv(face).outer, face);
 	}
 }
 
@@ -302,7 +266,7 @@ void Parametrization::add_row_to_system(
 	// else setup one row of the matrix, need local indices
 
 	// INSERT CODE:
-	// todo: setup one row of the equation system by pushing back (_triplets.push_back(...))
+	// setup one row of the equation system by pushing back (_triplets.push_back(...))
 	// the triplets (of non-zero entries) of the Laplacian for vertex _origvh
 	// For constrained (boundary) neighbors also add the corresponding right hand side entries
 	// to _rhsu and _rhsv
@@ -318,7 +282,7 @@ void Parametrization::add_row_to_system(
 		weightsum += w;
 
 		// update rhs (u,v)
-		if (m_mesh.is_boundary(*vv_it)) {
+		if (m_outer->find(*vv_it) != m_outer->end()) {
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];
 		}

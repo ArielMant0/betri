@@ -39,11 +39,18 @@ void VoronoiRemesh::prepare()
 	if (!m_mesh.get_property_handle(m_crossed, Props::CROSSED))
 		m_mesh.add_property(m_crossed, Props::CROSSED);
 
-	if (!m_mesh.get_property_handle(m_vtt, Props::FACETOTRI))
-		m_mesh.add_property(m_vtt, Props::FACETOTRI);
+	if (!m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
+		m_mesh.add_property(m_vtt, Props::VERTEXTOTRI);
 
-	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOFACE)) {
-		m_ctrl.add_property(m_ttv, Props::TRITOFACE);
+	if (!m_mesh.get_property_handle(m_border, Props::BORDER))
+		m_mesh.add_property(m_border, Props::BORDER);
+
+	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX)) {
+		m_ctrl.add_property(m_ttv, Props::TRITOVERTEX);
+	}
+
+	for (const auto &he : m_mesh.halfedges()) {
+		border(he) = -1;
 	}
 
 	if (m_useColors) {
@@ -70,10 +77,13 @@ void VoronoiRemesh::cleanup()
 	if (m_mesh.get_property_handle(m_crossed, Props::CROSSED))
 		m_mesh.remove_property(m_crossed);
 
-	if (m_mesh.get_property_handle(m_vtt, Props::TRITOFACE))
+	if (m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
 		m_mesh.remove_property(m_vtt);
 
-	if (m_ctrl.get_property_handle(m_ttv, Props::TRITOFACE))
+	if (m_mesh.get_property_handle(m_border, Props::BORDER))
+		m_mesh.remove_property(m_border);
+
+	if (m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX))
 		m_ctrl.remove_property(m_ttv);
 }
 
@@ -451,7 +461,6 @@ void VoronoiRemesh::remesh(unsigned int size)
 		m_ctrl.request_face_colors();
 	}
 
-	auto borders = OpenMesh::makeTemporaryProperty<FH, bool>(m_mesh);
 	auto newverts = OpenMesh::makeTemporaryProperty<FH, VH>(m_mesh);
 
 	for (const auto &f : m_mesh.faces()) {
@@ -511,7 +520,7 @@ void VoronoiRemesh::remesh(unsigned int size)
 		return INVALID_E;
 	};
 
-	auto shortestPath = [&](const VH &v, const FH &f1, const FH &f2) {
+	auto shortestPath = [&](const VH &v, const FH &f1, const FH &f2, std::set<HH> &path) {
 		const ID id_1 = id(f1), id_2 = id(f2);
 
 		HH start = findStartBorder(v, id_1, id_2, INVALID_E);
@@ -538,26 +547,54 @@ void VoronoiRemesh::remesh(unsigned int size)
 			tmp2 = m_mesh.opposite_face_handle(he);
 		} while (he != INVALID_H && he != begin && id(tmp1) == id_1 && id(tmp2) == id_2);
 
-		std::deque<FH> path;
+		// TODO: what about seed faces
+		for (auto he = m_mesh.cfh_begin(f1); he != m_mesh.cfh_end(f1); ++he) {
+			// TODO: make it so a halfedge can have more than 1 number
+			auto it = path.find(m_mesh.opposite_halfedge_handle(*he));
+			if (it == path.end()) {
+				path.insert(*he);
+				border(*he) = m_ctrl.n_faces();
+				m_mesh.set_color(m_mesh.edge_handle(*he), { 0.f, 1.f, 0.9f, 1.f });
+			} else {
+				border(*he) = -1;
+				path.erase(it);
+				m_mesh.set_color(m_mesh.edge_handle(*he), { 1.f, 0.f, 0.9f, 1.f });
+			}
+		}
+
 		while (pred(f11) != INVALID_F) {
-			path.push_front(f11);
-			borders[f11] = true;
-			if (m_useColors) {
-				m_mesh.set_color(f11, { 1.f, 1.f, 1.f, 1.f });
+			for (auto he = m_mesh.cfh_begin(f11); he != m_mesh.cfh_end(f11); ++he) {
+				// TODO: make it so a halfedge can have more than 1 number
+				auto it = path.find(m_mesh.opposite_halfedge_handle(*he));
+				if (it == path.end()) {
+					path.insert(*he);
+					border(*he) = m_ctrl.n_faces();
+					m_mesh.set_color(m_mesh.edge_handle(*he), { 0.f, 1.f, 0.9f, 1.f });
+				} else {
+					border(*he) = -1;
+					path.erase(it);
+					m_mesh.set_color(m_mesh.edge_handle(*he), { 1.f, 0.f, 0.9f, 1.f });
+				}
 			}
 			f11 = pred(f11);
 		}
 
 		while (pred(f22) != INVALID_F) {
-			path.push_back(f22);
-			borders[f22] = true;
-			if (m_useColors) {
-				m_mesh.set_color(f11, { 1.f, 1.f, 1.f, 1.f });
+			for (auto he = m_mesh.cfh_begin(f22); he != m_mesh.cfh_end(f22); ++he) {
+				// TODO: make it so a halfedge can have more than 1 number
+				auto it = path.find(m_mesh.opposite_halfedge_handle(*he));
+				if (it == path.end()) {
+					path.insert(*he);
+					border(*he) = m_ctrl.n_faces();
+					m_mesh.set_color(m_mesh.edge_handle(*he), { 0.f, 1.f, 0.9f, 1.f });
+				} else {
+					border(*he) = -1;
+					path.erase(it);
+					m_mesh.set_color(m_mesh.edge_handle(*he), { 1.f, 0.f, 0.9f, 1.f });
+				}
 			}
 			f22 = pred(f22);
 		}
-
-		return path;
 	};
 
 	//////////////////////////////////////////////////////////
@@ -569,15 +606,15 @@ void VoronoiRemesh::remesh(unsigned int size)
 
 
 	std::queue<VH> q;
-	std::deque<FH> border;
-	std::set<VH> in,out;
+	std::set<HH> boundary;
 
-	const auto adjFaces = [&](const VH &v) {
-		int total = 0, count = 0;
-		for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f, total++) {
-			if (!borders[f]) count++;
+	const auto adjToBorder = [&](const VH &v, const std::set<HH> &b) {
+		for (auto he = m_mesh.cvoh_begin(v); he != m_mesh.cvoh_end(v); ++he) {
+			if (b.find(*he) != b.end()) {
+				return true;
+			}
 		}
-		return std::pair<unsigned int, unsigned int>(total, count);
+		return false;
 	};
 
 	const auto getSeed = [&](unsigned int i) {
@@ -611,71 +648,72 @@ void VoronoiRemesh::remesh(unsigned int size)
 				if (next == seedFaces.end()) {
 					next = seedFaces.begin();
 				}
-				// add all points from shortest path between two regions to border
-				auto path = shortestPath(v, *f, *next);
-				border.insert(border.end(), path.begin(), path.end());
+				// mark border halfedges between these two regions
+				shortestPath(v, *f, *next, boundary);
 			}
 			// add the face
 			const auto fh = m_ctrl.add_face(points);
 
-			for (const auto &f : border) {
-				for (auto vv = m_mesh.cfv_begin(f); vv != m_mesh.cfv_end(f); ++vv) {
-					out.insert(*vv);
-					m_mesh.set_color(*vv, { 0.f, 0.f, 0.f, 1.f });
-				}
-			}
-
 			auto col = colgen.generateNextColor();
 			m_mesh.set_color(v, { 1.f, 1.f, 1.f, 1.f });
-			q.push(v);
-			if (out.find(v) == out.end()) {
-				in.insert(v);
+			if (!adjToBorder(v, boundary)) {
+				ttv(fh).inner.insert(v);
+				q.push(v);
+			} else {
+				ttv(fh).outer.insert(v);
+				// IDEA: take a border vertex, then look at incident vertices of the adj face
+				//		 until one vertex is an inner one
+				for (const auto &he : boundary) {
+					auto &vh = m_mesh.to_vertex_handle(m_mesh.next_halfedge_handle(he));
+					if (!adjToBorder(vh, boundary)) {
+						q.push(vh);
+						ttv(fh).inner.insert(v);
+						break;
+					}
+				}
 			}
-			// TODO: else look for another more fitting vertex to start at?
+			return;
+			assert(q.size() == 1);
 
-			// IDEA: pass start vertex and boundary faces, then start from vertex looking at neighbors
-			// and if they are not part of a boundary face, add as inner vertex, else as outer vertex
+			// TODO: another idea is to return all border halfedges in shortestPath(...)
+			//		 and then grow the delaunay triangle from there until the border is
+			//		 reached again (using the marked halfedges)
 			while (!q.empty()) {
 				auto vert = q.front();
 				q.pop();
 
 				for (auto vh = m_mesh.cvv_begin(vert); vh != m_mesh.cvv_end(vert); ++vh) {
-					if (out.find(*vh) == out.end() && in.find(*vh) == in.end()) {
-						in.insert(*vh);
+					if (adjToBorder(*vh, boundary)) {
+						ttv(fh).outer.insert(*vh);
+						vtt(*vh).face = INVALID_F;
+						m_mesh.set_color(*vh, { 0.f, 0.f, 0.f, 1.f });
+					} else if (ttv(fh).inner.find(*vh) == ttv(fh).inner.end()) {
+						ttv(fh).inner.insert(*vh);
 						vtt(*vh).face = fh;
 						m_mesh.set_color(*vh, col);
+						// only add to q if this vertex is not a border vertex
 						q.push(*vh);
 					}
 				}
 			}
-
-			ttv(fh).set(in, out);
-			border.clear();
-			in.clear(); out.clear();
-
 			points.clear();
+			boundary.clear();
 		}
 		seedFaces.clear();
 		check.clear();
 	}
 
-	/*for (const auto &f : m_mesh.faces()) {
-		if (borders[f]) {
-			m_mesh.set_color(f, { 1.f, 1.f, 1.f, 1.f });
-		}
-	}*/
+	//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
 
-	PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
-
-	return;
+	return; // EARLY DEBUG RETURN
 
 	//////////////////////////////////////////////////////////
 	// parameterization (harmonic map)
 	//////////////////////////////////////////////////////////
 
-	//Parametrization param(m_mesh);
+	Parametrization param(m_mesh, m_ctrl, m_ttv, m_vtt, m_pred, m_border);
 
-	//param.solve();
+	param.solve();
 
 	//////////////////////////////////////////////////////////
 	// fitting
