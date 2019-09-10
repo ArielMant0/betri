@@ -3,7 +3,7 @@
 namespace betri
 {
 
-std::array<int, BezierOption::N> s_options;
+static std::array<int, BezierOption::N> s_options;
 
 int option(BezierOption b)
 {

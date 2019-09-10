@@ -12,8 +12,7 @@ enum BezierOption : int
 	N
 };
 
-
-extern std::array<int, BezierOption::N> s_options;
+//extern std::array<int, BezierOption::N> s_options;
 
 int option(BezierOption b);
 

@@ -166,6 +166,10 @@ void BezierTriangleUtilsPlugin::setTessAmount(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
 	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
 }
 
 void BezierTriangleUtilsPlugin::setTessType(int value)

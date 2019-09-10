@@ -84,7 +84,10 @@ public:
 		invalidateControlNetMeshSel_(true),
 		controlPointsChangedR_(true), // TODO
 		controlPointsChangedC_(true), // TODO
-		oldFaceCount_(0) // TODO
+		oldFaceCount_(0), // TODO
+		NEWVERTICES(0), // TODO
+		VERTEXSUM(3), // TODO
+		STEPSIZE(1.0) // TODO
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
@@ -365,6 +368,24 @@ private:
 	TextureBuffer knotTexBufferU_;
 	TextureBuffer knotTexBufferV_;
 	Texture2D controlPointTex_;
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Tessellation variables
+///////////////////////////////////////////////////////////////////////////////
+
+	// Additional Vertices per edge trough subdivision
+	int NEWVERTICES;
+	//static int NEWVERTICES = betri::mersennePrime(ITERATIONS);
+
+	// Sum of all new Trianglevertices
+	//static int VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
+	int VERTEXSUM;
+	// TODO does it make sence to have two different stepsizes?
+	// TODO Capital letters?
+	// TODO calculate the other two values if one of them is given
+	//static double STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
+	 double STEPSIZE;
 
 };
 
