@@ -59,7 +59,7 @@ public:
 		controlnet_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
 		surface_color_(Vec4f(178.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, 1.0f)),
 		surface_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
-		render_control_net_(true), // TODO
+		render_control_net_(false), // TODO
 		render_bspline_surface_(true),
 		adaptive_sampling_(false),
 		controlPointSelectionTexture_valid_(false),
@@ -102,12 +102,12 @@ public:
 		delete fancySphere_;
 	}
 
-	enum BSplineDrawMode {
+	enum BTDrawMode {
 		NORMAL = 0,
 		FANCY = 1
 	};
 
-	enum BSplineSelectionDrawMode {
+	enum BTSelectionDrawMode {
 		NONE = 0,
 		CONTROLPOINT = 1,
 		KNOTVECTOR = 2
@@ -167,15 +167,15 @@ public:
 		return render_bspline_surface_;
 	};
 
-	void set_bspline_draw_mode(BSplineDrawMode _mode) {
+	void set_bspline_draw_mode(BTDrawMode _mode) {
 		bspline_draw_mode_ = _mode;
 	};
 
-	void set_selection_draw_mode(BSplineSelectionDrawMode _mode) {
+	void set_selection_draw_mode(BTSelectionDrawMode _mode) {
 		bspline_selection_draw_mode_ = _mode;
 	};
 
-	BSplineSelectionDrawMode get_selection_draw_mode() const {
+	BTSelectionDrawMode get_selection_draw_mode() const {
 		return bspline_selection_draw_mode_;
 	}
 
@@ -290,9 +290,8 @@ private:
 
 	MeshT& bezierTriangleMesh_;
 
-	BSplineDrawMode bspline_draw_mode_;
-
-	BSplineSelectionDrawMode bspline_selection_draw_mode_;
+	BTDrawMode bspline_draw_mode_;
+	BTSelectionDrawMode bspline_selection_draw_mode_;
 
 	double pick_radius_;
 

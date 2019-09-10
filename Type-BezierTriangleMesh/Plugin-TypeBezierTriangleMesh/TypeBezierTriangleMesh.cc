@@ -89,13 +89,15 @@ void TypeBezierTriangleMeshPlugin::slotUpdateContextMenu(int _objectId)
 
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-	/*if (surfaceObject != 0) {
-		renderControlNetAction_->setChecked(surfaceObject->splineSurfaceNode()->render_control_net());
-		renderSurfaceAction_->setChecked(surfaceObject->splineSurfaceNode()->render_bspline_surface());
+	if (surfaceObject != 0) {
+		renderControlNetAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_control_net());
+		renderSurfaceAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_bspline_surface());
+		/*
 		renderCPSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::CONTROLPOINT);
 		renderKnotSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::KNOTVECTOR);
 		renderNoSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::NONE);
-	}*/
+		*/
+	}
 }
 
 void TypeBezierTriangleMeshPlugin::slotRenderControlNet() {
@@ -110,12 +112,12 @@ void TypeBezierTriangleMeshPlugin::slotRenderControlNet() {
 	if (!PluginFunctions::getObject(objectId, object))
 		return;
 
-	//BSplineSurfaceObject* bsplineSurfaceObject = dynamic_cast<BSplineSurfaceObject*>(object);
+	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-	//if (bsplineSurfaceObject != 0) {
-	//	bsplineSurfaceObject->splineSurfaceNode()->render_control_net(renderControlNetAction_->isChecked());
-	//	emit updatedObject(objectId, UPDATE_ALL);
-	//}
+	if (surfaceObject != 0) {
+		surfaceObject->bezierTriangleMeshNode()->render_control_net(renderControlNetAction_->isChecked());
+		emit updatedObject(objectId, UPDATE_ALL);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -132,12 +134,12 @@ void TypeBezierTriangleMeshPlugin::slotRenderSurface() {
 	if (!PluginFunctions::getObject(objectId, object))
 		return;
 
-	//BSplineSurfaceObject* bsplineSurfaceObject = dynamic_cast<BSplineSurfaceObject*>(object);
+	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-	//if (bsplineSurfaceObject != 0) {
-	//	bsplineSurfaceObject->splineSurfaceNode()->render_bspline_surface(renderSurfaceAction_->isChecked());
-	//	emit updatedObject(objectId, UPDATE_ALL);
-	//}
+	if (surfaceObject != 0) {
+		surfaceObject->bezierTriangleMeshNode()->render_bspline_surface(renderSurfaceAction_->isChecked());
+		emit updatedObject(objectId, UPDATE_ALL);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -154,23 +156,22 @@ void TypeBezierTriangleMeshPlugin::slotRenderSelection(QAction* _action) {
 	if (!PluginFunctions::getObject(objectId, object))
 		return;
 
-	//BSplineSurfaceObject* bsplineSurfaceObject = dynamic_cast<BSplineSurfaceObject*>(object);
+	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-	//if (bsplineSurfaceObject != 0) {
-	//	if (_action == renderCPSelectionAction_) {
-	//		bsplineSurfaceObject->splineSurfaceNode()->set_selection_draw_mode(ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::CONTROLPOINT);
-	//		emit updatedObject(objectId, UPDATE_ALL);
-	//	}
-	//	else if (_action == renderKnotSelectionAction_) {
-	//		bsplineSurfaceObject->splineSurfaceNode()->set_selection_draw_mode(ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::KNOTVECTOR);
-	//		emit updatedObject(objectId, UPDATE_ALL);
-	//	}
-	//	else if (_action == renderNoSelectionAction_) {
-	//		bsplineSurfaceObject->splineSurfaceNode()->set_selection_draw_mode(ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::NONE);
-	//		emit updatedObject(objectId, UPDATE_ALL);
-
-	//	}
-	//}
+	if (surfaceObject != 0) {
+		if (_action == renderCPSelectionAction_) {
+			surfaceObject->bezierTriangleMeshNode()->set_selection_draw_mode(ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>::CONTROLPOINT);
+			emit updatedObject(objectId, UPDATE_ALL);
+		}
+		else if (_action == renderKnotSelectionAction_) {
+			surfaceObject->bezierTriangleMeshNode()->set_selection_draw_mode(ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>::KNOTVECTOR);
+			emit updatedObject(objectId, UPDATE_ALL);
+		}
+		else if (_action == renderNoSelectionAction_) {
+			surfaceObject->bezierTriangleMeshNode()->set_selection_draw_mode(ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>::NONE);
+			emit updatedObject(objectId, UPDATE_ALL);
+		}
+	}
 }
 
 bool TypeBezierTriangleMeshPlugin::registerType()
