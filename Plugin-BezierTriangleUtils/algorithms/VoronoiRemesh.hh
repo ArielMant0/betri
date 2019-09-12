@@ -1,6 +1,7 @@
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
 #include "Parametrization.hh"
+#include "ShortestPath.hh"
 
 namespace betri
 {
@@ -9,11 +10,12 @@ class VoronoiRemesh
 {
 public:
 
-	using ID = int;
-	using VH = BezierTMesh::VertexHandle;
-	using EH = BezierTMesh::EdgeHandle;
-	using HH = BezierTMesh::HalfedgeHandle;
-	using FH = BezierTMesh::FaceHandle;
+	using ID = ShortestPath::ID;
+	using VH = ShortestPath::VH;
+	using EH = ShortestPath::EH;
+	using HH = ShortestPath::HH;
+	using FH = ShortestPath::FH;
+
 	using P = BezierTMesh::Point;
 	using Color = BezierTMesh::Color;
 
@@ -30,6 +32,14 @@ public:
 		static constexpr char *VERTEXTOTRI = "vtt";
 		static constexpr char *TRITOVERTEX = "ttv";
 		static constexpr char *BORDER = "border";
+	};
+
+	enum class FaceSplit : char
+	{
+		NONE = 0,
+		MAKE_FOUR = 1,
+		TWO = 2,
+		FOUR = 4
 	};
 
 	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true) :
@@ -63,6 +73,7 @@ public:
 	VertexToTri& vtt(VH vh) { return m_mesh.property(m_vtt, vh); }
 
 	int& border(HH hh) { return m_mesh.property(m_border, hh); }
+	FaceSplit& split(FH fh) { return m_mesh.property(m_split, fh); }
 
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
 	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
@@ -78,6 +89,14 @@ private:
 
 	void preventiveEdgeSplits();
 
+	bool hasShortestPath(const ID id1, const ID id2) const;
+	ShortestPath getShortestPath(ID id1, ID id2);
+
+	// face splitting (to add boundary edges to the mesh)
+	void splitFace(FH &face);
+
+	// -------------------------------------------------------------- //
+
 	// member variables
 	BezierTMesh &m_mesh, &m_ctrl;
 
@@ -85,6 +104,10 @@ private:
 	std::vector<Color> m_colors;
 	std::set<FH> m_seeds;
 	std::vector<EH> m_boundary;
+	// stores the shortest path for each pair of tiles that is needed to
+	// construct the delaunay triangulation
+	std::unordered_set<ShortestPath> m_paths;
+
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;
@@ -95,6 +118,7 @@ private:
 	// TODO: add property to each halfedge(!) that shows which delaunay triangle
 	// it is a part of (uses face index)
 	OpenMesh::HPropHandleT<int>			  m_border;
+	OpenMesh::FPropHandleT<FaceSplit>	  m_split;
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;

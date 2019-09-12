@@ -203,7 +203,7 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 		PluginFunctions::getObject(ctrl_id, obj);
 		ctrl_obj = PluginFunctions::btMeshObject(obj);
 		ctrl_obj->setName("control mesh");
-		ctrl_obj->show();
+		ctrl_obj->hide();
 		ctrl_obj->target(false);
 
 		betri::voronoiRemesh(*o_it, obj);
