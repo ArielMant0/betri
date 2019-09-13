@@ -63,10 +63,11 @@ public:
 		return new_e;
 	}
 
-	EdgeHandle splitEdgeCopySimple(EdgeHandle eh, VertexHandle vh)
+	HalfedgeHandle splitEdgeCopySimple(EdgeHandle eh, VertexHandle vh)
 	{
-		PolyConnectivity::split_edge_copy(eh, vh);
-		return edge_handle(n_edges() - 1);
+		HalfedgeHandle he = splitEdgeSimple(eh, vh);
+		copy_all_properties(eh, edge_handle(he), false);
+		return he;
 	}
 
 	std::array<FaceHandle,3> splitFaceDyadical(
@@ -77,4 +78,7 @@ public:
 
 	void correctSplits(bool copy=false);
 
+private:
+
+	void splitRivara(const HalfedgeHandle he, const VertexHandle vh, bool copy=false);
 };

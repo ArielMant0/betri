@@ -100,7 +100,7 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 			} else {
 				edges[i] = he;
 			}
-			set_halfedge_handle(neighbors[i], edges[i]);
+			set_halfedge_handle(neighbors[i], opposite_halfedge_handle(oldEdges[i]));
 			// copy properties (not base!)
 			if (copy) copy_all_properties(e, edge_handle(edges[i]), false);
 			assert(to_vertex_handle(edges[i]) == verts[i]);
@@ -129,9 +129,9 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 		set_face_handle(edge, face);
 		set_face_handle(inner[i], fh);
 		// set prev halfedge handles (does nothing if no prev handle is present)
-		set_prev_halfedge_handle(edges[i], previous);
+		/*set_prev_halfedge_handle(edges[i], previous);
 		set_prev_halfedge_handle(previous, edge);
-		set_prev_halfedge_handle(edge, edges[i]);
+		set_prev_halfedge_handle(edge, edges[i]);*/
 		// set halfedge handle of the new face
 		set_halfedge_handle(face, edges[i]);
 
@@ -143,7 +143,7 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 
 	for (i = 0; i < inner.size(); ++i) {
 		set_next_halfedge_handle(inner[i], inner[(i + 1) % edges.size()]);
-		set_prev_halfedge_handle(inner[i], inner[(i - 1 + edges.size()) % edges.size()]);
+		//set_prev_halfedge_handle(inner[i], inner[(i - 1 + edges.size()) % edges.size()]);
 	}
 	set_halfedge_handle(fh, inner[0]);
 
@@ -151,6 +151,13 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 	for (auto f : neighbors) {
 		if (mark(f)) {
 			status(f).set_tagged(true);
+
+			int count = 0, total = 0;
+			for (auto vh = cfv_begin(f); vh != cfv_end(f); ++vh) {
+				if (status(*vh).tagged()) count++;
+				total++;
+			}
+			assert((count == 1 && total == 4) || (count == 2 && total == 5));
 		}
 	}
 
@@ -164,51 +171,70 @@ void BezierTMesh::correctSplits(bool copy)
 
 		FaceHandle fh = face_handle(i);
 		if (status(fh).tagged()) {
-			status(fh).set_tagged(false);
-			// collect tagged vertices
-			std::vector<VertexHandle> verts;
+			std::cerr << "found tagged face (needs rivara split): " << fh << "\n";
+			// tagged vertex
+			VertexHandle vertex;
 			HalfedgeHandle h;
-			for (auto he = fh_begin(fh); he != fh_end(fh); he++) {
+
+			int i = 0;
+			for (auto he = cfh_begin(fh); he != cfh_end(fh); ++he, ++i) {
 				VertexHandle v = to_vertex_handle(*he);
 				if (status(v).tagged()) {
-					verts.push_back(v);
+					vertex = v;
 					h = *he;
 					status(v).set_tagged(false);
 				}
 			}
 
+			// we must have visited exactly 4 vertices
+			assert(i == 4);
 			// we cannot have a face with more than one split edge
-			assert(verts.size() == 0 || verts.size() == 1);
+			assert(is_valid_handle(vertex));
 
-			if (verts.size() == 1) {
-				// perform rivara split
-				const auto nn = next_halfedge_handle(next_halfedge_handle(h));
-				const auto face = new_face();
-				const auto edge = new_edge(verts[0], to_vertex_handle(nn));
-				const auto opp = opposite_halfedge_handle(edge);
-				// set next handles
-				set_next_halfedge_handle(h, edge);
-				set_next_halfedge_handle(edge, next_halfedge_handle(nn));
-				set_next_halfedge_handle(opp, next_halfedge_handle(h));
-				set_next_halfedge_handle(nn, opp);
-				// set prev halfedge handles (does nothing if no prev handle is present)
-				set_prev_halfedge_handle(next_halfedge_handle(h), opp);
-				set_prev_halfedge_handle(opp, nn);
-				set_prev_halfedge_handle(edge, h);
-				set_prev_halfedge_handle(next_halfedge_handle(nn), edge);
-				// set face handles
-				set_face_handle(h, face);
-				set_face_handle(edge, face);
-				set_face_handle(next_halfedge_handle(nn), face);
-				set_face_handle(opp, fh);
-				// set halfedge handles of the faces
-				set_halfedge_handle(face, h);
-				set_halfedge_handle(fh, next_halfedge_handle(h));
+			std::cerr << "\t splitting edge for face " << fh << " and ";
+			std::cerr << opposite_face_handle(h) << "\n";
 
-				if (copy) {
-					copy_all_properties(fh, face, false);
-				}
+			FaceHandle oppFace = opposite_face_handle(h);
+			HalfedgeHandle oppHe = opposite_halfedge_handle(next_halfedge_handle(h));
+
+			status(fh).set_tagged(false);
+			splitRivara(h, vertex, copy);
+
+			if (status(oppFace).tagged()) {
+				status(oppFace).set_tagged(false);
+				splitRivara(oppHe, vertex, copy);
 			}
 		}
+	}
+}
+
+void BezierTMesh::splitRivara(const HalfedgeHandle he, const VertexHandle vh, bool copy)
+{
+	const auto fh = face_handle(he);
+	// perform rivara split
+	const auto nn = next_halfedge_handle(next_halfedge_handle(he));
+	const auto face = new_face();
+	const auto edge = new_edge(vh, to_vertex_handle(nn));
+	const auto opp = opposite_halfedge_handle(edge);
+
+	HalfedgeHandle hen = next_halfedge_handle(he);
+	HalfedgeHandle hep = next_halfedge_handle(nn);
+
+	// set next handles
+	set_next_halfedge_handle(he, edge);
+	set_next_halfedge_handle(edge, next_halfedge_handle(nn));
+	set_next_halfedge_handle(opp, hen);
+	set_next_halfedge_handle(nn, opp);
+	// set face handles
+	set_face_handle(he, face);
+	set_face_handle(edge, face);
+	set_face_handle(hep, face);
+	set_face_handle(opp, fh);
+	// set halfedge handles of the faces
+	set_halfedge_handle(face, he);
+	set_halfedge_handle(fh, hen);
+
+	if (copy) {
+		copy_all_properties(fh, face, false);
 	}
 }
