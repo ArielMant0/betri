@@ -236,5 +236,6 @@ void BezierTMesh::splitRivara(const HalfedgeHandle he, const VertexHandle vh, bo
 
 	if (copy) {
 		copy_all_properties(fh, face, false);
+		set_color(face, color(fh));
 	}
 }
