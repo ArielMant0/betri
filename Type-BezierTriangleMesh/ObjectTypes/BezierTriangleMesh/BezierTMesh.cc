@@ -4,8 +4,7 @@
 
 using FaceHandle = BezierTMesh::FaceHandle;
 
-// TODO:: make it work for variable degree
-void BezierTMesh::addCPsToFace(FaceHandle &f, unsigned int degree)
+void BezierTMesh::addCPsToFace(const FaceHandle f, unsigned int degree)
 {
 	auto v_it = cfv_begin(f);
 	auto p1 = point(*v_it); v_it++;
@@ -22,24 +21,7 @@ void BezierTMesh::addCPsToFace(FaceHandle &f, unsigned int degree)
 	bt.addPoint(p3 * 0.5f + p1 * 0.5f);
 }
 
-void BezierTMesh::addCPsToFace(const FaceHandle &f, unsigned int degree)
-{
-	auto v_it = cfv_begin(f);
-	auto p1 = point(*v_it); v_it++;
-	auto p2 = point(*v_it); v_it++;
-	auto p3 = point(*v_it);
-
-	auto bt = data(f);
-	bt.degree(degree);
-	bt.addPoint(p1);
-	bt.addPoint(p1 * 0.5f + p2 * 0.5f);
-	bt.addPoint(p2);
-	bt.addPoint(p2 * 0.5f + p3 * 0.5f);
-	bt.addPoint(p3);
-	bt.addPoint(p3 * 0.5f + p1 * 0.5f);
-}
-
-std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
+void BezierTMesh::splitFaceDyadical(
 	FaceHandle fh,
 	std::function<bool(FaceHandle)> mark,
 	bool copy
@@ -128,12 +110,10 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 		set_face_handle(previous, face);
 		set_face_handle(edge, face);
 		set_face_handle(inner[i], fh);
-		// set prev halfedge handles (does nothing if no prev handle is present)
-		/*set_prev_halfedge_handle(edges[i], previous);
-		set_prev_halfedge_handle(previous, edge);
-		set_prev_halfedge_handle(edge, edges[i]);*/
 		// set halfedge handle of the new face
 		set_halfedge_handle(face, edges[i]);
+		assert(is_valid_handle(face));
+		assert(is_valid_handle(fh));
 
 		if (copy) {
 			copy_all_properties(fh, face, false);
@@ -143,25 +123,22 @@ std::array<FaceHandle,3> BezierTMesh::splitFaceDyadical(
 
 	for (i = 0; i < inner.size(); ++i) {
 		set_next_halfedge_handle(inner[i], inner[(i + 1) % edges.size()]);
-		//set_prev_halfedge_handle(inner[i], inner[(i - 1 + edges.size()) % edges.size()]);
 	}
 	set_halfedge_handle(fh, inner[0]);
 
-	// invert tags so faces that need to be split again can be identified
+	// call maark function for each previous neighbor face
 	for (auto f : neighbors) {
 		if (mark(f)) {
 			status(f).set_tagged(true);
-
-			int count = 0, total = 0;
-			for (auto vh = cfv_begin(f); vh != cfv_end(f); ++vh) {
-				if (status(*vh).tagged()) count++;
-				total++;
-			}
-			assert((count == 1 && total == 4) || (count == 2 && total == 5));
+			// DEBUG: count number of total and tagged vertices of the face
+			//int count = 0, total = 0;
+			//for (auto vh = cfv_begin(f); vh != cfv_end(f); ++vh) {
+			//	if (status(*vh).tagged()) count++;
+			//	total++;
+			//}
+			//assert((count == 1 && total == 4) || (count == 2 && total == 5));
 		}
 	}
-
-	return neighbors;
 }
 
 void BezierTMesh::correctSplits(bool copy)

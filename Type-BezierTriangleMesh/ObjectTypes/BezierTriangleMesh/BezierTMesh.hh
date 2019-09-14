@@ -6,13 +6,11 @@ class OBJECTTYPEDLLEXPORTONLY BezierTMesh : public OpenMesh::TriMesh_ArrayKernel
 {
 public:
 
-	void degreeElevation(FaceHandle &fh);
+	void degreeElevation(FaceHandle fh);
 
-	void degreeReduction(FaceHandle &fh);
+	void degreeReduction(FaceHandle fh);
 
-	void addCPsToFace(FaceHandle &f, unsigned int degree=2);
-
-	void addCPsToFace(const FaceHandle &f, unsigned int degree=2);
+	void addCPsToFace(const FaceHandle f, unsigned int degree=2);
 
 	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh)
 	{
@@ -70,7 +68,7 @@ public:
 		return he;
 	}
 
-	std::array<FaceHandle,3> splitFaceDyadical(
+	void splitFaceDyadical(
 		FaceHandle fh,
 		std::function<bool(FaceHandle)> mark,
 		bool copy=false

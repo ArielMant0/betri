@@ -93,7 +93,7 @@ private:
 	ShortestPath getShortestPath(ID id1, ID id2);
 
 	// face splitting (to add boundary edges to the mesh)
-	void splitFace(FH &face);
+	void splitFace(FH face);
 
 	// -------------------------------------------------------------- //
 
