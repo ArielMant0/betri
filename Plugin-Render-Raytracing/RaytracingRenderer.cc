@@ -13,284 +13,407 @@
 #define OUTLINE_VERTEXSHADER_FILE "RaytracingRenderer/screenquad.glsl"
 #define OUTLINE_FRAGMENTSHADER_FILE "RaytracingRenderer/outline.glsl"
 
-class CelShadingModifier : public ACG::ShaderModifier{
+// Raytracer
+
+/*
+setupTextures()
+{
+	// loop all Render Objects and create a texture for them
+	for (int i = 0; i < getNumRenderObjects(); ++i)
+		createTexture(getRenderObject(i));
+}
+
+setupFragmentShader()
+{
+	setupTextures();
+	// Add more or less Buffer objects
+	recompileShader();
+}
+
+setupBuffers()
+{
+	// loop all Render Objects and create a buffer for them
+	for (int i = 0; i < getNumRenderObjects(); ++i)
+		createBuffer(getRenderObject(i));
+}
+
+setupComputeShader()
+{
+	setupBuffers();
+	// Add more or less Buffer objects
+	recompileShader();
+}
+*/
+
+class CelShadingModifier : public ACG::ShaderModifier
+{
 public:
 
-  void modifyVertexIO( ACG::ShaderGenerator* _shader )  {
-    // include cel lighting functions defined in CELSHADING_INCLUDE_FILE
-    QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
-    _shader->addIncludeFile(includeCelShading);
+	void modifyVertexIO(ACG::ShaderGenerator* _shader)
+	{
+		// include cel lighting functions defined in CELSHADING_INCLUDE_FILE
+		QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
+		_shader->addIncludeFile(includeCelShading);
 
-    // add shader constant that defines the number of different intensity levels used in lighting
-    _shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
-  }
+		// add shader constant that defines the number of different intensity levels used in lighting
+		_shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
+	}
 
-  void modifyFragmentIO( ACG::ShaderGenerator* _shader )  {
-    // include cel lighting functions defined in CELSHADING_INCLUDE_FILE
-    QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
-    _shader->addIncludeFile(includeCelShading);
+	void modifyFragmentIO(ACG::ShaderGenerator* _shader)
+	{
+		// include cel lighting functions defined in CELSHADING_INCLUDE_FILE
+		QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
+		_shader->addIncludeFile(includeCelShading);
 
-    // Note: We include the cel lighting functions in both shader stages
-    // because the ShaderGenerator may call modifyLightingCode() for either a vertex or fragment shader.
-    // It is not yet known in which stage the lighting is performed.
-
-
-    // Additionally write the depth of each fragment to a secondary render-target.
-    // This depth texture is used in a post-processing outlining step.
-    _shader->addOutput("float outDepth");
-    _shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
-  }
+		// Note: We include the cel lighting functions in both shader stages
+		// because the ShaderGenerator may call modifyLightingCode() for either a vertex or fragment shader.
+		// It is not yet known in which stage the lighting is performed.
 
 
-  void modifyFragmentEndCode(QStringList* _code)  {
-    _code->push_back("outDepth = gl_FragCoord.z;"); // write depth to secondary render texture
-  }
+		// Additionally write the depth of each fragment to a secondary render-target.
+		// This depth texture is used in a post-processing outlining step.
+		_shader->addOutput("float outDepth");
+		_shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
+	}
 
-  // modifier replaces default lighting with cel lighting
-  bool replaceDefaultLightingCode() {return true;}
 
-  void modifyLightingCode(QStringList* _code, int _lightId, ACG::ShaderGenLightType _lightType)  {
-    // use cel shading functions instead of default lighting:
+	void modifyFragmentEndCode(QStringList* _code)
+	{
+		_code->push_back("outDepth = gl_FragCoord.z;"); // write depth to secondary render texture
+	}
 
-    QString buf;
+	// modifier replaces default lighting with cel lighting
+	bool replaceDefaultLightingCode()
+	{
+		return true;
+	}
 
-    switch (_lightType)    {
-    case ACG::SG_LIGHT_DIRECTIONAL:
-      buf.sprintf("sg_cColor.xyz += LitDirLight_Cel(sg_vPosVS.xyz, sg_vNormalVS, g_vLightDir_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId);
-      break;
+	void modifyLightingCode(QStringList* _code, int _lightId, ACG::ShaderGenLightType _lightType)
+	{
+		// use cel shading functions instead of default lighting:
 
-    case ACG::SG_LIGHT_POINT:
-      buf.sprintf("sg_cColor.xyz += LitPointLight_Cel(sg_vPosVS.xyz, sg_vNormalVS,  g_vLightPos_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d,  g_vLightAtten_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId, _lightId);
-      break;
+		QString buf;
 
-    case ACG::SG_LIGHT_SPOT:
-      buf.sprintf("sg_cColor.xyz += LitSpotLight_Cel(sg_vPosVS.xyz,  sg_vNormalVS,  g_vLightPos_%d,  g_vLightDir_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d,  g_vLightAtten_%d,  g_vLightAngleExp_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId, _lightId, _lightId, _lightId);
-      break;
+		switch (_lightType) {
+			case ACG::SG_LIGHT_DIRECTIONAL:
+				buf.sprintf("sg_cColor.xyz += LitDirLight_Cel(sg_vPosVS.xyz, sg_vNormalVS, g_vLightDir_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId);
+				break;
 
-    default: break;
-    }
+			case ACG::SG_LIGHT_POINT:
+				buf.sprintf("sg_cColor.xyz += LitPointLight_Cel(sg_vPosVS.xyz, sg_vNormalVS,  g_vLightPos_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d,  g_vLightAtten_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId, _lightId);
+				break;
 
-    _code->push_back(buf);
-  }
-  
+			case ACG::SG_LIGHT_SPOT:
+				buf.sprintf("sg_cColor.xyz += LitSpotLight_Cel(sg_vPosVS.xyz,  sg_vNormalVS,  g_vLightPos_%d,  g_vLightDir_%d,  g_cLightAmbient_%d,  g_cLightDiffuse_%d,  g_cLightSpecular_%d,  g_vLightAtten_%d,  g_vLightAngleExp_%d, g_celPaletteSize);", _lightId, _lightId, _lightId, _lightId, _lightId, _lightId, _lightId);
+				break;
 
-  static CelShadingModifier instance;
+			default: break;
+		}
+
+		_code->push_back(buf);
+	}
+
+	static CelShadingModifier instance;
 };
-
 
 CelShadingModifier CelShadingModifier::instance;
 
 // =================================================
 
-RaytracingRenderer::RaytracingRenderer() 
-  : progOutline_(0), paletteSize_(2.0f), outlineCol_(0.0f, 0.0f, 0.0f)
+RaytracingRenderer::RaytracingRenderer()
+	: progOutline_(0), paletteSize_(2.0f), outlineCol_(0.0f, 0.0f, 0.0f)
 {
-  ACG::ShaderProgGenerator::registerModifier(&CelShadingModifier::instance);
+	ACG::ShaderProgGenerator::registerModifier(&CelShadingModifier::instance);
 }
 
-
-RaytracingRenderer::~RaytracingRenderer() {
+RaytracingRenderer::~RaytracingRenderer() 
+{
 }
 
-QString RaytracingRenderer::checkOpenGL() {
-  if ( !ACG::openGLVersion(3, 2) )
-    return QString("Insufficient OpenGL Version! OpenGL 3.2 or higher required");
+QString RaytracingRenderer::checkOpenGL()
+{
+	if (!ACG::openGLVersion(3, 2))
+		return QString("Insufficient OpenGL Version! OpenGL 3.2 or higher required");
 
-  // Check extensions
-  QString missing("");
-  if(!ACG::openGLVersion(1,5)) // extension is part of opengl spec since version 1.5
-  {                            // i recommend removing this check in favor of restricting
-                               // to a more modern version of opengl e.g. 2.1 should be minimum
-    if ( !ACG::checkExtensionSupported("GL_ARB_vertex_buffer_object") )
-        missing += "GL_ARB_vertex_buffer_object extension missing\n";
-  }
+	// Check extensions
+	QString missing("");
+	if (!ACG::openGLVersion(1, 5)) // extension is part of opengl spec since version 1.5
+	{                            // i recommend removing this check in favor of restricting
+								 // to a more modern version of opengl e.g. 2.1 should be minimum
+		if (!ACG::checkExtensionSupported("GL_ARB_vertex_buffer_object"))
+			missing += "GL_ARB_vertex_buffer_object extension missing\n";
+	}
 #ifndef __APPLE__
-  if(!ACG::openGLVersion(1,4))
-  {
-    if ( !ACG::checkExtensionSupported("GL_ARB_vertex_program") )
-        missing += "GL_ARB_vertex_program extension missing\n";
-  }
+	if (!ACG::openGLVersion(1, 4)) {
+		if (!ACG::checkExtensionSupported("GL_ARB_vertex_program"))
+			missing += "GL_ARB_vertex_program extension missing\n";
+	}
 #endif
-  return missing;
+	return missing;
 }
 
-void RaytracingRenderer::initializePlugin() {
+void RaytracingRenderer::initializePlugin() 
+{
 }
 
-void RaytracingRenderer::exit() {
-  delete progOutline_;
-  progOutline_ = 0;
+void RaytracingRenderer::exit()
+{
+	delete progOutline_;
+	progOutline_ = 0;
 
-  viewerRes_.clear();
+	viewerRes_.clear();
 }
 
-QString RaytracingRenderer::renderObjectsInfo(bool _outputShaderInfo) {
-  std::vector<ACG::ShaderModifier*> modifiers;
-  modifiers.push_back(&CelShadingModifier::instance);
-  return dumpCurrentRenderObjectsToString(&sortedObjects_[0], _outputShaderInfo, &modifiers);
+QString RaytracingRenderer::renderObjectsInfo(bool _outputShaderInfo)
+{
+	std::vector<ACG::ShaderModifier*> modifiers;
+	modifiers.push_back(&CelShadingModifier::instance);
+	return dumpCurrentRenderObjectsToString(&sortedObjects_[0], _outputShaderInfo, &modifiers);
 }
 
-void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties& _properties) {
+void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties& _properties)
+{
 
-  // Cel shading: 
-  // - Restriction of the number of lighting intensity levels
-  // - in shader: l dot n is quantized based on the number of allowed shading tones.
-  // currently a constant sized step function is used to quantize the intensity
+	// Cel shading: 
+	// - Restriction of the number of lighting intensity levels
+	// - in shader: l dot n is quantized based on the number of allowed shading tones.
+	// currently a constant sized step function is used to quantize the intensity
 
-  // collect renderobjects + prepare OpenGL state
-  prepareRenderingPipeline(_glState, _properties.drawMode(), PluginFunctions::getSceneGraphRootNode());
+	// collect renderobjects + prepare OpenGL state
+	prepareRenderingPipeline(_glState, _properties.drawMode(), PluginFunctions::getSceneGraphRootNode());
 
-  // init/update fbos
-  ViewerResources* viewRes = &viewerRes_[_properties.viewerId()];
-  viewRes->resize(_glState->viewport_width(), _glState->viewport_height());
+	// init/update fbos
+	ViewerResources* viewRes = &viewerRes_[_properties.viewerId()];
+	viewRes->resize(_glState->viewport_width(), _glState->viewport_height());
 
-  // --------------------------------------------------
-  // 1st pass: draw scene to intermediate fbo
+	glViewport(0, 0, _glState->viewport_width(), _glState->viewport_height());
 
-  // enable color/depth write access
-  glDepthMask(1);
-  glColorMask(1,1,1,1);
+	if (false /*compute_shader*/) {
 
-  // bind fbo for scene + depth tex
-  viewRes->scene_->bind();
+		//if (getNumRenderObjects() != object_count)
+		//	setupComputeShader();
 
-  glViewport(0, 0, _glState->viewport_width(), _glState->viewport_height());
+		// run compute Shader
 
-  // clear depth texture
-  glDrawBuffer(GL_COLOR_ATTACHMENT1);
-  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
+		// Use Output to render the result texture on the screen
+	} else if (true /*fragment_shader*/) {
+		//if (getNumRenderObjects() != object_count)
+		if (!controlPointTex_.is_valid())
+			setupObjectTextures();
 
-  // clear scene color
-  glDrawBuffer(GL_COLOR_ATTACHMENT0);
-  ACG::Vec4f clearColor = _properties.backgroundColor();
-  glClearColor(clearColor[0], clearColor[1], clearColor[2], 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// ----------------------------------------------------------
+		// Invoke raytracing fragmentshader
 
-  // attachment0: scene colors
-  // attachment1: scene depth
-  GLenum colorDepthTarget[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-  glDrawBuffers(2, colorDepthTarget);
+		if (!progOutline_)
+			progOutline_ = GLSL::loadProgram(OUTLINE_VERTEXSHADER_FILE, OUTLINE_FRAGMENTSHADER_FILE);
 
-  // render every object
-  for (int i = 0; i < getNumRenderObjects(); ++i) {
-
-    // Take original shader and modify the output to take only the normal as the color
-    GLSL::Program* prog = ACG::ShaderCache::getInstance()->getProgram(&sortedObjects_[i]->shaderDesc, CelShadingModifier::instance);
-
-    int bRelink = 0;
-    if (prog->getFragDataLocation("outFragment") != 0) {
-      prog->bindFragDataLocation(0, "outFragment");
-      bRelink++;
-    }
-    if (prog->getFragDataLocation("outDepth") != 1) {
-      prog->bindFragDataLocation(1, "outDepth");
-      bRelink++;
-    }
-    if (bRelink)
-      prog->link();
-
-    prog->use();
-    prog->setUniform("g_celPaletteSize", paletteSize_);
-
-    renderObject(sortedObjects_[i], prog);
-  }
-
-  viewRes->scene_->unbind();
-
-  // ----------------------------------------------------------
-  // 2nd pass: compose final image with outlining as  scene color * edge factor
-
-  if (!progOutline_)
-    progOutline_ = GLSL::loadProgram(OUTLINE_VERTEXSHADER_FILE, OUTLINE_FRAGMENTSHADER_FILE);
-
-  // restore previous fbo
-  restoreInputFbo();
+		// restore previous fbo
+		restoreInputFbo();
 
 
-  // enable color/depth write access
-  glDepthMask(1);
-  glColorMask(1,1,1,1);
+		// enable color/depth write access
+		glDepthMask(1);
+		glColorMask(1, 1, 1, 1);
 
-  // note: using glDisable(GL_DEPTH_TEST) not only disables depth testing,
-  //  but actually discards any write operations to the depth buffer.
-  // However, we can provide scene depth for further post-processing. 
-  //   -> Enable depth testing with func=always
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_ALWAYS);
-  glDisable(GL_BLEND);
+		// note: using glDisable(GL_DEPTH_TEST) not only disables depth testing,
+		//  but actually discards any write operations to the depth buffer.
+		// However, we can provide scene depth for further post-processing. 
+		//   -> Enable depth testing with func=always
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
+		glDisable(GL_BLEND);
+	
+		// setup raytracing shader
+		progOutline_->use();
 
-  // setup composition shader
-  progOutline_->use();
-  progOutline_->setUniform("samplerScene", 0);
-  progOutline_->setUniform("samplerDepth", 1);
-  progOutline_->setUniform("texcoordOffset", ACG::Vec2f(1.0f / float(viewRes->scene_->width()), 1.0f / float(viewRes->scene_->height()) ));
-  progOutline_->setUniform("clipPlanes", ACG::Vec2f(_glState->near_plane(), _glState->far_plane()));
-  progOutline_->setUniform("outlineColor", outlineCol_);
+		// https://www.openflipper.org/media/Documentation/OpenFlipper-3.0/a00643.html#ae27e2005ea57312f70752b0a2608f506
+		// Vertex shader uniforms
+		ACG::GLMatrixf mvp =  _glState->modelview();
+		progOutline_->setUniform("g_mWVP", mvp);
 
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, viewRes->scene_->getAttachment(GL_COLOR_ATTACHMENT1));
+		progOutline_->setUniform("u_viewportWidth", float(_glState->viewport_width()));
+		progOutline_->setUniform("u_viewportHeight", float(_glState->viewport_height()));
+		progOutline_->setUniform("u_fovy", float(_glState->fovy()));
+		progOutline_->setUniform("g_mWVP", mvp);
 
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, viewRes->scene_->getAttachment(GL_COLOR_ATTACHMENT0));
+		progOutline_->setUniform("u_invproj", _glState->inverse_projection());
+		progOutline_->setUniform("u_invmodelview", _glState->inverse_modelview());
+		progOutline_->setUniform("u_proj", _glState->projection());
+		progOutline_->setUniform("u_modelview", _glState->modelview());
+		progOutline_->setUniform("u_near", float(_glState->near_plane()));
+		progOutline_->setUniform("u_far", float(_glState->far_plane()));
+
+		//_glState->reset_projection();
+
+		// Framgent shader uniforms
+		progOutline_->setUniform("texcoordOffset", ACG::Vec2f(1.0f / float(viewRes->scene_->width()), 1.0f / float(viewRes->scene_->height())));
+		//ACG::GLMatrixf mvp = _glState->projection * _glState->modelview;
+		//progOutline_->setUniform("g_mWVP", mvp);
+		progOutline_->setUniform("g_vCamPos", camPosWS_);
+		progOutline_->setUniform("g_vCamPos2", camPosWS_);
+
+		auto bla = ACG::RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D);
+
+		progOutline_->setUniform("sceneObject", int(0)); // TODO warum muss das hier nicht passieren?
+		glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(controlPointTex_.getType(), controlPointTex_.id());
+		glBindTexture(GL_TEXTURE_2D, controlPointTex_.id());
+		//glBindTexture(bla.type, bla.id);
+		progOutline_->setUniform("sceneObject", int(0)); // TODO warum muss das hier nicht passieren?
+
+		/*
+		std::vector< char > _dst;
+		controlPointTex_.getData(0, _dst);
+		for (int i = 0; i < 6; i++)
+			std::cerr << int(_dst[i]) << " ";
+		std::cerr << std::endl;*/
+
+		// draw fullscreenQuad
+		// every fragment casts a ray which will do the intersection test
+		ACG::ScreenQuad::draw(progOutline_);
+
+		progOutline_->disable();
+
+	} else if (false/*cpu*/) {
+		/*
+		//_glState->viewing_ray(0, 0, null, null);
+		for cpu raytracing
+		http://www.openflipper.org/media/Documentation/OpenFlipper-2.1/a00621.html
+		viewing_direction (int _x, int _y) const
+		get viewing ray through pixel (_x,_y)
+		*/
+	}
+
+	// reset depth func to opengl default
+	glDepthFunc(GL_LESS);
+
+	ACG::glCheckErrors();
+
+	// restore common opengl state
+	// log window remains hidden otherwise
+	finishRenderingPipeline();
+}
 
 
-  ACG::ScreenQuad::draw(progOutline_);
+void RaytracingRenderer::setupObjectTextures()
+{
+	const size_t rectangle_count = 2;
+	const size_t floats = 3;
+	const size_t points = 2;
+	const std::array<std::array<int, floats*points>, rectangle_count> arr = { {
+		{-5.0, -3.0, -5.0, 5.0, -2.9, 5.0},
+		{-1.5, -1.5, 3, 1.5, 1.5, 4.5}
+		//{0, 255, 0, 0, 0, 255},
+		//{255, 0, 0, 0, 0, 0}
+	} };
 
-  progOutline_->disable();
+	size_t counter = 0;
+	std::vector<float> rectangleBuf(rectangle_count * floats * points);
+	for (auto elem : arr) {
+		for (auto item : elem) {
+			rectangleBuf[counter++] = item;
+		}
+	}
 
-  // reset depth func to opengl default
-  glDepthFunc(GL_LESS);
-  
-  ACG::glCheckErrors();
+	std::cerr << rectangleBuf[0] << " " << rectangleBuf[1] << " " << rectangleBuf[2] << std::endl;
+	std::cerr << rectangleBuf[3] << " " << rectangleBuf[4] << " " << rectangleBuf[5] << std::endl;
+	std::cerr << rectangleBuf[6] << " " << rectangleBuf[7] << " " << rectangleBuf[8] << std::endl;
+	std::cerr << rectangleBuf[9] << " " << rectangleBuf[10] << " " << rectangleBuf[11] << std::endl;
+	//std::cerr << controlPointTex_.id() << std::endl;
 
-  // restore common opengl state
-  // log window remains hidden otherwise
-  finishRenderingPipeline();
+	controlPointTex_.bind();
+	controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+	controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	controlPointTex_.parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	controlPointTex_.parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
+	controlPointTex_.setData(0, GL_RGB32F, points, rectangle_count, GL_RGB, GL_FLOAT, &rectangleBuf[0]);
+
+//#ifdef GL_VERSION_3_0
+	// create a Texture for every Object
+	//for (int i = 0; i < getNumRenderObjects(); ++i) {
+		// Take original shader and modify the output to take only the normal as the color
+		//GLSL::Program* prog = ACG::ShaderCache::getInstance()->getProgram(&sortedObjects_[i]->shaderDesc, CelShadingModifier::instance);
+		//renderObject(sortedObjects_[i], prog);
+	/*
+		const size_t controlPointBufSize = 2;//controlPointsPerFace * bezierTriangleMesh_.n_faces();
+
+		if (controlPointBufSize) {
+			std::vector<float> controlPointBuf(controlPointBufSize * 3);
+
+			/*
+			int elementOffset = 0;
+			for (auto &face : bezierTriangleMesh_.faces()) {
+				// write counter
+
+				auto faceControlP = bezierTriangleMesh_.data(face);
+				Point cp;
+				for (int i = 0; i < controlPointsPerFace; i++) {
+					cp = faceControlP.getCPoint(i);
+					for (int m = 0; m < 3; ++m)
+						controlPointBuf[elementOffset++] = cp[m];
+				}
+			}
+			*/
+	/*
+			controlPointBuf[0] = 0.0;
+			controlPointBuf[1] = 1.0;
+			controlPointBuf[2] = 0.0;
+			controlPointBuf[3] = 0.5f;
+			controlPointBuf[4] = 0.5f; // not used
+			controlPointBuf[5] = 0.5f;
+
+			controlPointTex_.bind();
+			controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+			controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			//controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
+			controlPointTex_.setData(0, GL_RGB32F, controlPointBufSize, 1, GL_RGB, GL_FLOAT, &controlPointBuf[0]);
+		}
+		*/
+	//}
+//#endif
 }
 
 
 QAction* RaytracingRenderer::optionsAction()
 {
-  QAction * action = new QAction("Raytracing Renderer Options" , this );
+	QAction * action = new QAction("Raytracing Renderer Options", this);
 
-  connect(action,SIGNAL(triggered( bool )),this,SLOT(actionDialog( bool )));
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(actionDialog(bool)));
 
-  return action;
+	return action;
 }
 
-void RaytracingRenderer::paletteSizeChanged( int _val ) {
-  paletteSize_ = float(_val) / 100.0f;
+void RaytracingRenderer::paletteSizeChanged(int _val)
+{
+	paletteSize_ = float(_val) / 100.0f;
 }
 
-void RaytracingRenderer::outlineColorChanged( QColor _col ) {
-  outlineCol_[0] = _col.redF();
-  outlineCol_[1] = _col.greenF();
-  outlineCol_[2] = _col.blueF();
+void RaytracingRenderer::outlineColorChanged(QColor _col)
+{
+	outlineCol_[0] = _col.redF();
+	outlineCol_[1] = _col.greenF();
+	outlineCol_[2] = _col.blueF();
 }
 
-void RaytracingRenderer::ViewerResources::resize( int _newWidth, int _newHeight ) {
-  if (!_newHeight || !_newWidth) return;
+void RaytracingRenderer::ViewerResources::resize(int _newWidth, int _newHeight)
+{
+	if (!_newHeight || !_newWidth)
+		return;
 
+	if (!scene_) {
+		// scene fbo with 2 color attachments + depth buffer
+		//  attachment0: scene color
+		//  attachment1: scene depth
+		scene_ = new ACG::FBO();
+		scene_->init();
+		scene_->attachTexture2D(GL_COLOR_ATTACHMENT0, _newWidth, _newHeight, GL_RGBA, GL_RGBA);
+		scene_->attachTexture2D(GL_COLOR_ATTACHMENT1, _newWidth, _newHeight, GL_R32F, GL_RED);
+		scene_->attachTexture2DDepth(_newWidth, _newHeight);
+	}
 
-  if (!scene_)  {
-    // scene fbo with 2 color attachments + depth buffer
-    //  attachment0: scene color
-    //  attachment1: scene depth
-    scene_ = new ACG::FBO();
-    scene_->init();
-    scene_->attachTexture2D(GL_COLOR_ATTACHMENT0, _newWidth, _newHeight, GL_RGBA, GL_RGBA);
-    scene_->attachTexture2D(GL_COLOR_ATTACHMENT1, _newWidth, _newHeight, GL_R32F, GL_RED);
-    scene_->attachTexture2DDepth(_newWidth, _newHeight);
-  }
+	if (scene_->height() == _newHeight && scene_->width() == _newWidth)
+		return;
 
-  if (scene_->height() == _newHeight &&
-    scene_->width()  == _newWidth)
-    return;
-
-  scene_->resize(_newWidth, _newHeight);
+	scene_->resize(_newWidth, _newHeight);
 }
-
-
-
-

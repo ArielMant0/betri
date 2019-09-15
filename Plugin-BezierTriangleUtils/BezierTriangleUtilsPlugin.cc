@@ -30,55 +30,59 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *loadButton = new QPushButton(tr("Add Bezier Triangles"));
 	QPushButton *decimateButton = new QPushButton(tr("Decimate"));
 
-	connect(loadButton, SIGNAL(clicked()), this, SLOT(convertMesh())); 
+	connect(loadButton, SIGNAL(clicked()), this, SLOT(convertMesh()));
 
 	///////////////////////////////////////////////////////////////////////////
 	// Tesselation group
 	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
-	QGroupBox *echoGroup = new QGroupBox(tr("Tessellation"));
+	QGroupBox *tessGroup = new QGroupBox(tr("Tessellation"));
 
-	QLabel *echoLabel = new QLabel(tr("Mode:"));
-	QComboBox *echoComboBox = new QComboBox;
-	echoComboBox->addItem(tr("CPU"));
-	echoComboBox->addItem(tr("GPU"));
-	echoComboBox->addItem(tr("Raytracing"));
+	// Create Drop down menu
+	QLabel *tessMLabel = new QLabel(tr("Mode:"));
+	QComboBox *tessComboBox = new QComboBox;
+	tessComboBox->addItem(tr("CPU"));
+	tessComboBox->addItem(tr("GPU"));
+	tessComboBox->addItem(tr("Raytracing"));
 
-	connect(echoComboBox, QOverload<int>::of(&QComboBox::activated),
-		this, &BezierTriangleUtilsPlugin::echoChanged);
+	// TODO this was from the tutorial
+	//connect(tessComboBox, QOverload<int>::of(&QComboBox::activated),
+	//	this, &BezierTriangleUtilsPlugin::echoChanged);
 
-	connect(echoComboBox, QOverload<int>::of(&QComboBox::activated), this, &BezierTriangleUtilsPlugin::setTessType);
+	// set the connection to the setTessType
+	// TODO warum ist das hier anders als bei der tessspinbox
+	connect(tessComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setTessType);
 
-	QLabel *tessLabel = new QLabel(tr("TesselationAmount:"));
-	QSpinBox *spinBox = new QSpinBox;
-	QSlider *slider = new QSlider(Qt::Horizontal);
-	spinBox->setRange(0, 10);
-	slider->setRange(0, 10);
+	// Create the gui for tessamount selection
+	QLabel *tessALabel = new QLabel(tr("TesselationAmount:"));
+	QSpinBox *tessSpinBox = new QSpinBox;
+	QSlider *tessSlider = new QSlider(Qt::Horizontal);
+	tessSpinBox->setRange(0, 10);
+	tessSlider->setRange(0, 10);
 
-	connect(spinBox, SIGNAL(valueChanged(int)), slider, SLOT(setValue(int)));
-	connect(slider, SIGNAL(valueChanged(int)), spinBox, SLOT(setValue(int)));
-	connect(spinBox, SIGNAL(valueChanged(int)), this, SLOT(setTessAmount(int)));
+	connect(tessSpinBox, SIGNAL(valueChanged(int)), tessSlider, SLOT(setValue(int)));
+	connect(tessSlider, SIGNAL(valueChanged(int)), tessSpinBox, SLOT(setValue(int)));
+	connect(tessSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setTessAmount(int)));
 
-	spinBox->setValue(1);
+	tessSpinBox->setValue(1);
 
-	//betri::tesselationAmount_++;
-	//int tesselationAmount_ = 0;
-	//int tesselationType_ = 0;
-	QCheckBox *adapt = new QCheckBox("Adaptive Tesselation");
+	QCheckBox *adaptCBox = new QCheckBox("Adaptive Tesselation");
 
+	// TODO from the turtorial
 	echoLineEdit = new QLineEdit;
 	echoLineEdit->setPlaceholderText("Placeholder Text");
 	echoLineEdit->setFocus();
 
-	QGridLayout *echoLayout = new QGridLayout;
-	echoLayout->addWidget(echoLabel, 0, 0);
-	echoLayout->addWidget(echoComboBox, 0, 1);
-	echoLayout->addWidget(tessLabel, 1, 0);
-	echoLayout->addWidget(spinBox, 1, 1);
-	echoLayout->addWidget(slider, 2, 0);
-	echoLayout->addWidget(adapt, 3, 0);
-	echoLayout->addWidget(echoLineEdit, 4, 0, 1, 2);
-	echoGroup->setLayout(echoLayout);
+	QGridLayout *tessLayout = new QGridLayout;
+	tessLayout->addWidget(tessMLabel, 0, 0);
+	tessLayout->addWidget(tessComboBox, 0, 1);
+	tessLayout->addWidget(tessALabel, 1, 0);
+	tessLayout->addWidget(tessSpinBox, 1, 1);
+	tessLayout->addWidget(tessSlider, 2, 0);
+	tessLayout->addWidget(adaptCBox, 3, 0);
+	tessLayout->addWidget(echoLineEdit, 4, 0, 1, 2);
+	tessGroup->setLayout(tessLayout);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Visualisation group
@@ -123,7 +127,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(loadButton, 0, 0);
 	grid->addWidget(decimateButton, 1, 0);
-	grid->addWidget(echoGroup, 2, 0);
+	grid->addWidget(tessGroup, 2, 0);
 	grid->addWidget(visGroup, 3, 0);
 	m_tool->setLayout(grid);
 
