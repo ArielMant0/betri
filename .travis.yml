@@ -2,5 +2,7 @@ language: cpp
 sudo: false
 git:
   depth: 1
+before_install:
+  - chmod a+x ci/run_all.sh
 script:
   - ci/run-all.sh
