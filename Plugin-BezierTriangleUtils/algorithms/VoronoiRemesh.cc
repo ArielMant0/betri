@@ -598,7 +598,13 @@ void VoronoiRemesh::remesh(unsigned int size)
 		return INVALID_H;
 	};
 
-	const auto shortestPath = [&](const VH &v, const FH &f1, const FH &f2, ShortestPath::Container &path) {
+	const auto shortestPath = [&](
+		const VH v,
+		const FH f1,
+		const FH f2,
+		ShortestPath::Container &path,
+		ShortestPath::Container &prevPath
+	) {
 		const ID id_1 = id(f1), id_2 = id(f2);
 
 		HH start = findStartBorder(v, id_1, id_2), he = start;
@@ -667,6 +673,7 @@ void VoronoiRemesh::remesh(unsigned int size)
 		// ShortestPath object)
 		// check whether paths are crossing and find an alternative
 		const auto checkCrossing = [&]() {
+			if (prevPath.empty()) return;
 			// IDEA:
 			// - check if opposite halfedge is already in the path
 			// - find next halfedge that is part of the crossing path
@@ -674,7 +681,8 @@ void VoronoiRemesh::remesh(unsigned int size)
 			// !! this is only possible for one of the subpaths and if the halfedges are next
 			// to the inner faces (after refinement) or we have to add 1 additional halfedge
 			const HH opp = m_mesh.opposite_halfedge_handle(connect);
-			if (path.find(opp) != path.end()) {
+			if (prevPath.find(opp) != prevPath.end()) {
+				std::cerr << "----- BEGIN found crossing paths ---\n";
 				// next halfedge in the path
 				const HH next = findNextPath(m_mesh.to_vertex_handle(opp));
 
@@ -688,43 +696,52 @@ void VoronoiRemesh::remesh(unsigned int size)
 				}
 
 				// remove old halfedges
-				path.erase(opp);
-				path.erase(next);
+				prevPath.erase(opp);
+				m_mesh.set_color(m_mesh.edge_handle(opp), { 0.f, 0.f, 0.f, 1.f });
+				prevPath.erase(next);
+				m_mesh.set_color(m_mesh.edge_handle(next), { 0.f, 0.f, 0.f, 1.f });
 
 				// TODO: assert that faces are adj to same vertex!
 
 				if (adjFaces) {
+					std::cerr << "easy case\n";
 					// add new halfedges
 					// needs to be opposite to have the correct direction
-					path.insert(
-						m_mesh.opposite_halfedge_handle(m_mesh.prev_halfedge_handle(opp))
-					);
-					path.insert(
-						m_mesh.opposite_halfedge_handle(m_mesh.next_halfedge_handle(next))
-					);
+					HH addEdge = m_mesh.opposite_halfedge_handle(m_mesh.prev_halfedge_handle(opp));
+					prevPath.insert(addEdge);
+					m_mesh.set_color(m_mesh.edge_handle(addEdge), { 0.f, 1.f, 0.9f, 1.f });
+					addEdge = m_mesh.opposite_halfedge_handle(m_mesh.next_halfedge_handle(next));
+					prevPath.insert(addEdge);
+					m_mesh.set_color(m_mesh.edge_handle(addEdge), { 0.f, 1.f, 0.9f, 1.f });
 				} else {
+					std::cerr << "complicated case\n";
 					// situation is more complicated bc faces are separated by 1 other face
 					// (cannot be more than 1??)
 					const HH nn = findNextPath(m_mesh.to_vertex_handle(next));
-					path.erase(nn);
+					prevPath.erase(nn);
+					m_mesh.set_color(m_mesh.edge_handle(nn), { 0.f, 0.f, 0.f, 1.f });
 
 					// add new halfedges
-					path.insert(
-						m_mesh.opposite_halfedge_handle(m_mesh.prev_halfedge_handle(opp))
-					);
+					HH addEdge = m_mesh.opposite_halfedge_handle(m_mesh.prev_halfedge_handle(opp));
+					prevPath.insert(addEdge);
+					m_mesh.set_color(m_mesh.edge_handle(addEdge), { 0.f, 1.f, 0.9f, 1.f });
 					// opp prev opp next
 					const HH intermediate =
 						m_mesh.opposite_halfedge_handle(
 							m_mesh.prev_halfedge_handle(
 								m_mesh.opposite_halfedge_handle(
 									m_mesh.next_halfedge_handle(opp))));
-					path.insert(intermediate);
+
+					prevPath.insert(intermediate);
+					m_mesh.set_color(m_mesh.edge_handle(intermediate), { 0.f, 1.f, 0.9f, 1.f });
+
 					if (m_mesh.to_vertex_handle(intermediate) != m_mesh.to_vertex_handle(nn)) {
-						path.insert(
-							m_mesh.opposite_halfedge_handle(m_mesh.next_halfedge_handle(nn))
-						);
+						addEdge = m_mesh.opposite_halfedge_handle(m_mesh.next_halfedge_handle(nn));
+						prevPath.insert(addEdge);
+						m_mesh.set_color(m_mesh.edge_handle(addEdge), { 0.f, 1.f, 0.9f, 1.f });
 					}
 				}
+				std::cerr << "----- END found crossing paths ---\n";
 			}
 		};
 
@@ -763,7 +780,8 @@ void VoronoiRemesh::remesh(unsigned int size)
 			m_mesh.set_color(m_mesh.edge_handle(connect), { 0.f, 1.f, 0.9f, 1.f });
 
 			path.insert(connect);
-			checkCrossing();
+			// not necessary here, cause we dont check against next path
+			// checkCrossing();
 			// go to predecessor
 			vFrom = vTo;
 			f22 = pred(f22);
@@ -837,22 +855,25 @@ void VoronoiRemesh::remesh(unsigned int size)
 
 			assert(seedFaces.size() == 3);
 
-			for (auto f = seedFaces.begin(); f != seedFaces.end(); ++f) {
-				points.push_back(newverts[*f]);
+			for (size_t j = 0; j < seedFaces.size(); ++j) {
+				const FH f = seedFaces[j];
+				const FH next = seedFaces[(j+1)%seedFaces.size()];
+				points.push_back(newverts[f]);
 				// get next face
-				auto next = std::next(f);
-				if (next == seedFaces.end()) {
-					next = seedFaces.begin();
-				}
 				ShortestPath bp;
 				// mark border halfedges between these two regions
-				if (!hasShortestPath(id(*f), id(*next))) {
+				if (!hasShortestPath(id(f), id(next))) {
 					std::cerr << "\tcalculating shortest path\n";
-					bp = ShortestPath(id(*f), id(*next));
-					shortestPath(v, *f, *next, bp.edges());
+					ShortestPath prevPath;
+					ID prevId = id(seedFaces[(j - 1 + seedFaces.size()) % seedFaces.size()]);
+					if (hasShortestPath(prevId, id(f))) {
+						prevPath = getShortestPath(prevId, id(f));
+					}
+					bp = ShortestPath(id(f), id(next));
+					shortestPath(v, f, next, bp.edges(), prevPath.edges());
 					m_paths.insert(bp);
 				} else {
-					bp = getShortestPath(id(*f), id(*next));
+					bp = getShortestPath(id(f), id(next));
 				}
 				std::cerr << "\tmerging shortest path\n";
 				// add path to the boundary of the delaunay face
