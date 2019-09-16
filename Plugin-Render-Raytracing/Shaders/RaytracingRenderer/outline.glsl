@@ -14,7 +14,7 @@
 
 #define NUM_BOXES 2
 #define NUM_SPHERES 2
-#define NUM_TRIANGLES 0
+#define NUM_TRIANGLES 2
 
 ///////////////////////////////////////////////////////////////////////////////
 // Define Max distance
@@ -122,10 +122,12 @@ bool intersectTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 	bool found = false;
 	for (int i = 0; i < NUM_TRIANGLES; i++)
 	{
+		float y = i * 1.0 / NUM_TRIANGLES + 0.5 / NUM_TRIANGLES; // TODO
+		//float y = 0.5; // TODO
 		triangle t;
-		t.v0 = texture(triangles, vec2(1.0, i)).xyz;
-		t.v1 = texture(triangles, vec2(2.0, i)).xyz;
-		t.v2 = texture(triangles, vec2(3.0, i)).xyz;
+		t.v0 = texture(triangles, vec2(0.25, y)).xyz;
+		t.v1 = texture(triangles, vec2(0.5, y)).xyz;
+		t.v2 = texture(triangles, vec2(0.75, y)).xyz;
 		float lambda = intesectTriangle(origin, dir, t).x;
 		if (lambda > 0.0 && lambda < smallest)
 		{
@@ -175,9 +177,10 @@ bool intersectSpheres(vec3 origin, vec3 dir, inout hitinfo info)
 	bool found = false;
 	for (int i = 0; i < NUM_SPHERES; i++)
 	{
+		float y = i * 1.0 / NUM_SPHERES + 0.5 / NUM_SPHERES; // TODO
 		sphere s;
-		s.pos = texture(spheres, vec2(0.0, i)).xyz;
-		s.radius = texture(spheres, vec2(0.0, i)).w;
+		s.pos = texture(spheres, vec2(0.0, y)).xyz;
+		s.radius = texture(spheres, vec2(0.0, y)).w;
 		float lambda = intesectSphere(origin, dir, s).x;
 		if (lambda > 0.0 && lambda < smallest)
 		{
@@ -226,10 +229,9 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 	for (int i = 0; i < NUM_BOXES; i++) 
 	{
 		box b;
-		//b.min = boxes[i].min;
-		b.min = texture(cubes, vec2(0.0, i == 0 ? 0 : 1)).xyz;
-		//b.max = boxes[i].max;
-		b.max = texture(cubes, vec2(1.0, i == 0 ? 0 : 1)).xyz;
+		float y = i * 1.0 / NUM_BOXES + 0.5 / NUM_BOXES; // TODO
+		b.min = texture(cubes, vec2(0.0, y)).xyz;
+		b.max = texture(cubes, vec2(1.0, y)).xyz;
 		vec2 lambda = intersectBox(origin, dir, b);
 		if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) 
 		{
@@ -332,6 +334,8 @@ void main()
 		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
 		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
 	}
+
+	//oColor = vec4(texture(triangles, vec2(0.5, 0)).xyz, 1.0);
 
 	//oColor = vec4(normalize(vRay), 1.0);
 	//oColor = vec4(vOrigin, 1.0);

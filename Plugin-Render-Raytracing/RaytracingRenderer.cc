@@ -13,6 +13,8 @@
 #define OUTLINE_VERTEXSHADER_FILE "RaytracingRenderer/screenquad.glsl"
 #define OUTLINE_FRAGMENTSHADER_FILE "RaytracingRenderer/outline.glsl"
 
+#define OBJECT_TYPE_COUNT 3
+
 // Raytracer
 
 /*
@@ -125,6 +127,7 @@ RaytracingRenderer::RaytracingRenderer()
 {
 	ACG::ShaderProgGenerator::registerModifier(&CelShadingModifier::instance);
 	objectTex_ = std::vector<ACG::Texture2D>();
+	objectTex_.reserve(OBJECT_TYPE_COUNT);
 }
 
 RaytracingRenderer::~RaytracingRenderer() 
@@ -256,22 +259,29 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 
 		//auto bla = ACG::RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D);
 
+		// TODO
+		const std::array<char*, OBJECT_TYPE_COUNT> uniformArray = {
+			"cubes", "spheres", "triangles"
+		};
+
 		int texIndex = 0;
+		for (auto textureUniform : uniformArray) {
+			progOutline_->setUniform(textureUniform, int(texIndex));
+			glActiveTexture(GL_TEXTURE0 + texIndex);
+			glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
+		}
+
+		/*
+		TODO old
 		progOutline_->setUniform("cubes", int(0));
 		glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
-		glBindTexture(GL_TEXTURE_2D, controlPointTex_.id());
+		glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
+		//glBindTexture(GL_TEXTURE_2D, controlPointTex_.id());
 		
 		progOutline_->setUniform("spheres", int(1));
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
-		
-		/*
-		std::vector< char > _dst;
-		controlPointTex_.getData(0, _dst);
-		for (int i = 0; i < 6; i++)
-			std::cerr << int(_dst[i]) << " ";
-		std::cerr << std::endl;*/
+		*/
 
 		// draw fullscreenQuad
 		// every fragment casts a ray which will do the intersection test
@@ -300,8 +310,7 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 }
 
 
-// TODO as reference?
-void RaytracingRenderer::addTextureToVector(std::vector<float> buffer, const size_t width, const size_t height, int type)
+void RaytracingRenderer::addTextureToVector(std::vector<float> &buffer, const size_t width, const size_t height, int type)
 {
 	ACG::Texture2D tex;
 	objectTex_.push_back(tex);
@@ -328,9 +337,9 @@ void RaytracingRenderer::setupObjectTextures()
 	///////////////////////////////////////////////////////////////////////////
 
 	const size_t rectangle_count = 2;
-	const size_t floats = 3;
-	const size_t points = 2;
-	const std::array<std::array<int, floats*points>, rectangle_count> cubeArray = { {
+	const size_t r_floats = 3;
+	const size_t r_points = 2;
+	const std::array<std::array<int, r_floats * r_points>, rectangle_count> cubeArray = { {
 		{-5.0, -3.0, -5.0, 5.0, -2.9, 5.0},
 		{-1.5, -1.5, -1.5, 1.5, 1.5, 1.5}
 		//{0, 255, 0, 0, 0, 255},
@@ -338,75 +347,63 @@ void RaytracingRenderer::setupObjectTextures()
 	} };
 
 	size_t counter = 0;
-	std::vector<float> rectangleBuf(rectangle_count * floats * points);
+	std::vector<float> rectangleBuf(rectangle_count * r_floats * r_points);
 	for (auto elem : cubeArray) {
 		for (auto item : elem) {
 			rectangleBuf[counter++] = item;
 		}
 	}
 
-	std::cerr << rectangleBuf[0] << " " << rectangleBuf[1] << " " << rectangleBuf[2] << std::endl;
-	std::cerr << rectangleBuf[3] << " " << rectangleBuf[4] << " " << rectangleBuf[5] << std::endl;
-	std::cerr << rectangleBuf[6] << " " << rectangleBuf[7] << " " << rectangleBuf[8] << std::endl;
-	std::cerr << rectangleBuf[9] << " " << rectangleBuf[10] << " " << rectangleBuf[11] << std::endl;
-	//std::cerr << controlPointTex_.id() << std::endl;
-	
-	controlPointTex_.bind();
-	controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
-	controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	controlPointTex_.parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	controlPointTex_.parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
-	controlPointTex_.setData(0, GL_RGB32F, points, rectangle_count, GL_RGB, GL_FLOAT, &rectangleBuf[0]);
-	
-	//addTextureToVector(rectangleBuf, points, rectangle_count, 0);
+	addTextureToVector(rectangleBuf, r_points, rectangle_count, 0);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Add spheres
 	///////////////////////////////////////////////////////////////////////////
 
 	const size_t sphere_count = 2;
-	const size_t floats2 = 4;
-	const size_t points2 = 2;
-	const std::array<std::array<int, floats2*points2>, sphere_count> sphereArray = { {
+	const size_t s_floats = 4;
+	const size_t s_points = 2;
+	const std::array<std::array<int, s_floats * s_points>, sphere_count> sphereArray = { {
 		// Position 3f, Radius 1f, Color 4f
 		{0.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0},
 		{10.0, 0.0, 0.0, 1.5, 0.0, 1.0, 1.0, 1.0}
 	} };
 
 	counter = 0;
-	std::vector<float> sphereBuf(sphere_count * floats2 * points2);
+	std::vector<float> sphereBuf(sphere_count * s_floats * s_points);
 	for (auto elem : sphereArray) {
 		for (auto item : elem) {
 			sphereBuf[counter++] = item;
 		}
 	}
 
-	addTextureToVector(sphereBuf, points2, sphere_count, 1);
+	addTextureToVector(sphereBuf, s_points, sphere_count, 1);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Add triangles
 	///////////////////////////////////////////////////////////////////////////
-	/*
+	
 	const size_t triangle_count = 2;
-	const size_t floats2 = 3;
-	const size_t points2 = 3 + 1;
-	const std::array<std::array<int, floats2*points2>, sphere_count> sphereArray = { {
-			// Color 3f, Vertex1 3f, Vertex2 3f, Vertex3 3f
-			{0.0, 1.0, 0.0,	-2.0, 0.0, 5.0, 2.0, 0.0, 5.0, -2.0, 2.0, 5.0},
-			{1.0, 0.0, 0.0,	1.5, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}
-		} };
+	const size_t t_floats = 3;
+	const size_t t_points = 3 + 1;
+	const std::array<std::array<int, t_floats * t_points>, triangle_count> triangleArray = { {
+		// Color 3f, Vertex1 3f, Vertex2 3f, Vertex3 3f
+		{0.0, 1.0, 0.0,	-2.0, 0.0, 5.0, 2.0, 0.0, 5.0, -2.0, 2.0, 5.0},
+		{1.0, 0.0, 0.0,	-2.0, 0.0, -5.0, 2.0, 0.0, -5.0, -2.0, 2.0, -5.0}
+		//{0.0, 1.0, 0.0,	0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0},
+		//{1.0, 0.0, 0.0,	0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0}
+	} };
 
 	counter = 0;
-	std::vector<float> sphereBuf(sphere_count * floats2 * points2);
-	for (auto elem : sphereArray) {
+	std::vector<float> triangleBuf(triangle_count * t_floats * t_points);
+	for (auto elem : triangleArray) {
 		for (auto item : elem) {
-			sphereBuf[counter++] = item;
+			triangleBuf[counter++] = item;
 		}
 	}
 
-	addTextureToVector(sphereBuf, points2, sphere_count);
-	*/
+	addTextureToVector(triangleBuf, t_points, triangle_count);
+	
 //#endif
 }
 
