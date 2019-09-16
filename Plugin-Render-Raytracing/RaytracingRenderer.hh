@@ -102,4 +102,6 @@ private:
 	std::map<int, ViewerResources> viewerRes_;
 
 	ACG::Texture2D controlPointTex_; // TODO make it a vector
+	void addTextureToVector(std::vector<float> buffer, const size_t width, const size_t height, int type = 0); // TODO
+	std::vector<ACG::Texture2D> objectTex_;
 };

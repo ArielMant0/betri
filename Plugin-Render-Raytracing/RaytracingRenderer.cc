@@ -124,6 +124,7 @@ RaytracingRenderer::RaytracingRenderer()
 	: progOutline_(0), paletteSize_(2.0f), outlineCol_(0.0f, 0.0f, 0.0f)
 {
 	ACG::ShaderProgGenerator::registerModifier(&CelShadingModifier::instance);
+	objectTex_ = std::vector<ACG::Texture2D>();
 }
 
 RaytracingRenderer::~RaytracingRenderer() 
@@ -198,7 +199,8 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 		// Use Output to render the result texture on the screen
 	} else if (true /*fragment_shader*/) {
 		//if (getNumRenderObjects() != object_count)
-		if (!controlPointTex_.is_valid())
+		//if (!controlPointTex_.is_valid())
+		if (objectTex_.size() == 0) // TODO
 			setupObjectTextures();
 
 		// ----------------------------------------------------------
@@ -252,15 +254,18 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 		progOutline_->setUniform("g_vCamPos", camPosWS_);
 		progOutline_->setUniform("g_vCamPos2", camPosWS_);
 
-		auto bla = ACG::RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D);
+		//auto bla = ACG::RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D);
 
-		progOutline_->setUniform("sceneObject", int(0)); // TODO warum muss das hier nicht passieren?
+		int texIndex = 0;
+		progOutline_->setUniform("cubes", int(0));
 		glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(controlPointTex_.getType(), controlPointTex_.id());
+		//glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
 		glBindTexture(GL_TEXTURE_2D, controlPointTex_.id());
-		//glBindTexture(bla.type, bla.id);
-		progOutline_->setUniform("sceneObject", int(0)); // TODO warum muss das hier nicht passieren?
-
+		
+		progOutline_->setUniform("spheres", int(1));
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, (objectTex_[texIndex++]).id());
+		
 		/*
 		std::vector< char > _dst;
 		controlPointTex_.getData(0, _dst);
@@ -295,21 +300,46 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 }
 
 
+// TODO as reference?
+void RaytracingRenderer::addTextureToVector(std::vector<float> buffer, const size_t width, const size_t height, int type)
+{
+	ACG::Texture2D tex;
+	objectTex_.push_back(tex);
+	const size_t pos = objectTex_.size() - 1; // TODO
+
+	objectTex_[pos].bind();
+
+	objectTex_[pos].parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+	objectTex_[pos].parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	objectTex_[pos].parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	objectTex_[pos].parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	if (type == 0) // TODO
+		objectTex_[pos].setData(0, GL_RGB32F, width, height, GL_RGB, GL_FLOAT, &buffer[0]);
+	else
+		objectTex_[pos].setData(0, GL_RGBA32F, width, height, GL_RGBA, GL_FLOAT, &buffer[0]);
+}
+
+
 void RaytracingRenderer::setupObjectTextures()
 {
+//#ifdef GL_VERSION_3_0
+	///////////////////////////////////////////////////////////////////////////
+	// Add cubes
+	///////////////////////////////////////////////////////////////////////////
+
 	const size_t rectangle_count = 2;
 	const size_t floats = 3;
 	const size_t points = 2;
-	const std::array<std::array<int, floats*points>, rectangle_count> arr = { {
+	const std::array<std::array<int, floats*points>, rectangle_count> cubeArray = { {
 		{-5.0, -3.0, -5.0, 5.0, -2.9, 5.0},
-		{-1.5, -1.5, 3, 1.5, 1.5, 4.5}
+		{-1.5, -1.5, -1.5, 1.5, 1.5, 1.5}
 		//{0, 255, 0, 0, 0, 255},
 		//{255, 0, 0, 0, 0, 0}
 	} };
 
 	size_t counter = 0;
 	std::vector<float> rectangleBuf(rectangle_count * floats * points);
-	for (auto elem : arr) {
+	for (auto elem : cubeArray) {
 		for (auto item : elem) {
 			rectangleBuf[counter++] = item;
 		}
@@ -320,7 +350,7 @@ void RaytracingRenderer::setupObjectTextures()
 	std::cerr << rectangleBuf[6] << " " << rectangleBuf[7] << " " << rectangleBuf[8] << std::endl;
 	std::cerr << rectangleBuf[9] << " " << rectangleBuf[10] << " " << rectangleBuf[11] << std::endl;
 	//std::cerr << controlPointTex_.id() << std::endl;
-
+	
 	controlPointTex_.bind();
 	controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
 	controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -328,49 +358,55 @@ void RaytracingRenderer::setupObjectTextures()
 	controlPointTex_.parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	//controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
 	controlPointTex_.setData(0, GL_RGB32F, points, rectangle_count, GL_RGB, GL_FLOAT, &rectangleBuf[0]);
+	
+	//addTextureToVector(rectangleBuf, points, rectangle_count, 0);
 
-//#ifdef GL_VERSION_3_0
-	// create a Texture for every Object
-	//for (int i = 0; i < getNumRenderObjects(); ++i) {
-		// Take original shader and modify the output to take only the normal as the color
-		//GLSL::Program* prog = ACG::ShaderCache::getInstance()->getProgram(&sortedObjects_[i]->shaderDesc, CelShadingModifier::instance);
-		//renderObject(sortedObjects_[i], prog);
-	/*
-		const size_t controlPointBufSize = 2;//controlPointsPerFace * bezierTriangleMesh_.n_faces();
+	///////////////////////////////////////////////////////////////////////////
+	// Add spheres
+	///////////////////////////////////////////////////////////////////////////
 
-		if (controlPointBufSize) {
-			std::vector<float> controlPointBuf(controlPointBufSize * 3);
+	const size_t sphere_count = 2;
+	const size_t floats2 = 4;
+	const size_t points2 = 2;
+	const std::array<std::array<int, floats2*points2>, sphere_count> sphereArray = { {
+		// Position 3f, Radius 1f, Color 4f
+		{0.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0},
+		{10.0, 0.0, 0.0, 1.5, 0.0, 1.0, 1.0, 1.0}
+	} };
 
-			/*
-			int elementOffset = 0;
-			for (auto &face : bezierTriangleMesh_.faces()) {
-				// write counter
-
-				auto faceControlP = bezierTriangleMesh_.data(face);
-				Point cp;
-				for (int i = 0; i < controlPointsPerFace; i++) {
-					cp = faceControlP.getCPoint(i);
-					for (int m = 0; m < 3; ++m)
-						controlPointBuf[elementOffset++] = cp[m];
-				}
-			}
-			*/
-	/*
-			controlPointBuf[0] = 0.0;
-			controlPointBuf[1] = 1.0;
-			controlPointBuf[2] = 0.0;
-			controlPointBuf[3] = 0.5f;
-			controlPointBuf[4] = 0.5f; // not used
-			controlPointBuf[5] = 0.5f;
-
-			controlPointTex_.bind();
-			controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
-			controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			//controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
-			controlPointTex_.setData(0, GL_RGB32F, controlPointBufSize, 1, GL_RGB, GL_FLOAT, &controlPointBuf[0]);
+	counter = 0;
+	std::vector<float> sphereBuf(sphere_count * floats2 * points2);
+	for (auto elem : sphereArray) {
+		for (auto item : elem) {
+			sphereBuf[counter++] = item;
 		}
-		*/
-	//}
+	}
+
+	addTextureToVector(sphereBuf, points2, sphere_count, 1);
+
+	///////////////////////////////////////////////////////////////////////////
+	// Add triangles
+	///////////////////////////////////////////////////////////////////////////
+	/*
+	const size_t triangle_count = 2;
+	const size_t floats2 = 3;
+	const size_t points2 = 3 + 1;
+	const std::array<std::array<int, floats2*points2>, sphere_count> sphereArray = { {
+			// Color 3f, Vertex1 3f, Vertex2 3f, Vertex3 3f
+			{0.0, 1.0, 0.0,	-2.0, 0.0, 5.0, 2.0, 0.0, 5.0, -2.0, 2.0, 5.0},
+			{1.0, 0.0, 0.0,	1.5, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}
+		} };
+
+	counter = 0;
+	std::vector<float> sphereBuf(sphere_count * floats2 * points2);
+	for (auto elem : sphereArray) {
+		for (auto item : elem) {
+			sphereBuf[counter++] = item;
+		}
+	}
+
+	addTextureToVector(sphereBuf, points2, sphere_count);
+	*/
 //#endif
 }
 

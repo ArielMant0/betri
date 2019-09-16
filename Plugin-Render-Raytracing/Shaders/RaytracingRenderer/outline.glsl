@@ -1,6 +1,25 @@
 #version 150
 
+///////////////////////////////////////////////////////////////////////////////
+// Define Types
+///////////////////////////////////////////////////////////////////////////////
+
+#define TYPE_CUBE 0
+#define TYPE_SPHERE 1
+#define TYPE_TRIANGLE 2
+
+///////////////////////////////////////////////////////////////////////////////
+// Define Count
+///////////////////////////////////////////////////////////////////////////////
+
 #define NUM_BOXES 2
+#define NUM_SPHERES 2
+#define NUM_TRIANGLES 0
+
+///////////////////////////////////////////////////////////////////////////////
+// Define Max distance
+///////////////////////////////////////////////////////////////////////////////
+
 #define MAX_SCENE_BOUNDS 1000.0
 
 in vec2 vTexCoord;
@@ -9,7 +28,9 @@ in vec3 vPosition;
 in vec3 vOrigin;
 in vec3 vRay;
 
-uniform sampler2D sceneObject;
+uniform sampler2D cubes;
+uniform sampler2D spheres;
+uniform sampler2D triangles;
 // The inverse of the texture dimensions along X and Y
 uniform vec2 texcoordOffset;
 
@@ -18,6 +39,15 @@ uniform vec3 g_vCamPos;
 
 out vec4 oColor;
 
+// v0 - vertex 0
+// v1 - vertex 1
+// v2 - vertex 2
+struct triangle {
+	vec3 v0;
+	vec3 v1;
+	vec3 v2;
+};
+
 // min - left lower corner
 // max - right upper corner
 struct box {
@@ -25,62 +55,151 @@ struct box {
 	vec3 max;
 };
 
-const box boxes[] = {
-	/* The ground */
-	{ vec3(-5.0, -3.0, -5.0), vec3(5.0, -2.9, 5.0) },
-	/* Box in the middle */
-	{ vec3(-1.5, -1.5, 3), vec3(1.5, 1.5, 4.5) }
-
-	
-	/* The ground */
-	//{vec3(-5.0, -0.1, -5.0), vec3(5.0, 0.0, 5.0)},
-	/* Box in the middle */
-	//{vec3(-0.5, 0.0, -0.5), vec3(0.5, 1.0, 0.5)}
+// pos - sphere center
+// radius - sphere radius
+struct sphere {
+	vec3 pos;
+	float radius;
 };
 
 // lambda - distances to the intersection on the ray
-// bi - box index
+// id - box index
 struct hitinfo {
 	vec2 lambda;
-	int bi;
+	int id;
+	int type;
+	vec4 color;
 };
 
-// https://gamedev.stackexchange.com/questions/96459/fast-ray-sphere-collision-code
-bool intesectSphere(vec3 ray_origin, vec3 ray_direction)
+//const box boxes[] = {
+//	{ vec3(-5.0, -3.0, -5.0), vec3(5.0, -2.9, 5.0) },
+//	{ vec3(-1.5, -1.5, 3), vec3(1.5, 1.5, 4.5) }
+//};
+
+///////////////////////////////////////////////////////////////////////////////
+// Link to multiple examples for ray - object intersections
+// http://www.iquilezles.org/www/articles/intersectors/intersectors.htm
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// Triangle Intersect
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Test one triangle againt a ray.
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @in sphere the sphere to test against
+ * @return A three component vector with the nearest intersection lambda (t) and u, v
+ */
+vec3 intesectTriangle(vec3 ray_origin, vec3 ray_direction, triangle tri)
 {
-	//vec4 sphere_center = vec4(texture(sceneObject, vec2(0.0, 0.0)).xyz, 1.0);
-	vec4 sphere_center = vec4(0.0, 10.0, -10.0, 1.0); // TODO vec3
-	//float sphere_radius = texture(sceneObject, vec2(0.0, 0.0)).x;
-	float sphere_radius = 0.5;
-
-    //vec3 oc = vec3(g_mWVP * vec4(g_vCamPos, 1.0)) - sphere_center.xyz;
-    vec3 oc = ray_origin - sphere_center.xyz;
-    float a = dot(ray_direction, ray_direction);
-    float b = 2.0 * dot(oc, ray_direction);
-    float c = dot(oc, oc) - sphere_radius * sphere_radius;
-    float discriminant = b*b - 4*a*c;
-
-	// A negative discriminant corresponds to ray missing sphere 
-    if (discriminant < 0) 
-        return false;
-    else
-	{
-		// Ray now found to intersect sphere, compute smallest t value of intersection
-		// If it is negative, ray started inside sphere
-		if (-b - sqrt(discriminant) < 0.0)
-			return false;
-        return true;
-	}
-
-	return true;
+    vec3 v1v0 = tri.v1 - tri.v0;
+    vec3 v2v0 = tri.v2 - tri.v0;
+    vec3 rov0 = ray_origin - tri.v0;
+    vec3  n = cross(v1v0, v2v0);
+    vec3  q = cross(rov0, ray_direction);
+    float d = 1.0 / dot(ray_direction, n);
+    float u = d * dot(-q, v2v0);
+    float v = d * dot( q, v1v0);
+    float t = d * dot(-n, rov0);
+    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0) 
+		t = -1.0;
+    return vec3(t, u, v);
 }
 
 /**
+ * Test all Triangles of the triangle texture against the ray that is given.
+ *
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @inout hitinfo Outvariable - Information about the nearest and selected hit 
+ */
+bool intersectTriangles(vec3 origin, vec3 dir, inout hitinfo info)
+{
+	//float smallest = MAX_SCENE_BOUNDS;
+	float smallest = info.lambda.x;
+	bool found = false;
+	for (int i = 0; i < NUM_TRIANGLES; i++)
+	{
+		triangle t;
+		t.v0 = texture(triangles, vec2(1.0, i)).xyz;
+		t.v1 = texture(triangles, vec2(2.0, i)).xyz;
+		t.v2 = texture(triangles, vec2(3.0, i)).xyz;
+		float lambda = intesectTriangle(origin, dir, t).x;
+		if (lambda > 0.0 && lambda < smallest)
+		{
+			info.lambda.x = lambda; // TODO vec3
+			info.id = i;
+			smallest = lambda;
+			found = true;
+		}
+	}
+	return found;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Sphere Intersect
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Test one sphere againt a ray.
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @in sphere the sphere to test against
+ * @return A two component vector with the nearest and furthest intersection lambda (t)
+ */
+vec2 intesectSphere(vec3 ray_origin, vec3 ray_direction, sphere s)
+{
+    vec3 oc = ray_origin - s.pos;
+    float b = dot(oc, ray_direction);
+    float c = dot(oc, oc) - s.radius * s.radius;
+    float h = b*b - c;
+    if (h < 0.0) 
+		return vec2(-1.0); // no intersection
+    h = sqrt(h);
+    return vec2(-b-h, -b+h);
+}
+
+/**
+ * Test all Spheres of the sphere texture against the ray that is given.
+ *
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @inout hitinfo Outvariable - Information about the nearest and selected hit 
+ */
+bool intersectSpheres(vec3 origin, vec3 dir, inout hitinfo info)
+{
+	//float smallest = MAX_SCENE_BOUNDS;
+	float smallest = info.lambda.x;
+	bool found = false;
+	for (int i = 0; i < NUM_SPHERES; i++)
+	{
+		sphere s;
+		s.pos = texture(spheres, vec2(0.0, i)).xyz;
+		s.radius = texture(spheres, vec2(0.0, i)).w;
+		float lambda = intesectSphere(origin, dir, s).x;
+		if (lambda > 0.0 && lambda < smallest)
+		{
+			info.lambda.x = lambda; // TODO vec2
+			info.id = i;
+			smallest = lambda;
+			found = true;
+		}
+	}
+	return found;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Box Intersect
+///////////////////////////////////////////////////////////////////////////////
+
+/**
  * Test one box againt a ray.
- * @param origin Origin of the ray
- * @param dir Direction of the ray
- * @param box the box to test against
- * @return A two component vector with the nearest and furthest intersection
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @in box the box to test against
+ * @return A two component vector with the nearest and furthest intersection lambda (t)
  */
 vec2 intersectBox(vec3 origin, vec3 dir, const box b) 
 {
@@ -94,11 +213,11 @@ vec2 intersectBox(vec3 origin, vec3 dir, const box b)
 }
 
 /**
- * Test all Boxes of the boxes array against the ray that is given.
+ * Test all Boxes of the cubes texture against the ray that is given.
  *
- * @param origin Origin of the ray
- * @param dir Direction of the ray
- * @param hitinfo Outvariable - Information about the nearest and selected hit 
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @out hitinfo Outvariable - Information about the nearest and selected hit 
  */
 bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 {
@@ -108,14 +227,14 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 	{
 		box b;
 		//b.min = boxes[i].min;
-		b.min = texture(sceneObject, vec2(i == 0 ? 0 : 1, 0.0)).xyz;
+		b.min = texture(cubes, vec2(0.0, i == 0 ? 0 : 1)).xyz;
 		//b.max = boxes[i].max;
-		b.max = texture(sceneObject, vec2(i == 0 ? 0 : 1, 1.0)).xyz;
+		b.max = texture(cubes, vec2(1.0, i == 0 ? 0 : 1)).xyz;
 		vec2 lambda = intersectBox(origin, dir, b);
 		if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) 
 		{
 			info.lambda = lambda;
-			info.bi = i;
+			info.id = i;
 			smallest = lambda.x;
 			found = true;
 		}	
@@ -123,46 +242,97 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 	return found;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Tracing
+///////////////////////////////////////////////////////////////////////////////
+
 /**
  * Trace a specific ray against all objects of the scene and color them 
  * according to the Objectattributes.
  * 
- * @param origin Origin of the ray
- * @param dir Direction of the ray
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
  * @return the color for this ray (pixel)
  */
-vec4 trace(vec3 origin, vec3 dir) 
+hitinfo trace(vec3 origin, vec3 dir)
 {
 	hitinfo hit;
+	hit.id = -1;
+	hit.color = vec4(0.0, 0.0, 0.0, 1.0);
+	hit.lambda = vec2(MAX_SCENE_BOUNDS); // TODO generell verwenden? auch für boxes
+	vec4 r_color = vec4(0.0, 0.0, 0.0, 1.0); 
 	if (intersectBoxes(origin, dir, hit))
 	{
-		vec4 gray = vec4(hit.bi / 10.0 + 0.8);
-		return vec4(gray.rgb, 1.0);
+		hit.color.rgb = vec3(hit.id / 10.0 + 0.8);
+		hit.type = TYPE_CUBE;
 	}
-	return vec4(0.0, 0.0, 0.0, 1.0);
+	
+	if (intersectSpheres(origin, dir, hit))
+	{
+		hit.color.rgb = texture(spheres, vec2(1.0, hit.id)).rgb;
+		hit.type = TYPE_SPHERE;
+	}
+
+	if (intersectTriangles(origin, dir, hit))
+	{
+		hit.color.rgb = texture(triangles, vec2(0.0, hit.id)).rgb;
+		hit.type = TYPE_TRIANGLE;
+	}
+
+	return hit;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Normals
+///////////////////////////////////////////////////////////////////////////////
+
+vec3 sphNormal(vec3 pos, vec3 sphere_pos)
+{
+    return normalize(pos - sphere_pos);
+}
+
+vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
+{
+	switch (hit.type) 
+	{
+		case TYPE_CUBE: 
+		{
+			return vec3(0.0, 1.0, 0.0); // TODO
+		}
+		case TYPE_SPHERE: 
+		{
+			vec3 sphere_pos = texture(spheres, vec2(0.0, hit.id)).xyz;
+			vec3 pos = ray_origin + hit.lambda.x * ray_direction;
+			return sphNormal(pos, sphere_pos);
+		}
+		case TYPE_TRIANGLE: 
+		{
+			return vec3(0.0, 1.0, 0.0); // TODO
+		}
+		default: return vec3(0.0, 1.0, 0.0);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Main
+///////////////////////////////////////////////////////////////////////////////
 
 void main() 
 {
+	vec3 lig = normalize(vec3(0.6, 0.3, 0.4)); // TODO as texture/uniform
+
 	vec3 ray_direction = normalize(vRay);
-	//vec3 ray_direction = vec3(g_mWVP * vec4(normalize(vPosition - g_vCamPos), 1.0));
-	//vec3 ray_direction = normalize(vec3(-1.0, 0.0, 0.0));
-	
 	vec3 ray_origin = vOrigin;
-	//vec3 ray_origin = g_vCamPos;
-	//vec3 ray_origin = vec3(3.0, 2.0, 7.0);
 
-	/*
-	if (intesectSphere(ray_origin, ray_direction))
-		//oColor = vec4(texture(sceneObject, vec2(0.0, 0.0)).xyz, 1.0);
-		oColor = vec4(1.0, 0.0, 0.0, 1.0);
-	else
-		oColor = vec4(0.0, 0.0, 0.0, 1.0);
-	*/
+	hitinfo hit = trace(ray_origin, ray_direction);
+	oColor = hit.color;
 
-	oColor = trace(ray_origin, ray_direction);
+	if (hit.id != -1)
+	{
+		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
+		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
+	}
 
 	//oColor = vec4(normalize(vRay), 1.0);
 	//oColor = vec4(vOrigin, 1.0);
-	//oColor = vec4(texture(sceneObject, vec2(1.0, 0.0)).xyz ,1.0);
 }
