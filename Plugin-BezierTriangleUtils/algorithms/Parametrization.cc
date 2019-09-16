@@ -113,7 +113,7 @@ void Parametrization::calcWeights()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::initCoords(const FaceHandle &face)
+void Parametrization::initCoords(const FaceHandle face)
 {
 	// Map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
@@ -150,7 +150,7 @@ void Parametrization::initCoords(const FaceHandle &face)
 		auto next = std::next(v);
 		if (next == m_outer->end()) next = m_outer->begin();
 		Scalar l = (m_mesh.point(*v) - m_mesh.point(*next)).norm();
-		pos += dir * l;
+		pos += dir * l * ratio;
 		hmap(*v) = pos;
 		// if we reached a corner of the triangle, go to next corner
 		if (isCorner(*v, face)) {
@@ -161,13 +161,13 @@ void Parametrization::initCoords(const FaceHandle &face)
 	}
 }
 
-void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle &face)
+void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face)
 {
 	m_inner = &inner;
 	m_outer = &outer;
 
-	nv_bdry_ = m_inner->size();
-	nv_inner_ = m_outer->size();
+	nv_bdry_ = m_outer->size();
+	nv_inner_ = m_inner->size();
 	nv_total_ = nv_inner_ + nv_bdry_;
 
 	// calculate coordinates
@@ -175,6 +175,15 @@ void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHan
 
 	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
 	std::cerr << " inner vertices, the total number is " << nv_total_ << std::endl;
+
+	/*std::cerr << "Inner:\n";
+	for (auto v : *m_inner) {
+		std::cerr << "\t" << v << " with sysid " << sysid(v) << "\n";
+	}
+	std::cerr << "Outer:\n";
+	for (auto v : *m_outer) {
+		std::cerr << "\t" << v << "\n";
+	}*/
 
 	// system matrix
 	EigenSpMatT A(nv_inner_, nv_inner_);
@@ -260,7 +269,7 @@ void Parametrization::add_row_to_system(
 	VertexHandle _origvh
 ) {
 	// if vertex is boundary do nothing
-	if (m_mesh.is_boundary(_origvh))
+	if (m_mesh.is_boundary(_origvh) || m_outer->find(_origvh) != m_outer->end())
 		return;
 
 	// else setup one row of the matrix, need local indices
@@ -281,13 +290,13 @@ void Parametrization::add_row_to_system(
 		w *= vertexweight;
 		weightsum += w;
 
-		// update rhs (u,v)
 		if (m_outer->find(*vv_it) != m_outer->end()) {
+			std::cerr << "sysid: " << sysid(_origvh) << "\n";
+			// update rhs (u,v)
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];
-		}
-		// update matrix
-		else {
+		} else if (m_inner->find(*vv_it) != m_inner->end()) {
+			// update matrix (only vertices that are part of the local face)
 			_triplets.push_back(EigenTripletT(sysid(_origvh), sysid(*vv_it), w));
 		}
 	}

@@ -72,7 +72,6 @@ public:
 	TriToVertex& ttv(FH fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VH vh) { return m_mesh.property(m_vtt, vh); }
 
-	int& border(HH hh) { return m_mesh.property(m_border, hh); }
 	FaceSplit& split(FH fh) { return m_mesh.property(m_split, fh); }
 
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
@@ -115,9 +114,6 @@ private:
 	OpenMesh::FPropHandleT<double>		  m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
 	OpenMesh::EPropHandleT<ID>			  m_crossed;
-	// TODO: add property to each halfedge(!) that shows which delaunay triangle
-	// it is a part of (uses face index)
-	OpenMesh::HPropHandleT<int>			  m_border;
 	OpenMesh::FPropHandleT<FaceSplit>	  m_split;
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;

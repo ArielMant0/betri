@@ -22,6 +22,16 @@ struct TriToVertex
 		inner = in;
 		outer = out;
 	}
+
+	bool isOut(const BezierTMesh::VertexHandle v)
+	{
+		return outer.find(v) != outer.end();
+	}
+
+	bool isIn(const BezierTMesh::VertexHandle v)
+	{
+		return inner.find(v) != inner.end();
+	}
 };
 
 struct VertexToTri
@@ -76,17 +86,16 @@ public:
 		BezierTMesh &ctrl,
 		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
-		OpenMesh::FPropHandleT<FaceHandle> &pred,
-		OpenMesh::HPropHandleT<int> &border
+		OpenMesh::FPropHandleT<FaceHandle> &pred
 	) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_ttv(ttv),
 		m_vtt(vtt),
 		m_pred(pred),
-		m_border(border),
 		m_inner(nullptr),
-		m_outer(nullptr)
+		m_outer(nullptr),
+		m_weightType(Uniform)
 	{
 		prepare();
 	}
@@ -108,8 +117,6 @@ public:
 	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
 
-	int& border(HalfedgeHandle heh) { return m_mesh.property(m_border, heh); }
-
 	// directly solve parametrization
 	void solve();
 
@@ -123,21 +130,18 @@ private:
 	void prepare();
 	void cleanup();
 
-	bool isCorner(const VertexHandle &v, const FaceHandle &face)
+	bool isCorner(const VertexHandle v, const FaceHandle face)
 	{
 		for (auto he = m_mesh.cvoh_begin(v); he != m_mesh.cvoh_end(v); ++he) {
-			if (isSeedFace(m_mesh.face_handle(*he))) {
-				const auto prev = m_mesh.prev_halfedge_handle(*he);
-				if (border(*he) == face.idx() && border(prev) == face.idx()) {
-					return true;
-				}
+			if (isSeedFace(m_mesh.face_handle(*he)) && ttv(face).isOut(v)) {
+				return true;
 			}
 		}
 
 		return false;
 	}
 
-	bool isSeed(const VertexHandle &v)
+	bool isSeed(const VertexHandle v)
 	{
 		for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
 			if (isSeedFace(*f)) {
@@ -148,7 +152,7 @@ private:
 		return false;
 	}
 
-	bool isSeedFace(const FaceHandle &f)
+	bool isSeedFace(const FaceHandle f)
 	{
 		return !m_mesh.property(m_pred, f).is_valid();
 	}
@@ -157,9 +161,9 @@ private:
 	void calcWeights();
 
 	// initialize texture coordinates
-	void initCoords(const FaceHandle &face);
+	void initCoords(const FaceHandle face);
 
-	void solveLocal(Vertices &inner, Vertices &outer, const FaceHandle &face);
+	void solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face);
 
 	// Function for adding the entries of one row in the equation system
 	void add_row_to_system(
@@ -190,7 +194,6 @@ private:
 	OpenMesh::FPropHandleT<TriToVertex>		m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>		m_vtt;
 	OpenMesh::FPropHandleT<FaceHandle>		m_pred;
-	OpenMesh::HPropHandleT<int>				m_border;
 
 	WeightType m_weightType;
 };
