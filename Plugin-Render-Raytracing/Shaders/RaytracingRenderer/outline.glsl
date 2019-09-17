@@ -7,6 +7,7 @@
 #define TYPE_CUBE 0
 #define TYPE_SPHERE 1
 #define TYPE_TRIANGLE 2
+#define TYPE_BTRIANGLE 3
 
 ///////////////////////////////////////////////////////////////////////////////
 // Define Count
@@ -15,6 +16,7 @@
 #define NUM_BOXES 2
 #define NUM_SPHERES 2
 #define NUM_TRIANGLES 2
+#define NUM_BTRIANGLES 1
 
 ///////////////////////////////////////////////////////////////////////////////
 // Define Max distance
@@ -31,11 +33,10 @@ in vec3 vRay;
 uniform sampler2D cubes;
 uniform sampler2D spheres;
 uniform sampler2D triangles;
-// The inverse of the texture dimensions along X and Y
-uniform vec2 texcoordOffset;
+uniform sampler2D btriangles;
 
-uniform mat4 g_mWVP;
-uniform vec3 g_vCamPos;
+//uniform mat4 g_mWVP;
+//uniform vec3 g_vCamPos;
 
 out vec4 oColor;
 
@@ -62,6 +63,22 @@ struct sphere {
 	float radius;
 };
 
+// TODO how to get a variable amout of cp's
+// cp0 - controllpoint 0 and vertex 0
+// cp1 - controllpoint 1
+// cp2 - controllpoint 2 and vertex 1
+// cp3 - controllpoint 3
+// cp4 - controllpoint 4
+// cp5 - controllpoint 5 and vertex 2
+struct btriangle {
+	vec3 cp0;
+	vec3 cp1;
+	vec3 cp2;
+	vec3 cp3;
+	vec3 cp4;
+	vec3 cp5;
+};
+
 // lambda - distances to the intersection on the ray
 // id - box index
 struct hitinfo {
@@ -70,11 +87,6 @@ struct hitinfo {
 	int type;
 	vec4 color;
 };
-
-//const box boxes[] = {
-//	{ vec3(-5.0, -3.0, -5.0), vec3(5.0, -2.9, 5.0) },
-//	{ vec3(-1.5, -1.5, 3), vec3(1.5, 1.5, 4.5) }
-//};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Link to multiple examples for ray - object intersections
@@ -87,6 +99,7 @@ struct hitinfo {
 
 /**
  * Test one triangle againt a ray.
+ *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
  * @in sphere the sphere to test against
@@ -146,6 +159,7 @@ bool intersectTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 
 /**
  * Test one sphere againt a ray.
+ *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
  * @in sphere the sphere to test against
@@ -199,6 +213,7 @@ bool intersectSpheres(vec3 origin, vec3 dir, inout hitinfo info)
 
 /**
  * Test one box againt a ray.
+ *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
  * @in box the box to test against
@@ -245,6 +260,69 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Beziertriangle Intersect
+///////////////////////////////////////////////////////////////////////////////
+
+// TODO naming is inconsistent - ray_origin vs origin
+/**
+ * Test one beziertriangle againt a ray.
+ *
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @in box the btriangle to test against
+ * @return A three component vector with the nearest intersection lambda (t) and u, v
+ */
+vec2 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt) 
+{
+    vec3 v1v0 = bt.cp2 - bt.cp0;
+    vec3 v2v0 = bt.cp5 - bt.cp0;
+    vec3 rov0 = ray_origin - bt.cp0;
+    vec3  n = cross(v1v0, v2v0);
+    vec3  q = cross(rov0, ray_direction);
+    float d = 1.0 / dot(ray_direction, n);
+    float u = d * dot(-q, v2v0);
+    float v = d * dot( q, v1v0);
+    float t = d * dot(-n, rov0);
+    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0) 
+		t = -1.0;
+    return vec3(t, u, v);
+}
+
+/**
+ * Test all Boxes of the cubes texture against the ray that is given.
+ *
+ * @in origin Origin of the ray
+ * @in dir Direction of the ray
+ * @out hitinfo Outvariable - Information about the nearest and selected hit 
+ */
+bool intersectBTriangles(vec3 origin, vec3 dir, out hitinfo info)
+{
+	float smallest = info.lambda.x;
+	bool found = false;
+	for (int i = 0; i < NUM_BOXES; i++) 
+	{
+		btriangle bt;
+		float y = i * 1.0 / NUM_BOXES + 0.5 / NUM_BTRIANGLES; // TODO
+		const float padding = 1; // TODO all as defines? from the cpu?
+		const float cp_count = 6;
+		const float mid = 2 / (cp_count + padding); // TODO is this nessessary?
+		const float x = 1 / (cp_count + padding);
+		bt.cp0 = texture(btriangles, vec2((padding + 0) * x + mid, y)).xyz;
+		bt.cp2 = texture(btriangles, vec2((padding + 2) * x + mid, y)).xyz;
+		bt.cp5 = texture(btriangles, vec2((padding + 5) * x + mid, y)).xyz;
+		float lambda = intersectBTriangle(origin, dir, bt).x;
+		if (lambda > 0.0 && lambda < smallest)
+		{
+			info.lambda.x = lambda;
+			info.id = i;
+			smallest = lambda;
+			found = true;
+		}	
+	}
+	return found;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Tracing
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -279,6 +357,12 @@ hitinfo trace(vec3 origin, vec3 dir)
 	{
 		hit.color.rgb = texture(triangles, vec2(0.0, hit.id)).rgb;
 		hit.type = TYPE_TRIANGLE;
+	}
+
+	if (intersectBTriangles(origin, dir, hit))
+	{
+		hit.color.rgb = texture(btriangles, vec2(0.0, hit.id)).rgb;
+		hit.type = TYPE_BTRIANGLE;
 	}
 
 	return hit;

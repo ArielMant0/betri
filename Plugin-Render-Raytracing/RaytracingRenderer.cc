@@ -13,7 +13,7 @@
 #define OUTLINE_VERTEXSHADER_FILE "RaytracingRenderer/screenquad.glsl"
 #define OUTLINE_FRAGMENTSHADER_FILE "RaytracingRenderer/outline.glsl"
 
-#define OBJECT_TYPE_COUNT 3
+#define OBJECT_TYPE_COUNT 4
 
 // Raytracer
 
@@ -248,20 +248,18 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 		progOutline_->setUniform("u_near", float(_glState->near_plane()));
 		progOutline_->setUniform("u_far", float(_glState->far_plane()));
 
+		progOutline_->setUniform("g_vCamPos2", camPosWS_);
+
 		//_glState->reset_projection();
 
 		// Framgent shader uniforms
-		progOutline_->setUniform("texcoordOffset", ACG::Vec2f(1.0f / float(viewRes->scene_->width()), 1.0f / float(viewRes->scene_->height())));
 		//ACG::GLMatrixf mvp = _glState->projection * _glState->modelview;
 		//progOutline_->setUniform("g_mWVP", mvp);
-		progOutline_->setUniform("g_vCamPos", camPosWS_);
-		progOutline_->setUniform("g_vCamPos2", camPosWS_);
-
-		//auto bla = ACG::RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D);
+		//progOutline_->setUniform("g_vCamPos", camPosWS_);
 
 		// TODO
 		const std::array<char*, OBJECT_TYPE_COUNT> uniformArray = {
-			"cubes", "spheres", "triangles"
+			"cubes", "spheres", "triangles", "btriangles"
 		};
 
 		int texIndex = 0;
@@ -403,6 +401,30 @@ void RaytracingRenderer::setupObjectTextures()
 	}
 
 	addTextureToVector(triangleBuf, t_points, triangle_count);
+
+	///////////////////////////////////////////////////////////////////////////
+	// Add beziertriangles
+	///////////////////////////////////////////////////////////////////////////
+
+	const size_t bt_count = 1;
+	const size_t bt_floats = 3;
+	const size_t bt_points = 6 + 1;
+	const std::array<std::array<int, bt_floats * bt_points>, bt_count> btArray = { {
+			// Color 3f, Vertex1 3f, CP1 3f, Vertex2 3f, CP3 3f, CP2 3f, Vertex3 3f
+			{0.0, 0.0, 1.0, 
+				5.0, 0.0, -2.0, 5.0, 0.0, 0.0, 5.0, 0.0, 2.0,
+				5.0, 1.0, -2.0, 5.0, 1.0, 0.0, 5.0, 2.0, -2.0}
+		} };
+
+	counter = 0;
+	std::vector<float> btBuf(bt_count * bt_floats * bt_points);
+	for (auto elem : btArray) {
+		for (auto item : elem) {
+			btBuf[counter++] = item;
+		}
+	}
+
+	addTextureToVector(btBuf, bt_points, bt_count);
 	
 //#endif
 }
