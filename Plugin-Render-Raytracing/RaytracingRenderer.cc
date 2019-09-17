@@ -233,23 +233,21 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 
 		// https://www.openflipper.org/media/Documentation/OpenFlipper-3.0/a00643.html#ae27e2005ea57312f70752b0a2608f506
 		// Vertex shader uniforms
-		ACG::GLMatrixf mvp =  _glState->modelview();
-		progOutline_->setUniform("g_mWVP", mvp);
-
-		progOutline_->setUniform("u_viewportWidth", float(_glState->viewport_width()));
-		progOutline_->setUniform("u_viewportHeight", float(_glState->viewport_height()));
-		progOutline_->setUniform("u_fovy", float(_glState->fovy()));
-		progOutline_->setUniform("g_mWVP", mvp);
+		//ACG::GLMatrixf mvp =  _glState->modelview();
+		//progOutline_->setUniform("g_mWVP", mvp);
 
 		progOutline_->setUniform("u_invproj", _glState->inverse_projection());
 		progOutline_->setUniform("u_invmodelview", _glState->inverse_modelview());
-		progOutline_->setUniform("u_proj", _glState->projection());
-		progOutline_->setUniform("u_modelview", _glState->modelview());
 		progOutline_->setUniform("u_near", float(_glState->near_plane()));
 		progOutline_->setUniform("u_far", float(_glState->far_plane()));
-
+		
+		
+		// TODO for option 2
+		/*
+		progOutline_->setUniform("u_proj", _glState->projection());
+		progOutline_->setUniform("u_modelview", _glState->modelview());
 		progOutline_->setUniform("g_vCamPos2", camPosWS_);
-
+		*/
 		//_glState->reset_projection();
 
 		// Framgent shader uniforms

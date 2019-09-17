@@ -24,8 +24,8 @@
 
 #define MAX_SCENE_BOUNDS 1000.0
 
-in vec2 vTexCoord;
-in vec3 vPosition;
+//in vec2 vTexCoord;
+//in vec3 vPosition;
 
 in vec3 vOrigin;
 in vec3 vRay;
@@ -237,7 +237,7 @@ vec2 intersectBox(vec3 origin, vec3 dir, const box b)
  * @in dir Direction of the ray
  * @out hitinfo Outvariable - Information about the nearest and selected hit 
  */
-bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
+bool intersectBoxes(vec3 origin, vec3 dir, inout hitinfo info)
 {
 	float smallest = MAX_SCENE_BOUNDS;
 	bool found = false;
@@ -254,7 +254,7 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
 			info.id = i;
 			smallest = lambda.x;
 			found = true;
-		}	
+		}
 	}
 	return found;
 }
@@ -272,7 +272,7 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info)
  * @in box the btriangle to test against
  * @return A three component vector with the nearest intersection lambda (t) and u, v
  */
-vec2 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt) 
+vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt) 
 {
     vec3 v1v0 = bt.cp2 - bt.cp0;
     vec3 v2v0 = bt.cp5 - bt.cp0;
@@ -295,14 +295,14 @@ vec2 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
  * @in dir Direction of the ray
  * @out hitinfo Outvariable - Information about the nearest and selected hit 
  */
-bool intersectBTriangles(vec3 origin, vec3 dir, out hitinfo info)
+bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 {
 	float smallest = info.lambda.x;
 	bool found = false;
-	for (int i = 0; i < NUM_BOXES; i++) 
+	for (int i = 0; i < NUM_BTRIANGLES; i++) 
 	{
 		btriangle bt;
-		float y = i * 1.0 / NUM_BOXES + 0.5 / NUM_BTRIANGLES; // TODO
+		float y = i * 1.0 / NUM_BTRIANGLES + 0.5 / NUM_BTRIANGLES; // TODO
 		const float padding = 1; // TODO all as defines? from the cpu?
 		const float cp_count = 6;
 		const float mid = 2 / (cp_count + padding); // TODO is this nessessary?
@@ -317,7 +317,7 @@ bool intersectBTriangles(vec3 origin, vec3 dir, out hitinfo info)
 			info.id = i;
 			smallest = lambda;
 			found = true;
-		}	
+		}
 	}
 	return found;
 }
@@ -336,11 +336,7 @@ bool intersectBTriangles(vec3 origin, vec3 dir, out hitinfo info)
  */
 hitinfo trace(vec3 origin, vec3 dir)
 {
-	hitinfo hit;
-	hit.id = -1;
-	hit.color = vec4(0.0, 0.0, 0.0, 1.0);
-	hit.lambda = vec2(MAX_SCENE_BOUNDS); // TODO generell verwenden? auch für boxes
-	vec4 r_color = vec4(0.0, 0.0, 0.0, 1.0); 
+	hitinfo hit = hitinfo(vec2(MAX_SCENE_BOUNDS), -1, -1, vec4(0.0, 0.0, 0.0, 1.0));
 	if (intersectBoxes(origin, dir, hit))
 	{
 		hit.color.rgb = vec3(hit.id / 10.0 + 0.8);
@@ -352,13 +348,13 @@ hitinfo trace(vec3 origin, vec3 dir)
 		hit.color.rgb = texture(spheres, vec2(1.0, hit.id)).rgb;
 		hit.type = TYPE_SPHERE;
 	}
-
+	
 	if (intersectTriangles(origin, dir, hit))
 	{
 		hit.color.rgb = texture(triangles, vec2(0.0, hit.id)).rgb;
 		hit.type = TYPE_TRIANGLE;
 	}
-
+	
 	if (intersectBTriangles(origin, dir, hit))
 	{
 		hit.color.rgb = texture(btriangles, vec2(0.0, hit.id)).rgb;
@@ -371,7 +367,6 @@ hitinfo trace(vec3 origin, vec3 dir)
 ///////////////////////////////////////////////////////////////////////////////
 // Normals
 ///////////////////////////////////////////////////////////////////////////////
-
 vec3 sphNormal(vec3 pos, vec3 sphere_pos)
 {
     return normalize(pos - sphere_pos);
@@ -405,6 +400,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
 
 void main() 
 {
+
 	vec3 lig = normalize(vec3(0.6, 0.3, 0.4)); // TODO as texture/uniform
 
 	vec3 ray_direction = normalize(vRay);
@@ -412,15 +408,16 @@ void main()
 
 	hitinfo hit = trace(ray_origin, ray_direction);
 	oColor = hit.color;
-
+	
 	if (hit.id != -1)
 	{
 		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
 		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
 	}
-
+	
 	//oColor = vec4(texture(triangles, vec2(0.5, 0)).xyz, 1.0);
 
 	//oColor = vec4(normalize(vRay), 1.0);
 	//oColor = vec4(vOrigin, 1.0);
+	//oColor = vec4(vOrigin.xyz + vRay.xyz, 1.0);
 }
