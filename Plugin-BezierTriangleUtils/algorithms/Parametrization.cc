@@ -122,51 +122,60 @@ void Parametrization::initCoords(const FaceHandle face)
 	size_t innerIdx = 0;
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (auto &v : *m_inner) {
+		// triangle
+		//hmap(v) = Vec2(0.33f, 0.33f);
+
+		// circle
 		hmap(v) = Vec2(0.5f, 0.5f);
 		sysid(v) = innerIdx++;
 	}
 
 	Scalar length = 0.0;
-	// TODO: order is important!, maybe start from one boundary edge and go further from there
-	for (auto v = m_outer->begin(); v != m_outer->end(); ++v) {
-		auto next = std::next(v);
-		if (next == m_outer->end()) next = m_outer->begin();
-		length += (m_mesh.point(*v) - m_mesh.point(*next)).norm();
+	for (auto he : *m_outer) {
+		length += m_mesh.calc_edge_length(he);
 	}
 
 	// TODO: keep angles of the triangle ?!
-	constexpr float turn = 135.0 * M_PI / 180.0;
-	const float cosTerm = std::cos(turn);
-	const float sinTerm = std::sin(turn);
+	//constexpr float turn = 135.0 * M_PI / 180.0;
+	//const float cosTerm = std::cos(turn);
+	//const float sinTerm = std::sin(turn);
 
-	// triangle circumference (unit triangle) ratio
-	Scalar ratio = (2 + sqrt(2.0)) / length;
-	// current position on the circumference and direction
-	Vec2 pos{ 0.f, 0.f }, dir{ 1.f, 0.f };
+	//// triangle circumference (unit triangle) ratio
+	//Scalar ratio = (2 + sqrt(2.0)) / length;
+	//// current position on the circumference and direction
+	//Vec2 pos{ 0.f, 0.f }, dir{ 1.f, 0.f };
 
-	// assign boundary coordinates
-	// TODO: order is important!, maybe get corner vertex (by looking at all vertices of the
-	//		 seed face) and then walking along the edge from there
-	for (auto v = m_outer->begin(); v != m_outer->end(); ++v) {
-		auto next = std::next(v);
-		if (next == m_outer->end()) next = m_outer->begin();
-		Scalar l = (m_mesh.point(*v) - m_mesh.point(*next)).norm();
-		pos += dir * l * ratio;
-		hmap(*v) = pos;
-		// if we reached a corner of the triangle, go to next corner
-		if (isCorner(*v, face)) {
-			const float tmp = dir[0];
-			dir[0] = tmp * cosTerm - dir[1] * sinTerm;
-			dir[1] = tmp * sinTerm + dir[1] * cosTerm;
-		}
+	//bool c = false;
+	//// assign boundary coordinates
+	//// TODO: order is important!, maybe get corner vertex (by looking at all vertices of the
+	////		 seed face) and then walking along the edge from there
+	//for (auto he : *m_outer) {
+	//	VertexHandle v = m_mesh.from_vertex_handle(he);
+	//	hmap(v) = pos;
+	//	pos += dir * m_mesh.calc_edge_length(he) * ratio;
+	//	// if we reached a corner of the triangle, go to next corner
+	//	if (isCorner(v, face)) {
+	//		if (c) {
+	//			const float tmp = dir[0];
+	//			dir[0] = tmp * cosTerm - dir[1] * sinTerm;
+	//			dir[1] = tmp * sinTerm + dir[1] * cosTerm;
+	//		}
+	//		c = true;
+	//	}
+	//}
+
+	// map to circle
+	Scalar normFactor = 1.0 / length * 2.0 * M_PI;
+	Scalar l = 0.0, angle;
+	for (auto he : *m_outer) {
+		angle = l * normFactor;
+		hmap(m_mesh.to_vertex_handle(he)) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
+		l += m_mesh.calc_edge_length(he);
 	}
 }
 
-void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face)
+void Parametrization::solveLocal(const FaceHandle face)
 {
-	m_inner = &inner;
-	m_outer = &outer;
-
 	nv_bdry_ = m_outer->size();
 	nv_inner_ = m_inner->size();
 	nv_total_ = nv_inner_ + nv_bdry_;
@@ -176,15 +185,6 @@ void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHan
 
 	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
 	std::cerr << " inner vertices, the total number is " << nv_total_ << std::endl;
-
-	/*std::cerr << "Inner:\n";
-	for (auto v : *m_inner) {
-		std::cerr << "\t" << v << " with sysid " << sysid(v) << "\n";
-	}
-	std::cerr << "Outer:\n";
-	for (auto v : *m_outer) {
-		std::cerr << "\t" << v << "\n";
-	}*/
 
 	// system matrix
 	EigenSpMatT A(nv_inner_, nv_inner_);
@@ -212,16 +212,13 @@ void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHan
 	 */
 	std::vector<EigenTripletT> triplets;
 
-	// INSERT CODE:
 	// for all inner vertices, setup the corresponding row of the linear systems (u and v)
 	// call add_row_to_system for all inner vertices
 	// Smooth parameterization using Laplacian relaxation.
-	//--- start strip ---
 
 	for (const auto &v : *m_inner) {
-		addRow(triplets, rhsu, rhsv, v);
+		addRow(triplets, rhsu, rhsv, v, face);
 	}
-	//--- end strip ---
 	std::cerr << " number of triplets (i.e. number of non-zeros) " << triplets.size();
 	std::cerr << ", per row " << (triplets.size() / nv_inner_) << std::endl;
 
@@ -250,14 +247,28 @@ void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHan
 	// write back to hmap
 	for (const auto &v : *m_inner) {
 		hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
+		//assert(hmap(v).norm() <= 1.0);
 	}
 }
 
 //-----------------------------------------------------------------------------
 
 void Parametrization::solve() {
+	m_outer = new std::vector<HalfedgeHandle>();
 	for (const auto &face : m_ctrl.faces()) {
-		solveLocal(ttv(face).inner, ttv(face).outer, face);
+		m_inner = &ttv(face).inner;
+
+		auto ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
+		auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
+		auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
+
+		std::copy(ab.edges().begin(), ab.edges().end(), std::back_inserter(*m_outer));
+		std::copy(bc.edges().begin(), bc.edges().end(), std::back_inserter(*m_outer));
+		std::copy(ca.edges().begin(), ca.edges().end(), std::back_inserter(*m_outer));
+
+		solveLocal(face);
+
+		m_outer->clear();
 	}
 }
 
@@ -267,10 +278,11 @@ void Parametrization::addRow(
 	std::vector<EigenTripletT>& _triplets,
 	EigenVectorT& _rhsu,
 	EigenVectorT& _rhsv,
-	VertexHandle _origvh
+	VertexHandle _origvh,
+	FaceHandle face
 ) {
 	// if vertex is boundary do nothing
-	if (m_mesh.is_boundary(_origvh) || m_outer->find(_origvh) != m_outer->end())
+	if (m_mesh.is_boundary(_origvh))
 		return;
 
 	// else setup one row of the matrix, need local indices
@@ -291,11 +303,11 @@ void Parametrization::addRow(
 		w *= vertexweight;
 		weightsum += w;
 
-		if (m_outer->find(*vv_it) != m_outer->end()) {
+		if (!isInner(*vv_it, face)) {
 			// update rhs (u,v)
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];
-		} else if (m_inner->find(*vv_it) != m_inner->end()) {
+		} else {
 			// update matrix (only vertices that are part of the local face)
 			_triplets.push_back(EigenTripletT(sysid(_origvh), sysid(*vv_it), w));
 		}

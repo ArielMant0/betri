@@ -16,23 +16,28 @@ struct BezierTriangleTraits : public TriTraits
 
 	public:
 
-		/*void setControlPoints(std::vector<Point> points)
-		{
-			m_cps = std::move(points);
-		}*/
-
-		void setControlPoints(const std::vector<Point> &points)
+		void points(const std::vector<Point> &points)
 		{
 			m_cps = points;
 		}
 
-		void setPoint(int index, Point &point)
+		std::vector<Point>& points()
+		{
+			return m_cps;
+		}
+
+		void controlPoint(int index, Point &point)
 		{
 			if (m_cps.size() <= index) {
 				m_cps.push_back(point);
 			} else {
 				m_cps[index] = point;
 			}
+		}
+
+		Point controlPoint(int index) const
+		{
+			return m_cps[index];
 		}
 
 		void addPoint(Point &point)
@@ -55,11 +60,6 @@ struct BezierTriangleTraits : public TriTraits
 		auto cpEnd() const
 		{
 			return m_cps.end();
-		}
-
-		Point getCPoint(int index) const
-		{
-			return m_cps[index];
 		}
 	};
 };

@@ -59,7 +59,7 @@ public:
 		controlnet_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
 		surface_color_(Vec4f(178.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, 1.0f)),
 		surface_highlight_color_(Vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
-		render_control_net_(false), // TODO
+		render_control_net_(true), // TODO
 		render_bspline_surface_(true),
 		adaptive_sampling_(false),
 		controlPointSelectionTexture_valid_(false),

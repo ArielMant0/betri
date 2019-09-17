@@ -82,9 +82,6 @@ private:
 
 	void preventiveEdgeSplits();
 
-	bool hasShortestPath(const ID id1, const ID id2) const;
-	ShortestPath getShortestPath(ID id1, ID id2);
-
 	// face splitting (to add boundary edges to the mesh)
 	void splitFace(FH face);
 
@@ -97,10 +94,6 @@ private:
 	std::vector<Color> m_colors;
 	std::set<FH> m_seeds;
 	std::vector<EH> m_boundary;
-	// stores the shortest path for each pair of tiles that is needed to
-	// construct the delaunay triangulation
-	std::unordered_set<ShortestPath> m_paths;
-
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;

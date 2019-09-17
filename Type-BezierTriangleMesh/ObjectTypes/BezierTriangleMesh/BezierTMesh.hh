@@ -50,7 +50,9 @@ public:
 	void setRenderable() { m_render = true; }
 
 	/// control bezier triangle degree
-	void setDegree(size_t degree) { m_degree = degree; }
+	void degree(size_t degree) { m_degree = degree; }
+
+	size_t degree() { return m_degree; }
 
 	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh)
 	{

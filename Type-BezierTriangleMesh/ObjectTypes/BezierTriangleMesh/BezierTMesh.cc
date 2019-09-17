@@ -29,7 +29,7 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 		}
 	}
 
-	data(f).setControlPoints(cp_vec);
+	data(f).points(cp_vec);
 }
 
 void BezierTMesh::recalculateCPs(const FaceHandle f)
@@ -51,7 +51,7 @@ void BezierTMesh::recalculateCPs(const FaceHandle f)
 	for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
 		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
 			double w = 1 - u - v;
-			bezier.setPoint(i++, p0 * u + p1 * v + p2 * w);
+			bezier.controlPoint(i++, p0 * u + p1 * v + p2 * w);
 		}
 	}
 }

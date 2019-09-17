@@ -8,7 +8,6 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-#include <ObjectTypes/BezierTriangleMesh/globals/BezierOptions.hh>
 
 #include <qlineedit.h> // TODO
 
@@ -66,7 +65,8 @@ signals:
 ///////////////////////////////////////////////////////////////////////////////
 public slots:
 
-	QString version() { return QString("1.0.0"); };
+	QString version() { return QString("1.0.0");
+	};
 
 private slots:
 

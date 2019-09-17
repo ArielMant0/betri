@@ -10,7 +10,6 @@
 #include <qcheckbox.h>
 
 //#include <OpenFlipper/common/UpdateType.hh>
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
@@ -222,6 +221,8 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 
 		betri::voronoiRemesh(*o_it, obj);
 		emit log(LOGINFO, "Performed Voronoi Partition!");
+		//ctrl_obj->show();
+		//ctrl_obj->mesh()->setRenderable();
 
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		emit updatedObject(meshObj->id(), UPDATE_ALL);

@@ -19,7 +19,7 @@ class Fitting
 	using EigenMatT = Eigen::MatrixXd;
 	using EigenVectorT = Eigen::VectorXd;
 
-	using Vertices = std::set<VertexHandle>;
+	using Vertices = std::vector<VertexHandle>;
 
 public:
 
@@ -39,7 +39,7 @@ public:
 		prepare();
 	}
 
-	void solve(unsigned int degree=2);
+	void solve();
 
 	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
@@ -53,10 +53,11 @@ private:
 
 	size_t calcCPCount(unsigned int degree);
 
-	void solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face);
+	void solveLocal(Vertices &inner, const FaceHandle face);
 
 	Scalar calcCoeffs(VertexHandle vh, int i, int j)
 	{
+		//assert(vtt(vh).uv.norm() <= 1.0);
 		// TODO: ?!
 		return eval(i, j, vtt(vh).uv[0], vtt(vh).uv[1], m_degree);
 	}

@@ -24,17 +24,19 @@ using Vec3 = ACG::VectorT<Scalar, 3>;
 
 struct TriToVertex
 {
-	std::set<VertexHandle> inner; // inner vertices
-	std::set<VertexHandle> outer; // outer boundary vertices (found using shortest paths)
+	std::vector<VertexHandle> inner; // inner vertices
+	size_t ids[3] = { 0, 0, 0 };// boundary numbers (shortest paths)
 
-	bool isOut(const VertexHandle v)
+	const size_t& operator[](size_t index) const
 	{
-		return outer.find(v) != outer.end();
+		assert(index <= 2);
+		return ids[index];
 	}
 
-	bool isIn(const VertexHandle v)
+	size_t& operator[](size_t index)
 	{
-		return inner.find(v) != inner.end();
+		assert(index <= 2);
+		return ids[index];
 	}
 };
 

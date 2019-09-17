@@ -192,7 +192,7 @@ void BTMeshObject::init(BezierTMesh* _mesh)
     shaderNode_  = new ACG::SceneGraph::ShaderNode(textureNode() , "NEW ShaderNode for ");
     meshNode_    = new ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>(*mesh_, shaderNode_, "NEW BezierTriangleMeshNode");
 
-    QString shaderDir = OpenFlipper::Options::shaderDirStr() + 
+    QString shaderDir = OpenFlipper::Options::shaderDirStr() +
 		OpenFlipper::Options::dirSeparator();
 
     std::string shaderDirectory = std::string(shaderDir.toUtf8());
@@ -250,12 +250,12 @@ void BTMeshObject::init(BezierTMesh* _mesh)
 
 	// TODO
     // Link the status nodes to the draw mesh of the mesh below them to reuse its buffers
-    //if (meshNode_) {
-    //    statusNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    featureNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    areaNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    handleNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //}
+    /*if (meshNode_) {
+        statusNode_->setDrawMesh(meshNode_->getDrawMesh());
+        featureNode_->setDrawMesh(meshNode_->getDrawMesh());
+        areaNode_->setDrawMesh(meshNode_->getDrawMesh());
+        handleNode_->setDrawMesh(meshNode_->getDrawMesh());
+    }*/
 
     // Node rendering selections in correct order
     statusView_ = new ACG::SceneGraph::BTStatusViewNodeT<BezierTMesh>(
@@ -546,6 +546,7 @@ ACG::Vec4f BTMeshObject::handleColor() const
 /** Returns a pointer to the bezierTriangleMesh node
  * @return Pointer to the bezierTriangleMesh node
  */
+//ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>* BTMeshObject::bezierTriangleMeshNode() {
 ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>* BTMeshObject::bezierTriangleMeshNode() {
 	return meshNode_;
 }

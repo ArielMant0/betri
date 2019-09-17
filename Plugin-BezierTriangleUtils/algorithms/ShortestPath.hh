@@ -1,8 +1,10 @@
 #pragma once
 
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
+#include "Common.hh"
 
+#include <vector>
 #include <unordered_set>
+
 
 namespace betri
 {
@@ -17,7 +19,7 @@ public:
 	using HH = BezierTMesh::HalfedgeHandle;
 	using FH = BezierTMesh::FaceHandle;
 
-	using Container = std::unordered_set<HH>;
+	using Container = std::vector<HH>;
 
 	ShortestPath() : m_small(-1), m_big(-1), m_border() {}
 
@@ -47,17 +49,26 @@ public:
 		assert(m_small < m_big);
 	}
 
-	//bool operator==(const ShortestPath& rhs) const
-	//{
-	//	return first() == rhs.first() && second() == rhs.second();
-	//}
-
-	bool add(HH he) { return m_border.insert(he).second; }
+	void add(HH he) { return m_border.push_back(he); }
 
 	Container& edges() { return m_border; }
 
+	bool contains(HalfedgeHandle he) const
+	{
+		return std::any_of(m_border.begin(), m_border.end(), [he](const HalfedgeHandle heh) {
+			return he == heh;
+		});
+	}
+
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
+
+	static ShortestPath path(ID id1, ID id2);
+	static void path(ShortestPath &s);
+
+	static bool has(const ID id1, const ID id2);
+
+	static void clear();
 
 private:
 

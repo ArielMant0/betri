@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.hh"
+#include "ShortestPath.hh"
 
 #include <ACG/Math/VectorT.hh>
 #include <OpenMesh/Core/Utils/Property.hh>
@@ -25,7 +26,7 @@ class Parametrization
 
 public:
 
-	using Vertices = std::set<VertexHandle>;
+	using Vertices = std::vector<VertexHandle>;
 
 	enum WeightType
 	{
@@ -49,6 +50,12 @@ public:
 		m_weightType(Uniform)
 	{
 		prepare();
+	}
+
+	~Parametrization()
+	{
+		cleanup();
+		if (m_outer) delete m_outer;
 	}
 
 	/** Useful helper functions!
@@ -83,13 +90,26 @@ private:
 
 	bool isCorner(const VertexHandle v, const FaceHandle face)
 	{
-		for (auto he = m_mesh.cvoh_begin(v); he != m_mesh.cvoh_end(v); ++he) {
-			if (isSeedFace(m_mesh.face_handle(*he)) && ttv(face).isOut(v)) {
+		auto a = ttv(face)[0];
+		auto b = ttv(face)[1];
+		auto c = ttv(face)[2];
+
+		auto ab = ShortestPath::path(a, b);
+		auto bc = ShortestPath::path(b, c);
+		auto ca = ShortestPath::path(c, a);
+
+		for (auto he = m_mesh.cvih_begin(v); he != m_mesh.cvih_end(v); ++he) {
+			if (ab.edges()[0] == *he || bc.edges()[0] == *he || ca.edges()[0] == *he) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	bool isInner(const VertexHandle v, const FaceHandle face)
+	{
+		return std::find(ttv(face).inner.begin(), ttv(face).inner.end(), v) != ttv(face).inner.end();
 	}
 
 	bool isSeed(const VertexHandle v)
@@ -114,16 +134,16 @@ private:
 	// initialize texture coordinates
 	void initCoords(const FaceHandle face);
 
-	void solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face);
+	void solveLocal(const FaceHandle face);
 
 	// Function for adding the entries of one row in the equation system
 	void addRow(
 		std::vector<EigenTripletT>& _triplets,
 		EigenVectorT& _rhsu,
 		EigenVectorT& _rhsv,
-		VertexHandle _origvh
+		VertexHandle _origvh,
+		FaceHandle face
 	);
-
 
 	///////////////////////////////////////////////////////////
 	// member variables
@@ -131,7 +151,7 @@ private:
 
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;
-	Vertices *m_outer;
+	std::vector<HalfedgeHandle> *m_outer;
 
     // helper variables
     size_t nv_total_;

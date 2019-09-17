@@ -48,7 +48,7 @@ void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cp = faceControlP.getCPoint(i);
+			cp = faceControlP.controlPoint(i);
 			_bbMin.minimize(cp);
 			_bbMax.maximize(cp);
 		}
@@ -293,7 +293,7 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsCircular()
 		auto cp4 = bezierTriangleMesh_.point(vh2);
 		auto cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
 
-		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+		bezierTriangleMesh_.data(face).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
 	}
 }
 
@@ -331,7 +331,7 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 			}
 		}
 
-		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>(cp_vec));
+		bezierTriangleMesh_.data(face).points(std::vector<Point>(cp_vec));
 		/*
 		Point n1 = bezierTriangleMesh_.normal(vh0) * 0.25 + bezierTriangleMesh_.normal(vh1) * 0.25;
 		Point n2 = bezierTriangleMesh_.normal(vh1) * 0.25 + bezierTriangleMesh_.normal(vh2) * 0.25;
@@ -345,7 +345,7 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 		auto cp5 = bezierTriangleMesh_.point(vh2);
 		auto cp3 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + n3;
 
-		bezierTriangleMesh_.data(face).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));*/
+		bezierTriangleMesh_.data(face).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));*/
 	}
 }
 
@@ -783,7 +783,7 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cp = faceControlP.getCPoint(i);
+			cp = faceControlP.controlPoint(i);
 			draw_sphere(cp, sphereRadius, _state, fancySphere_);
 		}
 	}
@@ -805,9 +805,9 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 		int boderAdd = CPCOUNT + 2 - 1;
 
 		for (; pos3 < CPSUM; ) {
-			Point p1 = faceControlP.getCPoint(pos1);
-			Point p2 = faceControlP.getCPoint(pos2);
-			Point p3 = faceControlP.getCPoint(pos3);
+			Point p1 = faceControlP.controlPoint(pos1);
+			Point p2 = faceControlP.controlPoint(pos2);
+			Point p3 = faceControlP.controlPoint(pos3);
 			// TODO warum hier p2-p1?
 			draw_cylinder(p1, p2 - p1, cylinderRadius, _state);
 			draw_cylinder(p2, p3 - p2, cylinderRadius, _state);
@@ -926,7 +926,7 @@ void BezierTriangleMeshNode<MeshT>::pick_vertices(GLState& _state)
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cp = faceControlP.getCPoint(i);
+			cp = faceControlP.controlPoint(i);
 
 			_state.pick_set_name(face_id * controlPointsPerFace + i);
 
@@ -1550,12 +1550,12 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 
 		// TODO read the controllpoints from the mesh data
 		auto faceControlP = bezierTriangleMesh_.data(face);
-		cp0 = faceControlP.getCPoint(0);
-		cp1 = faceControlP.getCPoint(1);
-		cp2 = faceControlP.getCPoint(2);
-		cp3 = faceControlP.getCPoint(3);
-		cp4 = faceControlP.getCPoint(4);
-		cp5 = faceControlP.getCPoint(5);
+		cp0 = faceControlP.controlPoint(0);
+		cp1 = faceControlP.controlPoint(1);
+		cp2 = faceControlP.controlPoint(2);
+		cp3 = faceControlP.controlPoint(3);
+		cp4 = faceControlP.controlPoint(4);
+		cp5 = faceControlP.controlPoint(5);
 
 		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(VERTEXSUM);
 		// Iterate in two directions (u,v) which can use to determine the point at which
@@ -1603,13 +1603,13 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 			// bottom triangle
 			auto faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos1], newHandleVector[pos2], newHandleVector[pos3]);
 			// Add the controllPoints to the face
-			bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+			bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
 
 			if (pos2 + 1 < border) {
 				// top triangle
 				faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos2], newHandleVector[pos3+1], newHandleVector[pos3]);
 				// Add the controllPoints to the face
-				bezierTriangleMesh_.data(faceHandle).setControlPoints(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+				bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
 			}
 
 			if (pos2 + 1 == border) {
@@ -1712,7 +1712,7 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getCP(
 	int cpIndex = pointsBefore(i) + j;
 
 	auto faceControlP = bezierTriangleMesh_.data(fh);
-	return faceControlP.getCPoint(cpIndex);
+	return faceControlP.controlPoint(cpIndex);
 }
 
 template <class MeshT>
@@ -2068,12 +2068,12 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 		// write counter
 
 		//auto faceControlP = bezierTriangleMesh_.data(face);
-		//Point pt = faceControlP.getCPoint(i); // TODO
+		//Point pt = faceControlP.controlPoint(i); // TODO
 
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cp = faceControlP.getCPoint(i);
+			cp = faceControlP.controlPoint(i);
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = cp[m];
 		}
@@ -2275,7 +2275,7 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 			auto faceControlP = bezierTriangleMesh_.data(face);
 			Point cp;
 			for (int i = 0; i < controlPointsPerFace; i++) {
-				cp = faceControlP.getCPoint(i);
+				cp = faceControlP.controlPoint(i);
 				for (int m = 0; m < 3; ++m)
 					controlPointBuf[elementOffset++] = cp[m];
 			}

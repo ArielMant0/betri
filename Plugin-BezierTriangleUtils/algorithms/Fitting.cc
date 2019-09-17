@@ -5,15 +5,15 @@
 namespace betri
 {
 
-void Fitting::solve(unsigned int degree)
+void Fitting::solve()
 {
-	m_degree = std::max(2u, degree);
+	m_degree = std::max(size_t(2), m_mesh.degree());
 
 	std::cerr << "fitting control points for degree " << m_degree << "\n";
 
 	// TODO: make sure edge control points are the same for adj faces
 	for (const FaceHandle face : m_ctrl.faces()) {
-		solveLocal(ttv(face).inner, ttv(face).outer, face);
+		solveLocal(ttv(face).inner, face);
 	}
 }
 
@@ -34,7 +34,7 @@ size_t Fitting::calcCPCount(unsigned int degree)
 	return (degree*degree + 3 * degree + 2) / 2;
 }
 
-void Fitting::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face)
+void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 {
 	size_t nv_inner_ = calcCPCount(m_degree);
 
@@ -60,24 +60,28 @@ void Fitting::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face
 	resultZ.setZero();
 
 	// TODO: does vertex order matter?
-	auto v = inner.begin();
-	for (size_t i = 0; i < nv_inner_; ++i, ++v) {
-		Point p = m_mesh.point(*v);
-		rhsx[sysid(*v)] = p[0];
-		rhsy[sysid(*v)] = p[1];
-		rhsz[sysid(*v)] = p[2];
+	for (size_t i = 0; i < nv_inner_; ++i) {
+		Point p = m_mesh.point(inner[i]);
+		std::cerr << p << " (u,v) = " << hmap(inner[i]) << "\n";
+		rhsx[i] = p[0];
+		rhsy[i] = p[1];
+		rhsz[i] = p[2];
 	}
 
-	v = inner.begin();
 	for (size_t i = 0, column = 0; i <= m_degree; ++i) {
 		for (size_t j = 0; j + i <= m_degree; ++j, ++column) {
-			auto coeff = calcCoeffs(*(v++), i, j);
+			auto coeff = calcCoeffs(inner[column], i, j);
 			for (size_t row = 0; row < nv_inner_; ++row) {
 				A(row, column) = coeff;
 			}
 		}
 		assert(column <= nv_inner_);
 	}
+
+	std::cerr << "\nmatrix is\n" << A << "\n";
+	std::cerr << "-> rhs x\n" << rhsx << "\n";
+	std::cerr << "-> rhs y\n" << rhsy << "\n";
+	std::cerr << "-> rhs z\n" << rhsz << "\n";
 
 	const auto QRsolver = A.colPivHouseholderQr();
 	resultX = QRsolver.solve(rhsx);
@@ -92,11 +96,11 @@ void Fitting::solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face
 	if (QRsolver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for z!" << std::endl;
 
-	v = inner.begin();
 	// write control point positions back
-	for (size_t i = 0; i <= nv_inner_; ++i, ++v) {
-		auto vid = sysid(*v);
-		m_ctrl.data(face).setPoint(i, Point(resultX(vid), resultY(vid), resultZ(vid)));
+	for (size_t i = 0; i < nv_inner_; ++i) {
+		Point p = { resultX(i), resultY(i), resultZ(i) };
+		std::cerr << "\tcontrol point " << i << " is " << p << "\n";
+		m_ctrl.data(face).controlPoint(i, p);
 	}
 }
 
