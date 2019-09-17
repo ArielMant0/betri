@@ -1,23 +1,52 @@
 #include "BezierTriangleUtils.hh"
+#include "algorithms/VoronoiRemeshPerObjectData.hh"
+
+using VOD = VoronoiRemeshPerObjectData;
 
 namespace betri
 {
 
-void addBezierTriangles(BezierTMesh &btmesh)
+const char * VODName()
 {
-	for (auto f_it = btmesh.faces_begin(); f_it != btmesh.faces_end(); ++f_it) {
-		auto v_it = btmesh.fv_begin(*f_it);
-		auto p1 = btmesh.point(*v_it); v_it++;
-		auto p2 = btmesh.point(*v_it); v_it++;
-		auto p3 = btmesh.point(*v_it);
+	return "VORONOIREMESH_PER_OBJECT_DATA";
+}
 
-		btmesh.data(*f_it).addPoint(p1);
-		btmesh.data(*f_it).addPoint(p1 * 0.5f + p2 * 0.5f);
-		btmesh.data(*f_it).addPoint(p2);
-		btmesh.data(*f_it).addPoint(p2 * 0.5f + p3 * 0.5f);
-		btmesh.data(*f_it).addPoint(p3);
-		btmesh.data(*f_it).addPoint(p3 * 0.5f + p1 * 0.5f);
+VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	// initialize PerObjectData if not done yet
+	if (!object->hasObjectData(VODName()))
+	{
+		// get mesh object
+		BezierTMesh* mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
+		BezierTMesh* ctrlMesh = dynamic_cast<BTMeshObject*>(ctrl)->mesh();
+
+
+		// initialize per object data
+		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
+	}
+
+	// get feature lines object
+	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
+		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
+	);
+
+	return remesher;
+}
+
+void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
+{
+	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
+	getVoronoiObject(object, ctrl)->remesh(mesh->n_faces() * 0.2);
+
+	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
+	if (useColors) {
+		object->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
+			ACG::SceneGraph::DrawModes::EDGES_COLORED
+		);
 	}
 }
+
+void decimate(BaseObjectData *object) {}
 
 }

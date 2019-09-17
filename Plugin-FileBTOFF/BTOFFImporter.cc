@@ -197,7 +197,7 @@ int BTOFFImporter::addFace(const VHandles& _indices)
         }
     }
 
-    BezierTMesh::FaceHandle fh = btMesh()->add_face(vertices);
+    BezierTMesh::FaceHandle fh = btMesh()->add_face(vertices, true);
 
     if (fh.is_valid()) {
         faceMapBT_.push_back(fh);
@@ -216,28 +216,6 @@ int BTOFFImporter::addFace(const VHandles& _indices)
 void BTOFFImporter::finish()
 {
 	if (invalidFaces_.empty()) {
-		//std::ofstream out("asdsa.txt", std::ios::out);
-		// TODO: put this into beziertmesh
-		for (auto &face : btMesh()->faces()) {
-			auto bt = btMesh()->data(face);
-			auto v_it = btMesh()->fv_begin(face);
-			auto p1 = btMesh()->point(*v_it); v_it++;
-			auto p2 = btMesh()->point(*v_it); v_it++;
-			auto p3 = btMesh()->point(*v_it);
-
-			bt.addPoint(p1);
-			bt.addPoint(p1 * 0.5f + p2 * 0.5f);
-			bt.addPoint(p2);
-			bt.addPoint(p2 * 0.5f + p3 * 0.5f);
-			bt.addPoint(p3);
-			bt.addPoint(p3 * 0.5f + p1 * 0.5f);
-
-			//out << "Bezier Triangle (2):\n";
-			//out << '\t' << bt.getCPoint(0) << '\t' << bt.getCPoint(1) << '\t' << bt.getCPoint(2);
-			//out << '\t' << bt.getCPoint(3) << '\t' << bt.getCPoint(4) << '\t' << bt.getCPoint(5);
-			//out << '\n';
-		}
-		//out.close();
 		return;
 	}
 
@@ -261,7 +239,7 @@ void BTOFFImporter::finish()
         }
 
         // add face
-        OpenMesh::FaceHandle fh = btMesh()->add_face(vhandles);
+        OpenMesh::FaceHandle fh = btMesh()->add_face(vhandles, true);
 
         // Mark failed face as non-manifold
         if (btMesh()->has_face_status())

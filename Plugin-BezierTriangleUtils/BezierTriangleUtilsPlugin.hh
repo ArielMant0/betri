@@ -4,6 +4,7 @@
 #include <OpenFlipper/BasePlugin/ToolboxInterface.hh>
 #include <OpenFlipper/BasePlugin/LoggingInterface.hh>
 #include <OpenFlipper/BasePlugin/RenderInterface.hh>
+#include <OpenFlipper/BasePlugin/LoadSaveInterface.hh>
 
 #include <OpenFlipper/common/Types.hh>
 
@@ -14,12 +15,14 @@
 class BezierTriangleUtilsPlugin : public QObject,
 	BaseInterface,
 	ToolboxInterface,
-	LoggingInterface
+	LoggingInterface,
+	LoadSaveInterface
 {
 	Q_OBJECT
 	Q_INTERFACES(BaseInterface)
 	Q_INTERFACES(ToolboxInterface)
 	Q_INTERFACES(LoggingInterface)
+	Q_INTERFACES(LoadSaveInterface)
 
 	Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-BezierTriangleUtils")
 
@@ -49,10 +52,12 @@ private:
 signals:
 
 	void updateView();
-    void updatedObject(int _identifier, const UpdateType& _type);
+    void updatedObject(int _identifier, const UpdateType &type);
 
 	void log(Logtype _type, QString _message);
     void log(QString _message);
+
+	void addEmptyObject(DataType _type, int& _id);
 
 	void addToolbox(QString name, QWidget *widget, QIcon *icon);
 
@@ -76,5 +81,7 @@ private slots:
 	// option setting function
 	void setTessAmount(int);
 	void setTessType(int);
+
+	void callVoronoi();
 
 };

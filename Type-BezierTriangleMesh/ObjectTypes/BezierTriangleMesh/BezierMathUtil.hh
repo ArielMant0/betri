@@ -14,7 +14,7 @@ static inline int gaussSum(int n)
 }
 
 /**
- * Expected Result for 
+ * Expected Result for
  * n = 0 -> 0
  * n = 1 -> 1
  * n = 2 -> 3
@@ -36,7 +36,7 @@ static inline int mersennePrime(int n)
  * @param v Secound Coordinate
  * @returns A full point with w = 1-u-v
  */
-static inline BezierTMesh::Point getBaryCoords(double u, double v) 
+static inline BezierTMesh::Point getBaryCoords(double u, double v)
 {
 	return BezierTMesh::Point(u, v, 1.0 - u - v);
 };

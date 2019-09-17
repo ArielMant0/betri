@@ -4,9 +4,10 @@
 
 #include <Type-OpenMesh/ObjectTypes/TriangleMesh/TriangleMeshTypes.hh>
 
+//#include <OpenFlipper/libs_required/OpenMesh/src/OpenMesh/Core/Mesh/TriConnectivity.hh>
+
 struct BezierTriangleTraits : public TriTraits
 {
-
 	FaceTraits {
 	private:
 		// all control points of the face (ccw starting from he)
@@ -15,9 +16,14 @@ struct BezierTriangleTraits : public TriTraits
 
 	public:
 
-		void setControlPoints(std::vector<Point> &points)
+		/*void setControlPoints(std::vector<Point> points)
 		{
 			m_cps = std::move(points);
+		}*/
+
+		void setControlPoints(const std::vector<Point> &points)
+		{
+			m_cps = points;
 		}
 
 		void setPoint(int index, Point &point)
@@ -32,6 +38,11 @@ struct BezierTriangleTraits : public TriTraits
 		void addPoint(Point &point)
 		{
 			m_cps.push_back(point);
+		}
+
+		void clear()
+		{
+			m_cps.clear();
 		}
 
 		// returns an iterator to the beginning of all control points
@@ -50,14 +61,7 @@ struct BezierTriangleTraits : public TriTraits
 		{
 			return m_cps[index];
 		}
-
-		unsigned int degree() const
-		{
-			return m_cps.size() / 3;
-		}
 	};
 };
 
 //== TYPEDEFS =================================================================
-
-using BezierTMesh = OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>;

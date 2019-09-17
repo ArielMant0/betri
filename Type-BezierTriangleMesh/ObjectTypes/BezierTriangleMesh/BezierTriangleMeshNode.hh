@@ -1,7 +1,7 @@
 #pragma once
 /**
  * \file BezierTriangleMeshNode.hh
- * 
+ *
  */
 
 //== INCLUDES =================================================================
@@ -18,7 +18,7 @@
 #include <ACG/GL/VertexDeclaration.hh>
 #include <ACG/GL/GLPrimitives.hh>
 
-//#include "BezierTriangleMesh.hh"
+#include "BezierTMesh.hh"
 
 //== FORWARDDECLARATIONS ======================================================
 

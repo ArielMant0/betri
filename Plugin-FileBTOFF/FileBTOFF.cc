@@ -1127,9 +1127,11 @@ int FileBTOFFPlugin::loadObject(QString _filename)
 		backupTextureCoordinates(*(btMeshObj->mesh()));
 	}
 
+	btMeshObj->mesh()->setRenderable();
+
     //general stuff
     emit updatedObject(object->id(), UPDATE_ALL);
-    emit openedFile( object->id() );
+    emit openedFile(object->id());
 
     return object->id();
 }

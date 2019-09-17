@@ -9,7 +9,9 @@
 #include <qspinbox.h>
 #include <qcheckbox.h>
 
+//#include <OpenFlipper/common/UpdateType.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
+#include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
 
@@ -27,10 +29,18 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		OpenFlipper::Options::dirSeparator() +
 		"btutils.png"
 	);
-	QPushButton *loadButton = new QPushButton(tr("Add Bezier Triangles"));
-	QPushButton *decimateButton = new QPushButton(tr("Decimate"));
 
-	connect(loadButton, SIGNAL(clicked()), this, SLOT(convertMesh()));
+	///////////////////////////////////////////////////////////////////////////
+	// Voronoi meshing group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *voronoiGroup = new QGroupBox(tr("Voronoi Meshing"));
+
+	QPushButton *voronoiButton = new QPushButton(tr("Do it"));
+	connect(voronoiButton, SIGNAL(clicked()), this, SLOT(callVoronoi()));
+
+	QGridLayout *voronoiLayout = new QGridLayout;
+	voronoiLayout->addWidget(voronoiButton, 0, 0);
+	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Tesselation group
@@ -125,13 +135,12 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
 	QGridLayout *grid = new QGridLayout();
-	grid->addWidget(loadButton, 0, 0);
-	grid->addWidget(decimateButton, 1, 0);
-	grid->addWidget(tessGroup, 2, 0);
-	grid->addWidget(visGroup, 3, 0);
+	grid->addWidget(voronoiGroup, 0, 0);
+	grid->addWidget(tessGroup, 1, 0);
+	grid->addWidget(visGroup, 2, 0);
 	m_tool->setLayout(grid);
 
-	emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
+    emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
 }
 
 void BezierTriangleUtilsPlugin::convertMesh()
@@ -139,8 +148,7 @@ void BezierTriangleUtilsPlugin::convertMesh()
 	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
 	if (o_it != PluginFunctions::objectsEnd()) {
 		BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(*o_it)->mesh();
-		betri::addBezierTriangles(*mesh);
-		emit log(LOGINFO, "Added Bezier Triangles!");
+		emit log(LOGINFO, "Nothing happend, wow!");
 	}
 }
 
@@ -181,3 +189,29 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
 	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
 }
+
+void BezierTriangleUtilsPlugin::callVoronoi()
+{
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+
+		int ctrl_id;
+		BaseObjectData *obj;
+		BTMeshObject *ctrl_obj;
+
+		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+		PluginFunctions::getObject(ctrl_id, obj);
+		ctrl_obj = PluginFunctions::btMeshObject(obj);
+		ctrl_obj->setName("control mesh");
+		ctrl_obj->hide();
+		ctrl_obj->target(false);
+
+		betri::voronoiRemesh(*o_it, obj);
+		emit log(LOGINFO, "Performed Voronoi Partition!");
+
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		emit updatedObject(ctrl_id, UPDATE_ALL);
+	}
+}
+
