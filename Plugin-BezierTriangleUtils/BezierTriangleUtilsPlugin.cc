@@ -14,6 +14,7 @@
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
+#include <OpenFlipper/common/RendererInfo.hh>
 
 #include "OpenFlipper/BasePlugin/PluginFunctions.hh"
 
@@ -187,6 +188,19 @@ void BezierTriangleUtilsPlugin::setTessAmount(int value)
 void BezierTriangleUtilsPlugin::setTessType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
+
+	// TODO: get these names in a more robust manner
+	switch (value) {
+		default: // CPU
+			renderManager().setActive(QString("Default Classical Renderer"), PluginFunctions::activeExaminer());
+			break;
+		case 1: // GPU
+			renderManager().setActive(QString("Alpha_Version_ShaderPipeline"), PluginFunctions::activeExaminer());
+			break;
+		case 2: // raytracing
+			renderManager().setActive(QString("Raytracing_Renderer"), PluginFunctions::activeExaminer());
+			break;
+	}
 	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
 }
 
