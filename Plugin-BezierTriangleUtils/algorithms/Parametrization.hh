@@ -1,50 +1,20 @@
 #pragma once
 
+#include "Common.hh"
 
 #include <ACG/Math/VectorT.hh>
 #include <OpenMesh/Core/Utils/Property.hh>
-#include <string>
+//#include <string>
 
 #include <Eigen/Sparse>
 #include <Eigen/SparseCore>
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
 namespace betri
 {
 
-struct TriToVertex
-{
-	std::set<BezierTMesh::VertexHandle> inner; // inner vertices
-	std::set<BezierTMesh::VertexHandle> outer; // outer boundary vertices (found using shortest paths)
-
-	void set(std::set<BezierTMesh::VertexHandle> &in, std::set<BezierTMesh::VertexHandle> &out)
-	{
-		inner = in;
-		outer = out;
-	}
-
-	bool isOut(const BezierTMesh::VertexHandle v)
-	{
-		return outer.find(v) != outer.end();
-	}
-
-	bool isIn(const BezierTMesh::VertexHandle v)
-	{
-		return inner.find(v) != inner.end();
-	}
-};
-
-struct VertexToTri
-{
-	BezierTMesh::FaceHandle face; // delaunay triangle in control mesh (invalid if border)
-	ACG::VectorT<BezierTMesh::Scalar, 2> uv; // parameterization
-
-	void set(double u, double v)
-	{
-		uv[0] = u;
-		uv[1] = v;
-	}
-};
+using EigenSpMatT = Eigen::SparseMatrix<Scalar>;
+using EigenTripletT = Eigen::Triplet<Scalar>;
+using EigenVectorT = Eigen::VectorXd;
 
 /**
  * @brief Computes a Laplace-based iterative parametrization of a surface
@@ -54,25 +24,6 @@ class Parametrization
 {
 
 public:
-	// Useful typedefs
-	typedef BezierTMesh::VertexHandle      VertexHandle;
-	typedef BezierTMesh::EdgeHandle        EdgeHandle;
-	typedef BezierTMesh::FaceHandle        FaceHandle;
-
-	typedef BezierTMesh::HalfedgeHandle    HalfedgeHandle;
-	typedef BezierTMesh::VertexIter        VertexIter;
-	typedef BezierTMesh::VertexVertexIter  VertexVertexIter;
-	typedef BezierTMesh::VertexFaceIter    VertexFaceIter;
-	typedef BezierTMesh::FaceVertexIter    FaceVertexIter;
-	typedef BezierTMesh::EdgeIter          EdgeIter;
-	typedef BezierTMesh::Scalar            Scalar;
-	typedef BezierTMesh::Point             Point;
-	typedef ACG::VectorT<Scalar,2>         Vec2;
-	typedef ACG::VectorT<Scalar,3>         Vec3;
-
-	typedef Eigen::SparseMatrix<Scalar> EigenSpMatT;
-	typedef Eigen::Triplet<Scalar>      EigenTripletT;
-	typedef Eigen::VectorXd             EigenVectorT;
 
 	using Vertices = std::set<VertexHandle>;
 
@@ -166,7 +117,7 @@ private:
 	void solveLocal(Vertices &inner, Vertices &outer, const FaceHandle face);
 
 	// Function for adding the entries of one row in the equation system
-	void add_row_to_system(
+	void addRow(
 		std::vector<EigenTripletT>& _triplets,
 		EigenVectorT& _rhsu,
 		EigenVectorT& _rhsv,
@@ -174,7 +125,9 @@ private:
 	);
 
 
-private:
+	///////////////////////////////////////////////////////////
+	// member variables
+	///////////////////////////////////////////////////////////
 
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;

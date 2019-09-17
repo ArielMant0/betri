@@ -1,7 +1,7 @@
 #include "VoronoiRemesh.hh"
 
 #include "Parametrization.hh"
-#include "Subdivision.hh"
+#include "Fitting.hh"
 
 #include <queue>
 #include <unordered_set>
@@ -13,8 +13,6 @@
 #include <OpenFlipper/BasePlugin/PluginFunctions.hh>
 #include <OpenFlipper/libs_required/ACG/GL/ColorTranslator.hh>
 #include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>
-
-#define PRINT
 
 namespace betri
 {
@@ -936,6 +934,10 @@ void VoronoiRemesh::remesh(unsigned int size)
 	//////////////////////////////////////////////////////////
 	// fitting
 	//////////////////////////////////////////////////////////
+
+	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
+
+	fit.solve();
 
 	//////////////////////////////////////////////////////////
 	// replace original mesh

@@ -134,6 +134,7 @@ void Parametrization::initCoords(const FaceHandle face)
 		length += (m_mesh.point(*v) - m_mesh.point(*next)).norm();
 	}
 
+	// TODO: keep angles of the triangle ?!
 	constexpr float turn = 135.0 * M_PI / 180.0;
 	const float cosTerm = std::cos(turn);
 	const float sinTerm = std::sin(turn);
@@ -218,7 +219,7 @@ void Parametrization::solveLocal(Vertices &inner, Vertices &outer, const FaceHan
 	//--- start strip ---
 
 	for (const auto &v : *m_inner) {
-		add_row_to_system(triplets, rhsu, rhsv, v);
+		addRow(triplets, rhsu, rhsv, v);
 	}
 	//--- end strip ---
 	std::cerr << " number of triplets (i.e. number of non-zeros) " << triplets.size();
@@ -262,7 +263,7 @@ void Parametrization::solve() {
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::add_row_to_system(
+void Parametrization::addRow(
 	std::vector<EigenTripletT>& _triplets,
 	EigenVectorT& _rhsu,
 	EigenVectorT& _rhsv,
@@ -291,7 +292,6 @@ void Parametrization::add_row_to_system(
 		weightsum += w;
 
 		if (m_outer->find(*vv_it) != m_outer->end()) {
-			std::cerr << "sysid: " << sysid(_origvh) << "\n";
 			// update rhs (u,v)
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];

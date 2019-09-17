@@ -1,6 +1,4 @@
-#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
-
-#include "Parametrization.hh"
+#include "Common.hh"
 #include "ShortestPath.hh"
 
 namespace betri
@@ -17,10 +15,6 @@ public:
 	using FH = ShortestPath::FH;
 
 	using P = BezierTMesh::Point;
-	using Color = BezierTMesh::Color;
-
-	using Scalar = BezierTMesh::Scalar;
-	using Vec2 = ACG::VectorT<Scalar, 2>;
 
 	struct Props
 	{
