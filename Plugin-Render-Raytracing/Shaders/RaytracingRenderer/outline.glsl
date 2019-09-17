@@ -274,18 +274,97 @@ bool intersectBoxes(vec3 origin, vec3 dir, inout hitinfo info)
  */
 vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt) 
 {
-    vec3 v1v0 = bt.cp2 - bt.cp0;
-    vec3 v2v0 = bt.cp5 - bt.cp0;
-    vec3 rov0 = ray_origin - bt.cp0;
-    vec3  n = cross(v1v0, v2v0);
-    vec3  q = cross(rov0, ray_direction);
-    float d = 1.0 / dot(ray_direction, n);
-    float u = d * dot(-q, v2v0);
-    float v = d * dot( q, v1v0);
-    float t = d * dot(-n, rov0);
-    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0) 
-		t = -1.0;
-    return vec3(t, u, v);
+	// Get perpendicular ray by switching coords 
+	//vec3 normal_1 = ray_direction.zyx;
+	vec3 normal_1 = cross(ray_direction, vec3(-1.0));
+	vec3 normal_2 = cross(ray_direction, normal_1);
+	// TODO warum tun wir das?
+	float d_1 = -dot(normal_1, ray_origin);
+	float d_2 = -dot(normal_2, ray_origin);
+
+	// TODO test if MAD (multiply then add) makes a difference in performance - see B_uv also
+	/*
+	vec3 q_1 = bt.cp0 - 2 * bt.cp1;
+	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4;
+	vec3 q_3 = bt.cp5 - 2 * bt.cp4;
+	vec3 q_4 = 2 * bt.cp4;
+	vec3 q_5 = 2 * bt.cp1;
+	vec3 q_6 = bt.cp2;
+	*/
+
+	vec3 q_1 = bt.cp0 + bt.cp2 - 2 * bt.cp1;
+	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4 + 2 * bt.cp2;
+	vec3 q_3 = bt.cp5 - 2 * bt.cp4 + bt.cp2;
+	vec3 q_4 = 2 * bt.cp4 - 2 * bt.cp2;
+	vec3 q_5 = 2 * bt.cp1 - 2 * bt.cp2;
+	vec3 q_6 = bt.cp2;
+
+	// N1 * B(u, v) + d1 = 0
+	// N2 * B(u, v) + d2 = 0
+
+	mat2 inv_jacobi = mat2(0.0);
+	// TODO is this nessessary?
+	float inv_constant;
+	// TODO was das?
+	vec2 R = vec2(0.0);
+	// Initial guess
+	vec2 result = vec2(0.0);
+
+	vec3 dBs;
+	vec3 dBt;
+	vec3 B_uv;
+
+	float s = 0.0;
+	float t = 0.0;
+
+	#define NEWTON_IT_COUNT 4
+	for (int i = 0; i < NEWTON_IT_COUNT; i++) 
+	{
+		s = result.x;
+		t = result.y;
+		
+		// Partial derivate by s
+		dBs = 2 * q_1 * s + 
+			q_2 * t + 
+			q_5;
+
+		// Partial derivate by t
+		dBt = q_2 * s + 
+			2 * q_3 * t + 
+			q_4;
+
+		// Original TODO should not be a derivate even if said so in the paper
+		B_uv = q_1 * pow(s, 2) + 
+			q_2 * s * t + 
+			q_3 * pow(t, 2) +
+			q_4 * t +
+			q_5 * s +
+			q_6;
+		
+
+		R = vec2(dot(normal_1, B_uv) + d_1, dot(normal_2, B_uv) + d_2);
+
+		float dotN_1B_s = dot(normal_1, dBs);
+		float dotN_1B_t = dot(normal_1, dBt);
+		float dotN_2B_s = dot(normal_2, dBs);
+		float dotN_2B_t = dot(normal_2, dBt);
+
+		inv_constant = 1 / (dotN_1B_s * dotN_2B_t - dotN_1B_t * dotN_2B_s);
+
+		inv_jacobi = mat2(
+			dotN_2B_t * inv_constant, -dotN_2B_s * inv_constant,
+			-dotN_1B_t * inv_constant, dotN_1B_s * inv_constant
+		);
+
+		// Newton iteration
+		result = result - inv_jacobi * R;
+	}
+
+	float error = 0.1;
+	if (abs(dot(normal_1, B_uv) + d_1) > error || abs(dot(normal_2, B_uv) + d_2) > error)
+		result.x = -100;
+
+    return vec3(result.x, result.y, 1.0 - result.x - result.y);
 }
 
 /**
@@ -301,21 +380,29 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 	bool found = false;
 	for (int i = 0; i < NUM_BTRIANGLES; i++) 
 	{
-		btriangle bt;
+		btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
 		float y = i * 1.0 / NUM_BTRIANGLES + 0.5 / NUM_BTRIANGLES; // TODO
 		const float padding = 1; // TODO all as defines? from the cpu?
 		const float cp_count = 6;
-		const float mid = 2 / (cp_count + padding); // TODO is this nessessary?
-		const float x = 1 / (cp_count + padding);
+		const float mid = 0.5 / (cp_count + padding); // TODO is this nessessary?
+		const float x = 1.0 / (cp_count + padding);
 		bt.cp0 = texture(btriangles, vec2((padding + 0) * x + mid, y)).xyz;
+		bt.cp1 = texture(btriangles, vec2((padding + 1) * x + mid, y)).xyz;
 		bt.cp2 = texture(btriangles, vec2((padding + 2) * x + mid, y)).xyz;
+		bt.cp3 = texture(btriangles, vec2((padding + 3) * x + mid, y)).xyz;
+		bt.cp4 = texture(btriangles, vec2((padding + 4) * x + mid, y)).xyz;
 		bt.cp5 = texture(btriangles, vec2((padding + 5) * x + mid, y)).xyz;
-		float lambda = intersectBTriangle(origin, dir, bt).x;
-		if (lambda > 0.0 && lambda < smallest)
+		vec3 lambda = intersectBTriangle(origin, dir, bt);
+		//if (lambda > 0.0 && lambda < smallest)
+		if (lambda.x >= 0.0 && lambda.x <= 1.0 && 
+			lambda.y >= 0.0 && lambda.y <= 1.0 && 
+			lambda.z >= 0.0 && lambda.z <= 1.0
+		)
 		{
-			info.lambda.x = lambda;
+			// TODO this are the barycentric coord (used for normal) but this should be the distance an the ray
+			info.lambda = lambda.xy;
 			info.id = i;
-			smallest = lambda;
+			//smallest = lambda;
 			found = true;
 		}
 	}
@@ -390,6 +477,28 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
 		{
 			return vec3(0.0, 1.0, 0.0); // TODO
 		}
+		case TYPE_BTRIANGLE: 
+		{
+			// TODO this is not the best solution
+			float y = hit.id * 1.0 / NUM_BTRIANGLES + 0.5 / NUM_BTRIANGLES; // TODO
+			const float padding = 1; // TODO all as defines? from the cpu?
+			const float cp_count = 6;
+			const float mid = 0.5 / (cp_count + padding); // TODO is this nessessary?
+			const float x = 1.0 / (cp_count + padding);
+			vec3 cp0 = texture(btriangles, vec2((padding + 0) * x + mid, y)).xyz;
+			vec3 cp1 = texture(btriangles, vec2((padding + 1) * x + mid, y)).xyz;
+			vec3 cp2 = texture(btriangles, vec2((padding + 2) * x + mid, y)).xyz;
+			vec3 cp3 = texture(btriangles, vec2((padding + 3) * x + mid, y)).xyz;
+			vec3 cp4 = texture(btriangles, vec2((padding + 4) * x + mid, y)).xyz;
+			vec3 cp5 = texture(btriangles, vec2((padding + 5) * x + mid, y)).xyz;
+			
+			// TODO ordering is wrong - change here or where the points are set raytracingrenderer.cc
+			vec3 normal_1 = -normalize(cross(normalize(cp1-cp0), normalize(cp3-cp0)));
+			vec3 normal_2 = -normalize(cross(normalize(cp4-cp2), normalize(cp1-cp2)));
+			vec3 normal_3 = -normalize(cross(normalize(cp3-cp5), normalize(cp4-cp5)));
+			
+			return normalize(hit.lambda.x * normal_1 + hit.lambda.y * normal_2 + (1 - hit.lambda.x - hit.lambda.y) * normal_3);
+		}
 		default: return vec3(0.0, 1.0, 0.0);
 	}
 }
@@ -413,6 +522,7 @@ void main()
 	{
 		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
 		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
+		//oColor.rgb = normal;
 	}
 	
 	//oColor = vec4(texture(triangles, vec2(0.5, 0)).xyz, 1.0);

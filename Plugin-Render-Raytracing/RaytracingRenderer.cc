@@ -410,8 +410,8 @@ void RaytracingRenderer::setupObjectTextures()
 	const std::array<std::array<int, bt_floats * bt_points>, bt_count> btArray = { {
 			// Color 3f, Vertex1 3f, CP1 3f, Vertex2 3f, CP3 3f, CP2 3f, Vertex3 3f
 			{0.0, 0.0, 1.0, 
-				5.0, 0.0, -2.0, 5.0, 0.0, 0.0, 5.0, 0.0, 2.0,
-				5.0, 1.0, -2.0, 5.0, 1.0, 0.0, 5.0, 2.0, -2.0}
+				5.0, 0.0, -2.0, 6.0, 0.0, 0.0, 5.0, 0.0, 2.0,
+				6.0, 1.0, -2.0, 6.0, 1.0, 0.0, 5.0, 2.0, -2.0}
 		} };
 
 	counter = 0;
