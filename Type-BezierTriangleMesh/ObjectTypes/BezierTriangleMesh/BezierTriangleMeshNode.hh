@@ -1,7 +1,7 @@
 #pragma once
 /**
  * \file BezierTriangleMeshNode.hh
- * 
+ *
  */
 
 //== INCLUDES =================================================================
@@ -259,7 +259,7 @@ private:
 
 	ACG::Vec4f generateHighlightColor(ACG::Vec4f _color);
 
-	BezierTMesh::Point evaluateCasteljau(Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5);
+	MeshT::Point evaluateCasteljau(Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5);
 	void tesselateMeshCPU();  // TODO richtige stelle finden
 
 	/// update vertex + index buffer of surface mesh
@@ -268,9 +268,9 @@ private:
 	void VBOfromMesh();
 
 	int pointsBefore(int level);
-	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
-	BezierTMesh::Point oneEntry(int i, int j, int k, BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
-	BezierTMesh::Point newPosition(BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
+	MeshT::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
+	MeshT::Point oneEntry(int i, int j, int k, BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
+	MeshT::Point newPosition(BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
 	void VBOtesselatedFromMesh();
 
 	/// update vertex + index buffer of control net mesh
