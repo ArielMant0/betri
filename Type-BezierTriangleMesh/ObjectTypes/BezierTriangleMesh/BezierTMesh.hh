@@ -1,3 +1,5 @@
+#pragma once
+
 #include "BezierTriangleMeshTypes.hh"
 
 #include <OpenFlipper/common/ObjectTypeDLLDefines.hh>

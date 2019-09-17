@@ -24,7 +24,7 @@
 //#include <OpenFlipper/common/BaseObjectData.hh>
 #include <ACG/Scenegraph/MeshNode2T.hh>
 
-#include "BezierTriangleMeshTypes.hh"
+#include "BezierTMesh.hh"
 
 #include "BezierTriangleMeshNode.hh"
 
@@ -237,7 +237,7 @@ class OBJECTTYPEDLLEXPORTONLY BTMeshObject : public BaseObjectData {
 
     /// Feature selection Vis
     ACG::SceneGraph::StatusNodeT<BezierTMesh, FeatureNodeMod<BezierTMesh>> *featureNode_;
-	
+
 	/// Scenegraph BezierTriangleMesh Node
 	ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh> *meshNode_;
 
