@@ -8,11 +8,49 @@ class OBJECTTYPEDLLEXPORTONLY BezierTMesh : public OpenMesh::TriMesh_ArrayKernel
 {
 public:
 
+	BezierTMesh() :
+		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
+		m_render(false),
+		m_degree(2) {}
+
+	BezierTMesh(const BezierTMesh &other) :
+		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(other),
+		m_render(other.m_render),
+		m_degree(other.m_degree) {}
+
 	void degreeElevation(FaceHandle fh);
 
 	void degreeReduction(FaceHandle fh);
 
-	void addCPsToFace(const FaceHandle f, unsigned int degree=2);
+	void recalculateCPs(const FaceHandle f);
+
+	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
+	{
+		FaceHandle fh = TriConnectivity::add_face(vhs);
+		if (cps && fh.is_valid()) addCPsToFace(fh);
+		return fh;
+	}
+
+	FaceHandle add_face(const VertexHandle v1, const VertexHandle v2, const VertexHandle v3, bool cps=false)
+	{
+		FaceHandle fh = TriConnectivity::add_face(v1, v2, v3);
+		if (cps && fh.is_valid()) addCPsToFace(fh);
+		return fh;
+	}
+
+	FaceHandle add_face(const VertexHandle *vhs, size_t vhsize, bool cps = false)
+	{
+		FaceHandle fh = TriConnectivity::add_face(vhs, vhsize);
+		if (cps && fh.is_valid()) addCPsToFace(fh);
+		return fh;
+	}
+
+	/// control whether the mesh can be rendered
+	bool isRenderable() const { return m_render; }
+	void setRenderable() { m_render = true; }
+
+	/// control bezier triangle degree
+	void setDegree(size_t degree) { m_degree = degree; }
 
 	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh)
 	{
@@ -78,7 +116,13 @@ public:
 
 	void correctSplits(bool copy=false);
 
+
 private:
 
+	void addCPsToFace(const FaceHandle f);
+
 	void splitRivara(const HalfedgeHandle he, const VertexHandle vh, bool copy=false);
+
+	bool m_render;
+	size_t m_degree;
 };
