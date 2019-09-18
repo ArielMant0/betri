@@ -500,7 +500,7 @@ void VoronoiRemesh::remesh(unsigned int size)
 
 	partition();
 
-	// return; // EARLY DEBUG RETURN
+	//return; // EARLY DEBUG RETURN
 
 	// do preventive edge spliiting wherever there are two regions only touching at 1 edge
 	// preventiveEdgeSplits();
@@ -739,6 +739,8 @@ void VoronoiRemesh::remesh(unsigned int size)
 		//	}
 		//};
 
+		m_mesh.set_color(vStart, { 0.f, 0.f, 0.f, 1.f });
+
 		while (pred(f11) != INVALID_F) {
 			// split predecessor face
 			splitFace(pred(f11));
@@ -746,11 +748,13 @@ void VoronoiRemesh::remesh(unsigned int size)
 			vTo = commonVertex(f11, pred(f11));
 			assert(m_mesh.is_valid_handle(vTo));
 			// !! the order is reversed to make sure that we generate a "circle"
-			connect = connectingHalfedge(vTo, vFrom);
+			//connect = connectingHalfedge(vTo, vFrom);
+			connect = connectingHalfedge(vFrom, vTo);
 			assert(m_mesh.is_valid_handle(connect));
 
 			//border(connect) = m_ctrl.n_faces();
 			m_mesh.set_color(m_mesh.edge_handle(connect), { 0.f, 1.f, 0.9f, 1.f });
+			m_mesh.set_color(vTo, { 0.f, 0.f, 0.f, 1.f });
 
 			path.add(connect);
 			//checkCrossing();
@@ -772,6 +776,7 @@ void VoronoiRemesh::remesh(unsigned int size)
 
 			//border(connect) = m_ctrl.n_faces();
 			m_mesh.set_color(m_mesh.edge_handle(connect), { 0.f, 1.f, 0.9f, 1.f });
+			m_mesh.set_color(vTo, { 0.f, 0.f, 0.f, 1.f });
 
 			path.add(connect);
 			// not necessary here, cause we dont check against next path
@@ -860,6 +865,7 @@ void VoronoiRemesh::remesh(unsigned int size)
 					shortestPath(v, f, next, fh, bp, prevPath);
 					ShortestPath::path(bp);
 				} else {
+					std::cerr << "\tgetting shortest path\n";
 					bp = ShortestPath::path(id(f), id(next));
 				}
 				boundary.insert(bp.edges().begin(), bp.edges().end());
@@ -920,36 +926,27 @@ void VoronoiRemesh::remesh(unsigned int size)
 
 	m_mesh.correctSplits(true);
 
-	if (m_useColors) {
-		PluginFunctions::setDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
-			ACG::SceneGraph::DrawModes::HIDDENLINE
-		);
-	}
-
-	return; // EARLY DEBUG RETURN
-
 	//////////////////////////////////////////////////////////
 	// parameterization (harmonic map)
 	//////////////////////////////////////////////////////////
 
-	Parametrization param(m_mesh, m_ctrl, m_ttv, m_vtt, m_pred);
+	//Parametrization param(m_mesh, m_ctrl, m_ttv, m_vtt, m_pred);
 
-	param.solve();
+	//param.solve();
 
 	//////////////////////////////////////////////////////////
 	// fitting
 	//////////////////////////////////////////////////////////
 
-	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
+	//Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
-	fit.solve();
+	//fit.solve();
 
 	//////////////////////////////////////////////////////////
 	// replace original mesh
 	//////////////////////////////////////////////////////////
 
-	m_mesh.clean_keep_reservation();
+	//m_mesh.clean_keep_reservation();
 	// does not work (also not with gc)
 	//m_mesh.assign(nmesh);
 
@@ -957,16 +954,11 @@ void VoronoiRemesh::remesh(unsigned int size)
 	//m_mesh = nmesh;
 
 	// works but seems really stupid
-	copyMesh(m_ctrl, m_mesh);
+	//copyMesh(m_ctrl, m_mesh);
 
 	m_mesh.garbage_collection();
 
-	if (m_useColors) {
-		PluginFunctions::setDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
-			ACG::SceneGraph::DrawModes::HIDDENLINE
-		);
-	}
+	std::cerr << "done" << std::endl;
 }
 
 void VoronoiRemesh::copyMesh(BezierTMesh & src, BezierTMesh & dest)

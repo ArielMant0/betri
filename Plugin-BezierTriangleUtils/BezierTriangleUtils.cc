@@ -39,10 +39,11 @@ void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
 	getVoronoiObject(object, ctrl)->remesh(mesh->n_faces() * 0.2);
 
 	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
+
 	if (useColors) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
-			ACG::SceneGraph::DrawModes::EDGES_COLORED
+			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
+			//| ACG::SceneGraph::DrawModes::EDGES_COLORED
 		);
 	}
 }
