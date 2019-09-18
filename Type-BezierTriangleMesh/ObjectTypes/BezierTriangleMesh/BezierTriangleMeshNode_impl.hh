@@ -71,6 +71,7 @@ DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 	drawModes |= DrawModes::SOLID_SHADER;
 	drawModes |= DrawModes::SOLID_TEXTURED;
 	drawModes |= DrawModes::SOLID_1DTEXTURED;
+	drawModes |= DrawModes::SOLID_FACES_COLORED;
 
 	return drawModes;
 }
@@ -454,7 +455,6 @@ void BezierTriangleMeshNode<MeshT>::draw(
 		ACG::GLState::depthRange(0.0, 1.0);
 	}
 
-
 	if ((_drawMode & DrawModes::SOLID_SMOOTH_SHADED))
 	{
 		ACG::GLState::enable(GL_AUTO_NORMAL);
@@ -515,6 +515,22 @@ void BezierTriangleMeshNode<MeshT>::draw(
 
 		ACG::GLState::depthRange(0.0, 1.0);
 		//    ACG::GLState::disable(GL_BLEND);
+	}
+
+	// BIG TODO here should be happening smth else, but i dont know how to color the faces
+	if ((_drawMode & DrawModes::SOLID_FACES_COLORED)) {
+		ACG::GLState::enable(GL_COLOR_MATERIAL);
+
+		ACG::GLState::enable(GL_AUTO_NORMAL);
+		ACG::GLState::enable(GL_NORMALIZE);
+
+		ACG::GLState::enable(GL_LIGHTING);
+		ACG::GLState::shadeModel(GL_SMOOTH);
+		ACG::GLState::depthRange(0.01, 1.0);
+
+		render(_state, true);
+
+		ACG::GLState::depthRange(0.0, 1.0);
 	}
 
 	glPopAttrib();
@@ -1657,6 +1673,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_NORMAL);
 		surfaceDecl_.addElement(GL_FLOAT, 2, VERTEX_USAGE_TEXCOORD);
+		surfaceDecl_.addElement(GL_FLOAT, 4, VERTEX_USAGE_COLOR);
+		//surfaceDecl_.addElement(GL_UNSIGNED_BYTE, 4, VERTEX_USAGE_COLOR); TODO
 
 		if (provideDebugInfo)
 		{
@@ -1683,7 +1701,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
-	if (renderOption == 1) {
+	if (false && renderOption == 1) {
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
@@ -1781,6 +1799,8 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	int i = 0;
 	Point pos;
 	Point normal; //TODO BezierTMesh::Normal
+	//Vec4uc vecCol(0, 0, 0, 1);
+	Point vecCol(0, 0, 1);
 	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
@@ -1802,6 +1822,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 					vboData[elementOffset++] = float(pos[m]);
 
 				// TODO ist das so richtig? welcher PUnkt ist der der mit u multipliziert werden muss?
+				// TODO kreuzprodukt für normale?
 				// store normal
 				normal = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * (1-u-v);
 				for (int m = 0; m < 3; ++m)
@@ -1813,6 +1834,27 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				//vboData[elementOffset++] = texCoord[1];
 				vboData[elementOffset++] = 1.0;
 				vboData[elementOffset++] = 0.0;
+
+				// TODO use ints instead of floats
+				//color = std::vector<float>({ 1.0, 0.0, 0.0, 1.0 });
+				//color = bezierTriangleMesh_.texcoord2D(v);
+				for (int m = 0; m < 3; ++m) {
+					float y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+					vecCol[0] = y;
+					vecCol[1] = y;
+					vecCol[2] = y;
+					auto x = bezierTriangleMesh_.color(face);
+					std::cerr << x[0] << " " << x[1] << " " << x[2] << " " << y << " " << std::endl;
+					vboData[elementOffset++] = float(vecCol[m]);
+				}
+				vboData[elementOffset++] = float(1.0);
+
+				/* DrawMeshT<Mesh>::readVertex(
+				byteCol[col] = (unsigned char)(vecCol[0]);
+				byteCol[col] |= ((unsigned char)(vecCol[1])) << 8;
+				byteCol[col] |= ((unsigned char)(vecCol[2])) << 16;
+				byteCol[col] |= ((unsigned char)(vecCol[3])) << 24;
+				*/
 			}
 		}
 	}

@@ -13,6 +13,7 @@
 
 #include <QImage>
 
+#include <OpenFlipper/BasePlugin/PluginFunctions.hh> // TODO
 
 #include <ACG/GL/globjects.hh>
 #include <ACG/GL/VertexDeclaration.hh>
@@ -92,6 +93,7 @@ public:
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
 		fancySphere_ = new GLSphere(16, 16);
+		PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
 	}
 
 	/// Destructor
