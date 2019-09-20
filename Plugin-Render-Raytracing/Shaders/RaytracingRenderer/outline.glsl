@@ -360,7 +360,7 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 		result = result - inv_jacobi * R;
 	}
 
-	float error = 0.1;
+	float error = 0.001;
 	if (abs(dot(normal_1, B_uv) + d_1) > error || abs(dot(normal_2, B_uv) + d_2) > error)
 		result.x = -100;
 
