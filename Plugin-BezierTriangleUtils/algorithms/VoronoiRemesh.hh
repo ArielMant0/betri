@@ -55,7 +55,7 @@ public:
 	void prepare();
 	void cleanup();
 
-	void remesh(unsigned int size);
+	void remesh();
 
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
@@ -66,7 +66,7 @@ public:
 	TriToVertex& ttv(FH fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VH vh) { return m_mesh.property(m_vtt, vh); }
 
-	FaceSplit& split(FH fh) { return m_mesh.property(m_split, fh); }
+	//FaceSplit& split(FH fh) { return m_mesh.property(m_split, fh); }
 
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
 	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
@@ -81,9 +81,6 @@ private:
 	void partition();
 
 	void preventiveEdgeSplits();
-
-	// face splitting (to add boundary edges to the mesh)
-	void splitFace(FH face);
 
 	// -------------------------------------------------------------- //
 
@@ -101,7 +98,7 @@ private:
 	OpenMesh::FPropHandleT<double>		  m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
 	OpenMesh::EPropHandleT<ID>			  m_crossed;
-	OpenMesh::FPropHandleT<FaceSplit>	  m_split;
+	//OpenMesh::FPropHandleT<FaceSplit>	  m_split;
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;

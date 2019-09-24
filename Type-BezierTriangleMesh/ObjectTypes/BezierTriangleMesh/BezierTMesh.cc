@@ -176,6 +176,106 @@ void BezierTMesh::splitFaceDyadical(
 	}
 }
 
+BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool copy)
+{
+	// add new vertex
+	VertexHandle v = new_vertex(calc_face_centroid(fh));
+
+	size_t i = 0;
+	std::array<HalfedgeHandle, 6> hes;
+	for (auto h_it = cfh_begin(fh); h_it != cfh_end(fh); ++h_it, ++i) {
+		hes[i] = *h_it;
+		// add new edge
+		hes[i+3] = new_edge(to_vertex_handle(*h_it), v);
+		set_next_halfedge_handle(opposite_halfedge_handle(hes[i+3]), next_halfedge_handle(*h_it));
+	}
+
+	FaceHandle f;
+	HalfedgeHandle prev;
+	for (i = 0; i < 3; ++i) {
+		prev = opposite_halfedge_handle(i == 0 ? hes[5] : hes[i+2]);
+		set_next_halfedge_handle(hes[i], hes[i+3]);
+		set_next_halfedge_handle(hes[i+3], prev);
+		if (i == 0) {
+			f = fh;
+		} else {
+			f = new_face();
+		}
+		// add face and set handles correctly
+		set_halfedge_handle(f, hes[i]);
+		set_face_handle(hes[i], f);
+		set_face_handle(hes[i+3], f);
+		set_face_handle(prev, f);
+
+		if (copy) {
+			copy_all_properties(fh, f, false);
+		}
+	}
+	set_halfedge_handle(v, opposite_halfedge_handle(hes[3]));
+
+	return v;
+}
+
+void BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy)
+{
+	assert(adjToFace(f1, f2));
+
+	HalfedgeHandle connect;
+
+	for (auto he = cfh_begin(f1); he != cfh_end(f1); ++he) {
+		if (adjToFace(*he, f2)) connect = *he;
+	}
+
+	VertexHandle v = new_vertex(calc_edge_midpoint(connect));
+	HalfedgeHandle nh = halfedge_handle(edge_handle(connect), 0);
+	connect = splitEdgeSimple(edge_handle(connect), v, false);
+
+	HalfedgeHandle o0 = next_halfedge_handle(nh);
+	HalfedgeHandle o1 = next_halfedge_handle(opposite_halfedge_handle(connect));
+	HalfedgeHandle on0 = next_halfedge_handle(o0);
+	HalfedgeHandle on1 = next_halfedge_handle(o1);
+
+	HalfedgeHandle i0 = new_edge(v, to_vertex_handle(o0));
+	HalfedgeHandle i1 = new_edge(v, to_vertex_handle(o1));
+
+	set_next_halfedge_handle(o0, opposite_halfedge_handle(i0));
+	set_next_halfedge_handle(opposite_halfedge_handle(i0), nh);
+	set_next_halfedge_handle(i0, on0);
+	set_next_halfedge_handle(connect, i0);
+
+	set_next_halfedge_handle(o1, i1);
+	set_next_halfedge_handle(i1, opposite_halfedge_handle(connect));
+	set_next_halfedge_handle(opposite_halfedge_handle(i1), on1);
+	set_next_halfedge_handle(opposite_halfedge_handle(nh), opposite_halfedge_handle(i1));
+
+	FaceHandle f11 = new_face(), f22 = new_face();
+
+	set_face_handle(on0, f1);
+	set_face_handle(connect, f1);
+	set_face_handle(i0, f1);
+	set_halfedge_handle(f1, connect);
+
+	set_face_handle(o1, f2);
+	set_face_handle(opposite_halfedge_handle(connect), f2);
+	set_face_handle(i1, f2);
+	set_halfedge_handle(f2, opposite_halfedge_handle(connect));
+
+	set_face_handle(nh, f11);
+	set_face_handle(o0, f11);
+	set_face_handle(opposite_halfedge_handle(i0), f11);
+	set_halfedge_handle(f11, nh);
+
+	set_face_handle(opposite_halfedge_handle(nh), f22);
+	set_face_handle(on1, f22);
+	set_face_handle(opposite_halfedge_handle(i1), f22);
+	set_halfedge_handle(f22, opposite_halfedge_handle(nh));
+
+	if (copy) {
+		copy_all_properties(f1, f11);
+		copy_all_properties(f2, f22);
+	}
+}
+
 void BezierTMesh::correctSplits(bool copy)
 {
 	const auto nfaces = n_faces();

@@ -36,7 +36,7 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
 {
 	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
-	getVoronoiObject(object, ctrl)->remesh(mesh->n_faces() * 0.2);
+	getVoronoiObject(object, ctrl)->remesh();
 
 	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
 

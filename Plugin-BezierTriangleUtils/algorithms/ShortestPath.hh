@@ -19,7 +19,7 @@ public:
 	using HH = BezierTMesh::HalfedgeHandle;
 	using FH = BezierTMesh::FaceHandle;
 
-	using Container = std::vector<HH>;
+	using Container = std::deque<EH>;
 
 	ShortestPath() : m_small(-1), m_big(-1), m_border() {}
 
@@ -49,14 +49,26 @@ public:
 		assert(m_small < m_big);
 	}
 
-	void add(HH he) { return m_border.push_back(he); }
+	void push(EH he) { return m_border.push_back(he); }
+	void pushFront(EH he) { return m_border.push_front(he); }
+
+	void pop() { m_border.pop_back(); }
+	void popFront() { m_border.pop_front(); }
+
 
 	Container& edges() { return m_border; }
 
-	bool contains(HalfedgeHandle he) const
+	bool contains(BezierTMesh &mesh, HalfedgeHandle he) const
 	{
-		return std::any_of(m_border.begin(), m_border.end(), [he](const HalfedgeHandle heh) {
-			return he == heh;
+		return std::any_of(m_border.begin(), m_border.end(), [he,&mesh](const EdgeHandle eh) {
+			return mesh.edge_handle(he) == eh;
+		});
+	}
+
+	bool contains(EdgeHandle e) const
+	{
+		return std::any_of(m_border.begin(), m_border.end(), [e](const EdgeHandle eh) {
+			return eh == e;
 		});
 	}
 
@@ -67,6 +79,8 @@ public:
 	static void path(ShortestPath &s);
 
 	static bool has(const ID id1, const ID id2);
+
+	static void replace(const EH toReplace, const EH with);
 
 	static void clear();
 

@@ -151,7 +151,7 @@ private:
 
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;
-	std::vector<HalfedgeHandle> *m_outer;
+	std::vector<EdgeHandle> *m_outer;
 
     // helper variables
     size_t nv_total_;

@@ -32,6 +32,17 @@ bool ShortestPath::has(const ID id1, const ID id2)
 	return s_paths.find({ id1, id2 }) != s_paths.end();
 }
 
+void ShortestPath::replace(const EH toReplace, const EH with)
+{
+	for (auto path : s_paths) {
+		// TODO: make better
+		if (path.contains(toReplace)) {
+			std::replace(path.edges().begin(), path.edges().end(), toReplace, with);
+			return;
+		}
+	}
+}
+
 void ShortestPath::clear()
 {
 	s_paths.clear();

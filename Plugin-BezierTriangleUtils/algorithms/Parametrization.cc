@@ -16,6 +16,7 @@ void Parametrization::prepare()
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
 
+	m_outer = new std::vector<EdgeHandle>();
 	// TODO: only needs to be done once?
 	calcWeights();
 }
@@ -32,6 +33,8 @@ void Parametrization::cleanup()
 
 	if (m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.remove_property(m_sysid);
+
+	if (m_outer) delete m_outer;
 }
 
 //-----------------------------------------------------------------------------
@@ -169,7 +172,8 @@ void Parametrization::initCoords(const FaceHandle face)
 	Scalar l = 0.0, angle;
 	for (auto he : *m_outer) {
 		angle = l * normFactor;
-		hmap(m_mesh.to_vertex_handle(he)) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
+		// TODO: which vertex?
+		hmap(m_mesh.to_vertex_handle(m_mesh.halfedge_handle(he,0))) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
 		l += m_mesh.calc_edge_length(he);
 	}
 }
@@ -254,7 +258,7 @@ void Parametrization::solveLocal(const FaceHandle face)
 //-----------------------------------------------------------------------------
 
 void Parametrization::solve() {
-	m_outer = new std::vector<HalfedgeHandle>();
+	m_outer->clear();
 	for (const auto &face : m_ctrl.faces()) {
 		m_inner = &ttv(face).inner;
 

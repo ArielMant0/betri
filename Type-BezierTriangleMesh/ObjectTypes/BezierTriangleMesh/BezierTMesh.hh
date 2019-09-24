@@ -54,7 +54,7 @@ public:
 
 	size_t degree() { return m_degree; }
 
-	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh)
+	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh, bool copy=false)
 	{
 		HalfedgeHandle h0 = halfedge_handle(_eh, 0);
 		HalfedgeHandle h1 = halfedge_handle(_eh, 1);
@@ -100,14 +100,11 @@ public:
 			adjust_outgoing_halfedge(vfrom);
 		}
 
-		return new_e;
-	}
+		if (copy) {
+			copy_all_properties(_eh, edge_handle(new_e), false);
+		}
 
-	HalfedgeHandle splitEdgeCopySimple(EdgeHandle eh, VertexHandle vh)
-	{
-		HalfedgeHandle he = splitEdgeSimple(eh, vh);
-		copy_all_properties(eh, edge_handle(he), false);
-		return he;
+		return new_e;
 	}
 
 	void splitFaceDyadical(
@@ -116,8 +113,37 @@ public:
 		bool copy=false
 	);
 
+	VertexHandle splitFaceBarycentric(FaceHandle fh, bool copy=false);
+
+	void splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy=false);
+
 	void correctSplits(bool copy=false);
 
+	bool adjToFace(const VertexHandle v, const FaceHandle f) const
+	{
+		for (auto fit = cvf_begin(v); fit != cvf_end(v); ++fit) {
+			if (*fit == f) return true;
+		}
+		return false;
+	}
+
+	bool adjToFace(const HalfedgeHandle he, const FaceHandle f) const
+	{
+		return face_handle(he) == f || opposite_face_handle(he) == f;
+	}
+
+	bool adjToFace(const EdgeHandle e, const FaceHandle f) const
+	{
+		return face_handle(halfedge_handle(e,0)) == f || face_handle(halfedge_handle(e, 1)) == f;
+	}
+
+	bool adjToFace(const FaceHandle f1, const FaceHandle f2) const
+	{
+		for (auto fit = cff_begin(f1); fit != cff_end(f1); ++fit) {
+			if (*fit == f2) return true;
+		}
+		return false;
+	}
 
 private:
 
