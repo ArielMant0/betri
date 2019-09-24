@@ -19,7 +19,7 @@ public:
 	using HH = BezierTMesh::HalfedgeHandle;
 	using FH = BezierTMesh::FaceHandle;
 
-	using Container = std::deque<EH>;
+	using Container = std::vector<EH>;
 
 	ShortestPath() : m_small(-1), m_big(-1), m_border() {}
 
@@ -50,11 +50,8 @@ public:
 	}
 
 	void push(EH he) { return m_border.push_back(he); }
-	void pushFront(EH he) { return m_border.push_front(he); }
 
 	void pop() { m_border.pop_back(); }
-	void popFront() { m_border.pop_front(); }
-
 
 	Container& edges() { return m_border; }
 
@@ -72,6 +69,10 @@ public:
 		});
 	}
 
+	bool partOf(const ID id) const { return m_small == id || m_big == id; }
+
+	bool replace(const BezierTMesh &mesh, const VH adj, const VH now, std::function<void(EH)> func);
+
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
 
@@ -80,7 +81,14 @@ public:
 
 	static bool has(const ID id1, const ID id2);
 
-	static void replace(const EH toReplace, const EH with);
+	static void replace(
+		const BezierTMesh &mesh,
+		const VH adj,
+		const VH now,
+		const ID hint1,
+		const ID hint2,
+		std::function<void(EH)> func
+	);
 
 	static void clear();
 

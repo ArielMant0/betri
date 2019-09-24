@@ -209,6 +209,7 @@ BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool 
 
 		if (copy) {
 			copy_all_properties(fh, f, false);
+			set_color(f, color(fh));
 		}
 	}
 	set_halfedge_handle(v, opposite_halfedge_handle(hes[3]));
@@ -216,7 +217,7 @@ BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool 
 	return v;
 }
 
-void BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy)
+BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy)
 {
 	assert(adjToFace(f1, f2));
 
@@ -272,8 +273,11 @@ void BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy)
 
 	if (copy) {
 		copy_all_properties(f1, f11);
+		set_color(f11, color(f1));
 		copy_all_properties(f2, f22);
+		set_color(f22, color(f2));
 	}
+	return v;
 }
 
 void BezierTMesh::correctSplits(bool copy)

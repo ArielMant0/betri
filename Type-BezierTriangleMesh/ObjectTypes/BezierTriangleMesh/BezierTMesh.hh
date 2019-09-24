@@ -115,7 +115,7 @@ public:
 
 	VertexHandle splitFaceBarycentric(FaceHandle fh, bool copy=false);
 
-	void splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy=false);
+	VertexHandle splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy=false);
 
 	void correctSplits(bool copy=false);
 
