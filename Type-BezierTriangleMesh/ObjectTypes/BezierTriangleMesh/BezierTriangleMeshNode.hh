@@ -267,6 +267,9 @@ private:
 
 	void VBOfromMesh();
 
+	// TODO ordering
+	void VBOfromBoundingMesh();
+
 	int pointsBefore(int level);
 	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
 	BezierTMesh::Point oneEntry(int i, int j, int k, BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh);
@@ -384,7 +387,7 @@ private:
 	// TODO Capital letters?
 	// TODO calculate the other two values if one of them is given
 	//static double STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
-	 double STEPSIZE;
+	double STEPSIZE;
 
 };
 

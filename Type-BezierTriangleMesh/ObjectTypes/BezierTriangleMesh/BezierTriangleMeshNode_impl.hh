@@ -301,7 +301,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
@@ -562,6 +562,7 @@ void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
 	std::ofstream out("01render-log.txt", std::ios::out | std::ofstream::app);
 	out << "Hallo" << "\n";
 #endif
+	std::cerr << "Hallo" << std::endl;
 
 	updateSurfaceMesh();
 
@@ -1683,12 +1684,15 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
-	if (renderOption == 1) {
+	if (false && renderOption == 1) {
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
-	else {
+	else if (false && renderOption == 0) {
 		VBOtesselatedFromMesh();
+	}
+	else {
+		VBOfromBoundingMesh();
 	}
 }
 
@@ -1919,7 +1923,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	int numIndices = vboSize / 4;
+	int numIndices = vboSize / 4; // TODO warum hier durch 4
 
 	std::vector<int> iboData(numIndices);
 
@@ -2037,6 +2041,151 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 
 	invalidateSurfaceMesh_ = false;
 	*/
+}
+
+/**
+ * Create a simple VBO from this Mesh.
+ */
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
+{
+	// TODO different bounding volumes
+	const int boundingVolumeVCount = 8;
+	// create vertex buffer
+	int vertexCount = bezierTriangleMesh_.n_faces() * boundingVolumeVCount;
+
+	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
+	std::vector<float> vboData(vboSize); // float: 4 bytes
+
+	int i = 0;
+	Point pos;
+	Point normal; //BezierTMesh::Normal
+	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
+	for (auto &face : bezierTriangleMesh_.faces()) {
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		Point cp;
+		Point min(INFINITY);
+		Point max(-INFINITY); // TODO minus
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cp = faceControlP.getCPoint(i);
+			for (int m = 0; m < 3; ++m) {
+				cp[m] < min[m] ? min[m] = cp[m] : i;
+				cp[m] > max[m] ? max[m] = cp[m] : i;
+			}
+		}
+
+		std::cerr << min << " " << max << std::endl;
+
+		const std::array<Point, boundingVolumeVCount> pointArray = {
+			// first quad
+			Point(min[0], min[1], min[2]),
+			Point(min[0], max[1], min[2]),
+			Point(min[0], max[1], max[2]),
+			Point(min[0], min[1], max[2]),
+			// second quad
+			Point(max[0], min[1], min[2]),
+			Point(max[0], max[1], min[2]),
+			Point(max[0], max[1], max[2]),
+			Point(max[0], min[1], max[2]),
+		};
+
+		// write counter
+		int elementOffset = 0;
+
+		for (auto p : pointArray) {
+			// store pos
+			for (int m = 0; m < 3; ++m)
+				vboData[elementOffset++] = float(p[m]);
+
+			// TODO not nessessary
+			// store normal
+			//for (int m = 0; m < 3; ++m)
+			vboData[elementOffset++] = float(1.0);
+			vboData[elementOffset++] = float(0.0);
+			vboData[elementOffset++] = float(0.0);
+
+			// store texcoord
+			//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
+			//vboData[elementOffset++] = texCoord[0];
+			//vboData[elementOffset++] = texCoord[1];
+			vboData[elementOffset++] = 1.0;
+			vboData[elementOffset++] = 0.0;
+		}
+	}
+
+	if (vboSize)
+		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+
+	vboData.clear();
+
+	const int boundingVolumeSides = 6;
+	const int indicesPerSide = 6;
+	const int boundingVolumeICount = boundingVolumeSides * indicesPerSide;
+
+	// create index buffer
+	int numIndices = bezierTriangleMesh_.n_faces() * boundingVolumeICount;
+
+	std::vector<int> iboData(numIndices);
+
+	// TODO backfaceculling? could it improve smthg?
+	// index counter
+	//int idxOffset = 0;
+	int idxOffset = 0;
+	for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
+		// first face - front
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
+		// second face - top
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		// third face - back
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
+		// forth face - bottom
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		// fifth face - left
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		// sixth face -rigth
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+	}
+
+	std::cerr << idxOffset << " " << numIndices << " " << vboSize << " " << std::endl;
+	std::cerr << vboSize << " " << vertexCount << " " << bezierTriangleMesh_.n_faces() << " " << surfaceDecl_.getVertexStride() << " " << std::endl;
+
+	// TODO why is it here *4 is it because of size in bytes?!
+	if (numIndices)
+		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+
+	surfaceIndexCount_ = numIndices;
+
+	invalidateSurfaceMesh_ = false;
 }
 
 //----------------------------------------------------------------------------
