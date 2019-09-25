@@ -60,6 +60,8 @@ public:
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
+	ID id(FH fh) const { return m_mesh.property(m_region, fh); }
+
 	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
 	double& dist(FH fh) { return m_mesh.property(m_distance, fh); }
 
@@ -71,8 +73,38 @@ public:
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
 	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
 
-	bool isCrossed(EH eh) { return crossed(eh) >= 0; }
-	bool isCrossed(HH he) { return isCrossed(m_mesh.edge_handle(he)); }
+	ID crossed(EH eh) const { return m_mesh.property(m_crossed, eh); }
+	ID crossed(HH he) const { return crossed(m_mesh.edge_handle(he)); }
+
+	bool isCrossed(EH eh) const { return crossed(eh) >= 0; }
+	bool isCrossed(HH he) const { return isCrossed(m_mesh.edge_handle(he)); }
+
+	bool isCrossed(VH vh) const
+	{
+		int adj = 0;
+		for (auto e_it = m_mesh.cve_begin(vh); e_it != m_mesh.cve_end(vh); ++e_it) {
+			if (isCrossed(e_it)) adj++;
+		}
+		return adj >= 2;
+	}
+
+	bool nextEdgeCrossed(EH eh, FH fh) const
+	{
+		for (auto e_it = m_mesh.cfe_begin(fh); e_it != m_mesh.cfe_end(fh); ++e_it) {
+			auto next = std::next(e_it) != m_mesh.cfe_end(fh) ?
+				std::next(e_it) :
+				m_mesh.cfe_begin(fh);
+
+			if (*e_it == eh && isCrossed(next)) return true;
+		}
+		return false;
+	}
+
+	bool isRegionBorderEdge(EH e) const
+	{
+		HH h = m_mesh.halfedge_handle(e,0);
+		return id(m_mesh.face_handle(h)) != id(m_mesh.opposite_face_handle(h));
+	}
 
 private:
 

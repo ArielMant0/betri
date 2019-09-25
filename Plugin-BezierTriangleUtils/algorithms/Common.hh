@@ -45,10 +45,20 @@ struct VertexToTri
 	FaceHandle face; // delaunay triangle in control mesh (invalid if border)
 	Vec2 uv; // parameterization
 
-	void set(double u, double v)
+	void setUV(double u, double v)
 	{
 		uv[0] = u;
 		uv[1] = v;
+	}
+
+	void setFace(const FaceHandle f)
+	{
+		face = f;
+	}
+
+	bool border() const
+	{
+		return !face.is_valid();
 	}
 
 	const double& operator[](size_t index) const

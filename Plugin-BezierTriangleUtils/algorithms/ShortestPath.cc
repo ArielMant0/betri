@@ -19,29 +19,38 @@ bool ShortestPath::replace(
 	const BezierTMesh &mesh,
 	const VH adj,
 	const VH now,
-	std::function<void(EH)> func
+	std::function<void(EH)> funcOld,
+	std::function<void(EH, EH)> funcNew
 ) {
-	VH from, to, other;
+	HH from, to;
+	VH vh;
 	int adjCount = 0;
-	HH he;
+
 	// find the two edges adj to the old vertex
 	for (size_t i = 0; i < m_border.size() && adjCount < 2; ++i) {
-		to = mesh.to_vertex_handle(mesh.halfedge_handle(m_border[i], 0));
-		from = mesh.to_vertex_handle(mesh.halfedge_handle(m_border[i], 1));
+		to = mesh.halfedge_handle(m_border[i], 0);
+		from = mesh.halfedge_handle(m_border[i], 1);
 
-		if (from == adj || to == adj) {
-			// replace edge such that it is adj to the new vertex
-			he = mesh.halfedge_handle(m_border[i], from == adj ? 1 : 0);
+		if (mesh.to_vertex_handle(from) == adj || mesh.to_vertex_handle(to) == adj) {
+			// other vertex the edge is connected to
+			vh = mesh.to_vertex_handle(from) == adj ?
+				mesh.to_vertex_handle(to) :
+				mesh.to_vertex_handle(from);
+
 			adjCount++;
 
-			func(m_border[i]);
-			if (mesh.to_vertex_handle(mesh.next_halfedge_handle(he)) == now) {
-				m_border[i] = mesh.edge_handle(mesh.prev_halfedge_handle(he));
-			} else {
-				he = mesh.opposite_halfedge_handle(he);
-				assert(mesh.to_vertex_handle(mesh.next_halfedge_handle(he)) == now);
-				m_border[i] = mesh.edge_handle(mesh.next_halfedge_handle(he));
+			auto old = m_border[i];
+
+			// replace edge such that it is adj to the new vertex
+			for (auto tmp = mesh.cvoh_begin(vh); tmp != mesh.cvoh_end(vh); ++tmp) {
+				if (mesh.to_vertex_handle(*tmp) == now) {
+					m_border[i] = mesh.edge_handle(*tmp);
+					break;
+				}
 			}
+
+			funcNew(m_border[i], old);
+			funcOld(old);
 		}
 	}
 
@@ -71,12 +80,13 @@ void ShortestPath::replace(
 	const VH now,
 	const ID hint1,
 	const ID hint2,
-	std::function<void(EH)> func
+	std::function<void(EH)> funcOld,
+	std::function<void(EH, EH)> funcNew
 ) {
 	for (auto path : s_paths) {
 		// TODO: make better
 		if ((path.partOf(hint1) || path.partOf(hint2))) {
-			if (path.replace(mesh, adj, now, func)) return;
+			if (path.replace(mesh, adj, now, funcOld, funcNew)) return;
 		}
 	}
 }

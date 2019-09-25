@@ -71,10 +71,18 @@ public:
 
 	bool partOf(const ID id) const { return m_small == id || m_big == id; }
 
-	bool replace(const BezierTMesh &mesh, const VH adj, const VH now, std::function<void(EH)> func);
+	bool replace(
+		const BezierTMesh &mesh,
+		const VH adj,
+		const VH now,
+		std::function<void(EH)> funcOld,
+		std::function<void(EH,EH)> funcNew
+	);
 
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
+
+	EdgeHandle last() { return m_border.back(); }
 
 	static ShortestPath path(ID id1, ID id2);
 	static void path(ShortestPath &s);
@@ -87,7 +95,8 @@ public:
 		const VH now,
 		const ID hint1,
 		const ID hint2,
-		std::function<void(EH)> func
+		std::function<void(EH)> funcOld,
+		std::function<void(EH,EH)> funcNew
 	);
 
 	static void clear();

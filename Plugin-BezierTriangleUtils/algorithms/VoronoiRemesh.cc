@@ -117,8 +117,8 @@ void VoronoiRemesh::preventiveEdgeSplits()
 		counts.push_back(arr);
 	}
 
-	for (auto &edge : m_mesh.edges()) {
-		if (!isCrossed(edge)) {
+	for (EH edge : m_mesh.edges()) {
+		if (isRegionBorderEdge(edge)) {
 			HH h = m_mesh.halfedge_handle(edge, 0);
 			FH f1 = m_mesh.face_handle(h), f2 = m_mesh.opposite_face_handle(h);
 			// only store count once!
@@ -126,76 +126,56 @@ void VoronoiRemesh::preventiveEdgeSplits()
 				counts[id(f1)][id(f2)-id(f1)].first++;
 				counts[id(f1)][id(f2)-id(f1)].second = edge;
 			} else {
-				counts[id(f2)][id(f1) - id(f2)].first++;
-				counts[id(f2)][id(f1) - id(f2)].second = edge;
+				counts[id(f2)][id(f1)-id(f2)].first++;
+				counts[id(f2)][id(f1)-id(f2)].second = edge;
 			}
 		}
 	}
 
-	auto halfdist = [&](FH &f1, FH &f2) {
+	auto halfdist = [&](FH f1, FH f2) {
 		P p1 = m_mesh.calc_face_centroid(f1);
 		P p2 = m_mesh.calc_face_centroid(f2);
-		return (p1 - p2).norm() / 2;
+		return (p1 - p2).norm();
 	};
 
 	for (int i = 0; i < counts.size(); ++i) {
 		for (int j = 0; j < counts[i].size(); ++j) {
 			if (i != j && counts[i][j].first == 1) {
-				auto &e = counts[i][j].second;
+				auto e = counts[i][j].second;
 				assert(e != INVALID_E);
-				auto h1 = m_mesh.halfedge_handle(e, 0);
-				auto f1 = m_mesh.face_handle(h1);
-				auto f2 = m_mesh.opposite_face_handle(h1);
 
-				P p1 = m_mesh.point(m_mesh.to_vertex_handle(h1));
-				P p2 = m_mesh.point(m_mesh.from_vertex_handle(h1));
+				HH h1 = m_mesh.halfedge_handle(e, 0);
+				HH h2 = m_mesh.halfedge_handle(e, 1);
 
-				auto v = m_mesh.add_vertex(p1 * 0.5f + p2 * 0.5f);
-				auto beforeFace = m_mesh.n_faces();
-				m_mesh.split_edge(e, v);
+				std::array<HH, 4> prevEdges;
+				prevEdges[0] = m_mesh.next_halfedge_handle(h1);
+				prevEdges[1] = m_mesh.next_halfedge_handle(prevEdges[0]);
+				prevEdges[2] = m_mesh.next_halfedge_handle(h2);
+				prevEdges[3] = m_mesh.next_halfedge_handle(prevEdges[2]);
 
-				// update faces that were already there
-				dist(f1) = dist(pred(f1)) + (m_mesh.calc_face_centroid(f1) - m_mesh.calc_face_centroid(pred(f1))).norm();
-				dist(f2) = dist(pred(f2)) + (m_mesh.calc_face_centroid(f2) - m_mesh.calc_face_centroid(pred(f2))).norm();
+				FH f1 = m_mesh.face_handle(h1);
+				FH f2 = m_mesh.opposite_face_handle(h1);
 
-				for (auto he = m_mesh.voh_begin(v); he != m_mesh.voh_end(v); ++he) {
-					auto ff1 = m_mesh.face_handle(*he);
-					// TODO: check for shortest path to new face
-					//if (ff1.idx() >= beforeFace) {
-					//	dist(ff1) = std::numeric_limits<double>::max();
-					//	P pp1 = m_mesh.calc_face_centroid(ff1);
-					//	for (auto ff2 = m_mesh.cff_begin(ff1); ff2 != m_mesh.cff_end(ff1); ++ff2) {
-					//		P pp2 = m_mesh.calc_face_centroid(*ff2);
-					//		if (ff2->idx() < beforeFace) {
+				double f1dist = dist(f1), f2dist = dist(f2);
+				m_mesh.splitFacesRivara(f1, f2, true);
 
-					//		}
-					//	}
-					//}
-					auto ff2 = m_mesh.opposite_face_handle(*he);
-					// switch variables so we only have one case
-					if (ff2.idx() >= beforeFace && (ff1 == f1 || ff1 == f2)) {
-						ff2 = m_mesh.face_handle(*he);
-						ff1 = m_mesh.opposite_face_handle(*he);
-					}
-					// update this new face
-					if (ff1.idx() >= beforeFace && (ff2 == f1 || ff2 == f2)) {
-						P pp1 = m_mesh.calc_face_centroid(ff1);
-						P pp2 = m_mesh.calc_face_centroid(ff2);
-						id(ff1) = id(ff2);
-						dist(ff1) = dist(ff2) + (pp1-pp2).norm();
-						pred(ff1) = ff2;
-						crossed(*he) = id(ff2);
-						if (m_useColors) {
-							m_mesh.set_color(ff1, m_colors[id(ff1)]);
-							m_mesh.set_color(m_mesh.edge_handle(*he), m_colors[id(ff1)]);
-						}
-					} else {
-						crossed(*he) = -1;
-						if (m_useColors) {
-							m_mesh.set_color(m_mesh.edge_handle(*he), { 0.f, 0.f, 0.f, 1.f });
-						}
-					}
-				}
+				// new faces
+				f1 = m_mesh.face_handle(prevEdges[0]);
+				FH f3 = m_mesh.face_handle(prevEdges[1]);
+				f2 = m_mesh.face_handle(prevEdges[2]);
+				FH f4 = m_mesh.face_handle(prevEdges[3]);
+
+				// update predecessor (always face next to old edge)
+				pred(f1) = m_mesh.opposite_face_handle(prevEdges[0]);
+				pred(f3) = m_mesh.opposite_face_handle(prevEdges[1]);
+				pred(f2) = m_mesh.opposite_face_handle(prevEdges[2]);
+				pred(f4) = m_mesh.opposite_face_handle(prevEdges[3]);
+
+				// update distances
+				dist(f1) = f1dist + halfdist(f1, pred(f1));
+				dist(f3) = f1dist + halfdist(f3, pred(f3));
+				dist(f2) = f2dist + halfdist(f2, pred(f2));
+				dist(f4) = f2dist + halfdist(f4, pred(f4));
 			}
 		}
 	}
@@ -472,25 +452,21 @@ void VoronoiRemesh::remesh()
 	//return; // EARLY DEBUG RETURN
 
 	// do preventive edge spliiting wherever there are two regions only touching at 1 edge
-	//preventiveEdgeSplits();
+	preventiveEdgeSplits();
 
 	// return; // EARLY DEBUG RETURN
 	size_t nvertices = m_mesh.n_vertices();
 	size_t nfaces = m_mesh.n_faces();
 
-	auto newverts = OpenMesh::makeTemporaryProperty<FH, VH>(m_mesh);
+	std::vector<VertexHandle> newverts(m_seeds.size());
 	std::vector<VertexHandle> sv(m_seeds.size());
 
-	for (const auto &f : m_mesh.faces()) {
-		newverts[f] = INVALID_V;
-	}
 	// variable name scope
 	{
 		std::array<HH,3> neighbors;
 
 		// for each region: add a vertex to the new m_mesh (store in vector to find using region id)
 		for (auto f : m_seeds) {
-			newverts[f] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(f));
 			// remember original halfedges
 			auto hit = m_mesh.cfh_begin(f);
 			neighbors[0] = hit++;
@@ -498,9 +474,13 @@ void VoronoiRemesh::remesh()
 			neighbors[2] = hit;
 
 			sv[id(f)] = m_mesh.splitFaceBarycentric(f, true);
+			newverts[id(f)] = m_ctrl.add_vertex(m_mesh.point(sv[id(f)]));
+
 			// assign correct predecessor face
 			for (size_t i = 0; i < 3; ++i) {
-				pred(m_mesh.opposite_face_handle(neighbors[i])) = m_mesh.face_handle(neighbors[i]);
+				if (pred(m_mesh.opposite_face_handle(neighbors[i])) == f) {
+					pred(m_mesh.opposite_face_handle(neighbors[i])) = m_mesh.face_handle(neighbors[i]);
+				}
 			}
 		}
 	}
@@ -535,7 +515,8 @@ void VoronoiRemesh::remesh()
 			const ID id2 = id(m_mesh.opposite_face_handle(*h));
 			const EH edge = m_mesh.edge_handle(*h);
 			// if edge was not crossed and is adjacent to the given region
-			if (edge != forbidden && id1 == f1 && id2 == f2) {
+			if (edge != forbidden && (id1 == f1 && id2 == f2 ||
+				id1 == f2 && id2 == f1)) {
 				return *h;
 			}
 		}
@@ -550,26 +531,19 @@ void VoronoiRemesh::remesh()
 					m_mesh.from_vertex_handle(*he) :
 					m_mesh.to_vertex_handle(*he);
 
-				if (m_mesh.adjToFace(v, to)) return *he;
+				if (!isCrossed(*he) &&
+					m_mesh.opposite_face_handle(*he) != to &&
+					m_mesh.adjToFace(v, to)
+				) {
+					return *he;
+				}
 			}
 		}
 		return INVALID_H;
 	};
 
-	const auto findSmallestFace = [&](
-		const VH vh,
-		const ID fid,
-		const double value=std::numeric_limits<double>::max()
-		) {
-		double val = value;
-		FaceHandle face;
-		for (auto fit = m_mesh.cvf_begin(vh); fit != m_mesh.cvf_end(vh); ++fit) {
-			if (id(*fit) == fid && dist(*fit) < val) {
-				val = dist(*fit);
-				face = *fit;
-			}
-		}
-		return face;
+	const auto notCrossed = [&](const FH from, const FH to, const VH node) {
+		return connectingHalfedge(from, to, node).is_valid();
 	};
 
 	const auto shortestPath = [&](
@@ -581,7 +555,7 @@ void VoronoiRemesh::remesh()
 	) {
 		const ID id_1 = id(f1), id_2 = id(f2);
 
-		HH start = findStartBorder(v, id_1, id_2), he = start, bEdge = start;
+		HH start = findStartBorder(v, id_1, id_2), he = start, bEdge;
 
 		FH f11, f22, tmp1, tmp2;
 
@@ -595,11 +569,10 @@ void VoronoiRemesh::remesh()
 			const double distSum = dist(tmp1) + dist(tmp2);
 			if (distSum <= sum) {
 				sum = distSum;
-				f11 = tmp1;
-				f22 = tmp2;
-			}/* else if (ttv(ctrlFace).inner.empty()) {
-				ttv(ctrlFace).inner.push_back(m_mesh.to_vertex_handle(he));
-			}*/
+				f11 = id(tmp1) == id_1 ? tmp1 : tmp2;
+				f22 = id(tmp2) == id_2 ? tmp2 : tmp1;
+				bEdge = he;
+			}
 
 			he = findNextBorder(m_mesh.to_vertex_handle(he), id_1, id_2, m_mesh.edge_handle(he));
 
@@ -609,6 +582,22 @@ void VoronoiRemesh::remesh()
 
 		std::cerr << "\t\tfound faces " << f11 << " and " << f22 << "\n";
 
+		he = start;
+
+		int count = 0;
+		// add interior vertices
+		while (he != bEdge) {
+			tmp1 = m_mesh.face_handle(he);
+			tmp2 = m_mesh.opposite_face_handle(he);
+			if (id(tmp1) == id_2) {
+				tmp1 = m_mesh.opposite_face_handle(he);
+				tmp2 = m_mesh.face_handle(he);
+			}
+			ttv(ctrlFace).inner.push_back(m_mesh.to_vertex_handle(he));
+			he = findNextBorder(m_mesh.to_vertex_handle(he), id_1, id_2, m_mesh.edge_handle(he));
+			count++;
+		}
+		std::cerr << "\t\tadded " << count << " interior vertices\n";
 
 		std::deque<FH> subpath;
 
@@ -616,11 +605,13 @@ void VoronoiRemesh::remesh()
 		FH working = f11;
 		while (working.is_valid()) {
 			subpath.push_front(working);
+			std::cerr << "\t\tface " << working << " has pred " << pred(working) << "\n";
 			working = pred(working);
 		}
 		working = f22;
 		while (working.is_valid()) {
 			subpath.push_back(working);
+			std::cerr << "\t\tface " << working << " has pred " << pred(working) << "\n";
 			working = pred(working);
 		}
 
@@ -629,35 +620,67 @@ void VoronoiRemesh::remesh()
 		assert(m_mesh.adjToFace(node, subpath[0]));
 
 		HH way; EH edge;
+		FH f_it, next;
 
-		for (auto f_it = subpath.cbegin();; ++f_it) {
-			auto next = std::next(f_it);
+		size_t sIndex = 0, eIndex = subpath.size(), mod = 1;
+		if (!notCrossed(subpath[0], subpath[1], node)) {
+			sIndex = eIndex-1;
+			eIndex = -1;
+			mod = -1;
+			node = sv[id(subpath[sIndex])];
+			assert(notCrossed(subpath[sIndex], subpath[sIndex - 1], node));
+		}
+
+		for (size_t i = sIndex; i != eIndex; i+=mod) {
+			f_it = subpath[i];
+
 			m_mesh.set_color(node, { 0.f, 0.f, 0.f, 1.f });
-			m_mesh.set_color(*f_it, { 1.f, 1.f, 1.f, 1.f });
-			if (next == subpath.cend()) {
-				break; // we are done
-			}
-			way = connectingHalfedge(*f_it, *next, node);
+			vtt(node).setFace(INVALID_F);
+			m_mesh.set_color(f_it, { 1.f, 1.f, 1.f, 1.f });
+
+			size_t nextIndex = i == eIndex - mod ? i - mod : i + mod;
+			next = subpath[nextIndex];
+
+			way = connectingHalfedge(f_it, next, node);
 			// if we dont need as many edges, we will get an invalid handle here
 			if (way.is_valid()) {
-				//m_mesh.set_color(m_mesh.opposite_face_handle(way), { 0.f, 0.f, 0.f, 1.f });
-				// add inner vertices so we have somewhere to start from
-				ttv(ctrlFace).inner.push_back(
-					m_mesh.to_vertex_handle(m_mesh.next_halfedge_handle(way))
-				);
-
 				edge = m_mesh.edge_handle(way);
 				node = m_mesh.to_vertex_handle(way) != node ?
 					m_mesh.to_vertex_handle(way) :
 					m_mesh.from_vertex_handle(way);
 
 				// edge was already crossed
-				if (isCrossed(edge)) {
-					std::cerr << "--------------------> CROSSING PATHS !!!\n";
-					auto newNode = m_mesh.splitFacesRivara(*f_it, *next, true);
-					ShortestPath::replace(m_mesh, node, newNode, id_1, id_2, [&](EH e) {
-						crossed(e) = -1;
-					});
+				if (false && i < subpath.size()-1 && isCrossed(node)) {
+					std::cerr << "----------------> CROSSING PATHS (at node" << node << ") !!!\n";
+
+					// TODO: check which face needs to be adjusted
+					// - if next edge is already crossed: split this face and next
+					// - else: split next face and its predecessor (next next face)
+
+					if (!nextEdgeCrossed(edge, f_it)) {
+						std::cerr << "\tsplitting current + next\n";
+						VH newNode = m_mesh.splitFacesRivara(f_it, next, true);
+						// set correct faces
+						HH help = m_mesh.find_halfedge(node, newNode);
+						subpath[i] = m_mesh.face_handle(help);
+						subpath[nextIndex] = m_mesh.opposite_face_handle(help);
+						f_it = subpath[i];
+						next = subpath[nextIndex];
+
+						way = connectingHalfedge(f_it, next, node);
+						edge = m_mesh.edge_handle(way);
+					} else {
+						std::cerr << "\tsplitting next + nextNext\n";
+						FH nextNext = subpath[nextIndex + mod];
+						VH newNode = m_mesh.splitFacesRivara(next, nextNext, true);
+						// TODO: correct pred for new faces?
+						// replace edges in other path
+						ShortestPath::replace(m_mesh, node, newNode, id_1, id_2,
+							[&](EH e) { crossed(e) = -1; },
+							[&](EH eNew, EH eOld) { crossed(eNew) = crossed(eOld); }
+						);
+					}
+					assert(m_mesh.adjToFace(edge, f_it));
 				}
 				m_mesh.set_color(edge, { 0.f, 0.f, 0.f, 1.f });
 				path.push(edge);
@@ -677,7 +700,7 @@ void VoronoiRemesh::remesh()
 	std::unordered_set<EH> boundary;
 	std::unordered_set<VH> inside;
 
-	const auto adjToBorder = [&](const VH &v) {
+	const auto adjToBorder = [&](const VH v) {
 		for (auto he = m_mesh.cve_begin(v); he != m_mesh.cve_end(v); ++he) {
 			if (boundary.find(*he) != boundary.end()) {
 				return true;
@@ -694,17 +717,15 @@ void VoronoiRemesh::remesh()
 		return f != m_seeds.end() ? *f : INVALID_F;
 	};
 
-	const auto findInnerVertex = [&](const ID id1, const ID id2, const ID id3) {
-		auto sp = ShortestPath::path(id1, id2);
-
+	const auto findInnerVertex = [&](ShortestPath &sp) {
 		for (size_t i = 0; i < sp.edges().size(); ++i) {
 			auto e = sp.edges()[i];
 			HH h1 = m_mesh.next_halfedge_handle(m_mesh.halfedge_handle(e, 0));
 			HH h2 = m_mesh.next_halfedge_handle(m_mesh.halfedge_handle(e, 1));
 
-			if (!vtt(m_mesh.to_vertex_handle(h1)).face.is_valid() && !isCrossed(h1)) {
+			if (!vtt(m_mesh.to_vertex_handle(h1)).border() && !isCrossed(h1)) {
 				return m_mesh.to_vertex_handle(h1);
-			} else if (!vtt(m_mesh.to_vertex_handle(h2)).face.is_valid() && !isCrossed(h2)) {
+			} else if (!vtt(m_mesh.to_vertex_handle(h2)).border() && !isCrossed(h2)) {
 				return m_mesh.to_vertex_handle(h2);
 			}
 		}
@@ -725,7 +746,7 @@ void VoronoiRemesh::remesh()
 			const auto f = getSeed(id(*vf));
 			if (check.insert(f).second) {
 				seedFaces.push_back(f);
-				points.push_back(newverts[f]);
+				points.push_back(newverts[id(f)]);
 			}
 		}
 
@@ -750,46 +771,36 @@ void VoronoiRemesh::remesh()
 				// collect border halfedges between these two regions
 				if (!ShortestPath::has(id(f), id(next))) {
 					std::cerr << "\tcalculating shortest path\n";
-					ShortestPath prevPath;
 					bp = ShortestPath(id(f), id(next));
 					shortestPath(v, f, next, fh, bp);
 					ShortestPath::path(bp);
 				} else {
 					std::cerr << "\tgetting shortest path\n";
 					bp = ShortestPath::path(id(f), id(next));
+					auto vh = findInnerVertex(bp);
+					if(vh.is_valid()) ttv(fh).inner.push_back(vh);
 				}
 				boundary.insert(bp.edges().begin(), bp.edges().end());
 			}
 
+			if (!adjToBorder(v)) {
+				ttv(fh).inner.push_back(v);
+			}
+
 			if (!ttv(fh).inner.empty()) {
 				// remove vertices falsy classified as being inside the triangle
-				ttv(fh).inner.erase(std::remove_if(ttv(fh).inner.begin(), ttv(fh).inner.end(),
-					[&](const VH &vh) { return adjToBorder(vh); })
+				auto eraseStart = std::remove_if(ttv(fh).inner.begin(), ttv(fh).inner.end(),
+					[&](const VH &vh) { return adjToBorder(vh); }
 				);
+				if (eraseStart != ttv(fh).inner.end()) {
+					ttv(fh).inner.erase(eraseStart);
+				}
 				// add inner vertices to q
 				for (VH vh : ttv(fh).inner) {
 					q.push(vh);
 					inside.insert(vh);
-					m_mesh.set_color(vh, col);
+					//m_mesh.set_color(vh, col);
 				}
-			} else {
-				auto vh = findInnerVertex(
-					id(seedFaces[0]),
-					id(seedFaces[1]),
-					id(seedFaces[2])
-				);
-				assert(vh.is_valid());
-				q.push(vh);
-				inside.insert(vh);
-				ttv(fh).inner.push_back(vh);
-				m_mesh.set_color(vh, col);
-			}
-
-			if (!adjToBorder(v)) {
-				ttv(fh).inner.push_back(v);
-				inside.insert(v);
-				q.push(v);
-				//m_mesh.set_color(v, col);
 			}
 
 			assert(!q.empty());
@@ -800,12 +811,9 @@ void VoronoiRemesh::remesh()
 				q.pop();
 
 				for (auto vh = m_mesh.cvv_begin(vert); vh != m_mesh.cvv_end(vert); ++vh) {
-					if (adjToBorder(*vh)) {
-						vtt(*vh).face = INVALID_F;
-						//m_mesh.set_color(vh, { 0.f, 0.f, 0.f, 1.f });
-					} else if (inside.find(*vh) == inside.end()) {
+					if (!adjToBorder(*vh) &&inside.find(*vh) == inside.end()) {
 						ttv(fh).inner.push_back(*vh);
-						vtt(*vh).face = fh;
+						vtt(*vh).setFace(fh);
 						//m_mesh.set_color(vh, col);
 						inside.insert(*vh);
 						// only add to q if this vertex is not a border vertex

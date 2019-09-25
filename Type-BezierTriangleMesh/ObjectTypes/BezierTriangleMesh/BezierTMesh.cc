@@ -217,18 +217,21 @@ BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool 
 	return v;
 }
 
-BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandle f2, bool copy)
+BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHandle of2, bool copy)
 {
-	assert(adjToFace(f1, f2));
 
 	HalfedgeHandle connect;
 
-	for (auto he = cfh_begin(f1); he != cfh_end(f1); ++he) {
-		if (adjToFace(*he, f2)) connect = *he;
+	for (auto he = cfh_begin(of1); he != cfh_end(of1); ++he) {
+		if (opposite_face_handle(*he) == of2) connect = *he;
 	}
 
-	VertexHandle v = new_vertex(calc_edge_midpoint(connect));
-	HalfedgeHandle nh = halfedge_handle(edge_handle(connect), 0);
+	assert(connect.is_valid());
+
+	VertexHandle vh = new_vertex(calc_edge_midpoint(connect));
+	EdgeHandle eh = edge_handle(connect);
+
+	/*HalfedgeHandle nh = halfedge_handle(edge_handle(connect), 0);
 	connect = splitEdgeSimple(edge_handle(connect), v, false);
 
 	HalfedgeHandle o0 = next_halfedge_handle(nh);
@@ -269,15 +272,102 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle f1, FaceHandl
 	set_face_handle(opposite_halfedge_handle(nh), f22);
 	set_face_handle(on1, f22);
 	set_face_handle(opposite_halfedge_handle(i1), f22);
-	set_halfedge_handle(f22, opposite_halfedge_handle(nh));
+	set_halfedge_handle(f22, opposite_halfedge_handle(nh));*/
 
-	if (copy) {
-		copy_all_properties(f1, f11);
-		set_color(f11, color(f1));
-		copy_all_properties(f2, f22);
-		set_color(f22, color(f2));
+	HalfedgeHandle h0 = halfedge_handle(eh, 0);
+	HalfedgeHandle o0 = halfedge_handle(eh, 1);
+
+	VertexHandle   v2 = to_vertex_handle(o0);
+
+	HalfedgeHandle e1 = new_edge(vh, v2);
+	HalfedgeHandle t1 = opposite_halfedge_handle(e1);
+
+	FaceHandle     f0 = face_handle(h0);
+	FaceHandle     f3 = face_handle(o0);
+
+	set_halfedge_handle(vh, h0);
+	set_vertex_handle(o0, vh);
+
+	if (!is_boundary(h0)) {
+		HalfedgeHandle h1 = next_halfedge_handle(h0);
+		HalfedgeHandle h2 = next_halfedge_handle(h1);
+
+		VertexHandle v1 = to_vertex_handle(h1);
+
+		HalfedgeHandle e0 = new_edge(vh, v1);
+		HalfedgeHandle t0 = opposite_halfedge_handle(e0);
+
+		FaceHandle f1 = new_face();
+		if (copy) {
+			copy_all_properties(f0, f1);
+			set_color(f1, color(f0));
+		}
+		set_halfedge_handle(f0, h0);
+		set_halfedge_handle(f1, h2);
+
+		set_face_handle(h1, f0);
+		set_face_handle(t0, f0);
+		set_face_handle(h0, f0);
+
+		set_face_handle(h2, f1);
+		set_face_handle(t1, f1);
+		set_face_handle(e0, f1);
+
+		set_next_halfedge_handle(h0, h1);
+		set_next_halfedge_handle(h1, t0);
+		set_next_halfedge_handle(t0, h0);
+
+		set_next_halfedge_handle(e0, h2);
+		set_next_halfedge_handle(h2, t1);
+		set_next_halfedge_handle(t1, e0);
+	} else {
+		set_next_halfedge_handle(prev_halfedge_handle(h0), t1);
+		set_next_halfedge_handle(t1, h0);
+		// halfedge handle of _vh already is h0
 	}
-	return v;
+
+
+	if (!is_boundary(o0)) {
+		HalfedgeHandle o1 = next_halfedge_handle(o0);
+		HalfedgeHandle o2 = next_halfedge_handle(o1);
+
+		VertexHandle v3 = to_vertex_handle(o1);
+
+		HalfedgeHandle e2 = new_edge(vh, v3);
+		HalfedgeHandle t2 = opposite_halfedge_handle(e2);
+
+		FaceHandle f2 = new_face();
+		if (copy) {
+			copy_all_properties(f3, f2);
+			set_color(f2, color(f3));
+		}
+		set_halfedge_handle(f2, o1);
+		set_halfedge_handle(f3, o0);
+
+		set_face_handle(o1, f2);
+		set_face_handle(t2, f2);
+		set_face_handle(e1, f2);
+
+		set_face_handle(o2, f3);
+		set_face_handle(o0, f3);
+		set_face_handle(e2, f3);
+
+		set_next_halfedge_handle(e1, o1);
+		set_next_halfedge_handle(o1, t2);
+		set_next_halfedge_handle(t2, e1);
+
+		set_next_halfedge_handle(o0, e2);
+		set_next_halfedge_handle(e2, o2);
+		set_next_halfedge_handle(o2, o0);
+	} else {
+		set_next_halfedge_handle(e1, next_halfedge_handle(o0));
+		set_next_halfedge_handle(o0, e1);
+		set_halfedge_handle(vh, e1);
+	}
+
+	if (halfedge_handle(v2) == h0) set_halfedge_handle(v2, t1);
+
+	return vh;
 }
 
 void BezierTMesh::correctSplits(bool copy)
