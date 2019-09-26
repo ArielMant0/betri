@@ -145,6 +145,14 @@ public:
 		return false;
 	}
 
+	bool adjToVertex(const VertexHandle v1, const VertexHandle v2) const
+	{
+		for (auto v_it = cvv_begin(v1); v_it != cvv_end(v1); ++v_it) {
+			if (*v_it == v2) return true;
+		}
+		return false;
+	}
+
 private:
 
 	void addCPsToFace(const FaceHandle f);

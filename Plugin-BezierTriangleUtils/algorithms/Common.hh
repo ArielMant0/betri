@@ -43,6 +43,7 @@ struct TriToVertex
 struct VertexToTri
 {
 	FaceHandle face; // delaunay triangle in control mesh (invalid if border)
+	bool border = false;
 	Vec2 uv; // parameterization
 
 	void setUV(double u, double v)
@@ -56,9 +57,9 @@ struct VertexToTri
 		face = f;
 	}
 
-	bool border() const
+	void setBorder()
 	{
-		return !face.is_valid();
+		border = true;
 	}
 
 	const double& operator[](size_t index) const

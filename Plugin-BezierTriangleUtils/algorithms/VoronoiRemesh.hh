@@ -114,6 +114,21 @@ private:
 
 	void preventiveEdgeSplits();
 
+	void assignInnerVertices();
+
+	void splitClosedPaths(ShortestPath &sp);
+
+	void fixPredecessor(const FH fh, const bool forceId=true);
+
+	void shortestPath(
+		const VH v,
+		const FH f1,
+		const FH f2,
+		const FH ctrlFace,
+		ShortestPath &path,
+		const std::vector<VH> &sv
+	);
+
 	// -------------------------------------------------------------- //
 
 	// member variables

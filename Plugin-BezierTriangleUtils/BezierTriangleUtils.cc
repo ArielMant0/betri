@@ -44,7 +44,7 @@ void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
 			| ACG::SceneGraph::DrawModes::WIREFRAME
-			//| ACG::SceneGraph::DrawModes::EDGES_COLORED
+			// | ACG::SceneGraph::DrawModes::EDGES_COLORED
 		);
 	}
 }
