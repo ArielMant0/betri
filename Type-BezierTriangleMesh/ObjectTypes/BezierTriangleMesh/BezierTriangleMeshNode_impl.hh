@@ -167,6 +167,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//ro.setUniform("cameraPos", );
 
 				// fragment shader uniforms
+				static float iteration = 0.0f;
+				iteration += 0.04f;
+				ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
+
 				ro.setUniform("btriangles", int(1));
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
 			}

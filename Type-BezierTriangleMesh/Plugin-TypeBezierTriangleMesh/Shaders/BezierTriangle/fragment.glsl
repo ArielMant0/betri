@@ -30,6 +30,9 @@ uniform sampler2D btriangles;
 uniform mat4 viewMatrix;
 uniform vec3 campos;
 
+// TODO there are already lightuniform slots
+uniform vec3 lig;
+
 // TODO how to get a variable amout of cp's
 // cp0 - controllpoint 0 and vertex 0
 // cp1 - controllpoint 1
@@ -304,8 +307,6 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 
 void main(void)
 {
-	vec3 lig = normalize(vec3(0.6, 0.3, 0.4)); // TODO as texture/uniform
-
 	//vec3 tmp = (inverse(viewMatrix) * vec4(g_vCamPos, 1.0)).xyz;
 	//vec3 tmp = g_vCamPos;
 	vec3 tmp = campos;
