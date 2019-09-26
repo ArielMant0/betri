@@ -112,7 +112,13 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	{
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
+		// TODO this can propably be done differently
+		ACG::GLState::enable(GL_CULL_FACE);
+		//ACG::GLState::cullFace(GL_FRONT);
 
+		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
+
+		//_state.cullFace(GL_CULL_FACE);
 		RenderObject ro;
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
@@ -141,8 +147,32 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
+			if (true /*renderOption == 0*/) {
+				// TODO this is a doublication
+				if (!controlPointTex_.is_valid())
+					updateTexBuffers();
+
+				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
+				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+
+				//std::cerr << _state.eye() << std::endl;
+				//std::cerr << _renderer->camPosWS_ << std::endl;
+				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
+
+				ro.setUniform("viewMatrix", _renderer->viewMatrix_);
+				//ro.setUniform("campos", _renderer->camPosWS_);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+
+				// vertex shader uniforms
+				//ro.setUniform("cameraPos", );
+
+				// fragment shader uniforms
+				ro.setUniform("btriangles", int(1));
+				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
+			}
+
 #ifdef GL_ARB_tessellation_shader
-			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer();
+			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer() && false; // TODO
 
 			if (tessellationMode)
 			{
@@ -876,7 +906,7 @@ void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 		{
 			if (render_control_net_)
 			{
-				// TODO ist der Count hier richtig, was soll da überhaupt hin?
+				// TODO ist der Count hier richtig, was soll da ï¿½berhaupt hin?
 				_state.pick_set_maximum(bezierTriangleMesh_.n_vertices() * 2);
 				pick_vertices(_state); // TODO tut das jetzt was ?
 			}
@@ -1672,7 +1702,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		// TODO
 		// TODO should the mesh really be changed? we could simple apply the
 		// changes to the vbo and dont change the Mesh itself
-		// TODO Button für applyTesselation
+		// TODO Button fï¿½r applyTesselation
 		tesselateMeshCPU();
 	}
 
@@ -2055,9 +2085,12 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	int vertexCount = bezierTriangleMesh_.n_faces() * boundingVolumeVCount;
 
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
-	std::vector<float> vboData(vboSize); // float: 4 bytes
+	std::vector<float> vboData(vboSize/4); // float: 4 bytes
 
-	int i = 0;
+	//int i = 0;
+	int index = 0;
+	// write counter
+	int elementOffset = 0;
 	Point pos;
 	Point normal; //BezierTMesh::Normal
 	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
@@ -2069,14 +2102,14 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 		for (int i = 0; i < controlPointsPerFace; i++) {
 			cp = faceControlP.getCPoint(i);
 			for (int m = 0; m < 3; ++m) {
-				cp[m] < min[m] ? min[m] = cp[m] : i;
-				cp[m] > max[m] ? max[m] = cp[m] : i;
+				cp[m] < min[m] ? min[m] = cp[m] : -1;
+				cp[m] > max[m] ? max[m] = cp[m] : -1;
 			}
 		}
 
-		std::cerr << min << " " << max << std::endl;
+		std::cerr << min << " " << max << " " << index << std::endl;
 
-		const std::array<Point, boundingVolumeVCount> pointArray = {
+		std::array<Point, boundingVolumeVCount> pointArray = {
 			// first quad
 			Point(min[0], min[1], min[2]),
 			Point(min[0], max[1], min[2]),
@@ -2089,9 +2122,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			Point(max[0], min[1], max[2]),
 		};
 
-		// write counter
-		int elementOffset = 0;
-
 		for (auto p : pointArray) {
 			// store pos
 			for (int m = 0; m < 3; ++m)
@@ -2100,7 +2130,8 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			// TODO not nessessary
 			// store normal
 			//for (int m = 0; m < 3; ++m)
-			vboData[elementOffset++] = float(1.0);
+			vboData[elementOffset++] = float(index);
+			//vboData[elementOffset++] = float(1.0);
 			vboData[elementOffset++] = float(0.0);
 			vboData[elementOffset++] = float(0.0);
 
@@ -2111,8 +2142,18 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			vboData[elementOffset++] = 1.0;
 			vboData[elementOffset++] = 0.0;
 		}
+		index++;
 	}
 
+	std::cerr << elementOffset << " " << vboSize << " " << (vboSize / 4) << std::endl;
+
+	for (int k = 0; k < elementOffset; k++) {
+		if (k % 8 == 0)
+			std::cerr << std::endl;
+		std::cerr << vboData[k] << " ";
+	}
+	std::cerr << std::endl;
+	std::cerr << std::endl;
 	if (vboSize)
 		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
 
@@ -2129,52 +2170,59 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 
 	// TODO backfaceculling? could it improve smthg?
 	// index counter
-	//int idxOffset = 0;
 	int idxOffset = 0;
 	for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
 		// first face - front
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
 		// second face - top
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
 		// third face - back
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
 		// forth face - bottom
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
 		// fifth face - left
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
 		// sixth face -rigth
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeICount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
+		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
 	}
+
+	for (int k = 0; k < idxOffset; k++) {
+		if (k % 36 == 0)
+			std::cerr << std::endl;
+		std::cerr << iboData[k] << " ";
+	}
+	std::cerr << std::endl;
+	std::cerr << std::endl;
 
 	std::cerr << idxOffset << " " << numIndices << " " << vboSize << " " << std::endl;
 	std::cerr << vboSize << " " << vertexCount << " " << bezierTriangleMesh_.n_faces() << " " << surfaceDecl_.getVertexStride() << " " << std::endl;
@@ -2202,7 +2250,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// vertex layout:
 	//  float3 pos
 
-	// TODO HÄ?
+	// TODO Hï¿½?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
@@ -2236,7 +2284,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
 	int bottomTriangles = betri::gaussSum(GRAD);
-	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
+	// TODO unterschiedliche Faces kï¿½nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();
