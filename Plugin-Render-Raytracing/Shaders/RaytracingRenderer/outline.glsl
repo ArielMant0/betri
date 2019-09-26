@@ -10,7 +10,7 @@
 #define TYPE_BTRIANGLE 3
 
 ///////////////////////////////////////////////////////////////////////////////
-// Define Count
+// Define Counts
 ///////////////////////////////////////////////////////////////////////////////
 
 #define NUM_BOXES 2
@@ -97,6 +97,7 @@ struct hitinfo {
 // Triangle Intersect
 ///////////////////////////////////////////////////////////////////////////////
 
+// TODO missing r in intesectTriangle
 /**
  * Test one triangle againt a ray.
  *
@@ -116,7 +117,7 @@ vec3 intesectTriangle(vec3 ray_origin, vec3 ray_direction, triangle tri)
     float u = d * dot(-q, v2v0);
     float v = d * dot( q, v1v0);
     float t = d * dot(-n, rov0);
-    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0) 
+    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0)
 		t = -1.0;
     return vec3(t, u, v);
 }
@@ -126,7 +127,7 @@ vec3 intesectTriangle(vec3 ray_origin, vec3 ray_direction, triangle tri)
  *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
- * @inout hitinfo Outvariable - Information about the nearest and selected hit 
+ * @inout hitinfo Outvariable - Information about the nearest and selected hit
  */
 bool intersectTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 {
@@ -171,7 +172,7 @@ vec2 intesectSphere(vec3 ray_origin, vec3 ray_direction, sphere s)
     float b = dot(oc, ray_direction);
     float c = dot(oc, oc) - s.radius * s.radius;
     float h = b*b - c;
-    if (h < 0.0) 
+    if (h < 0.0)
 		return vec2(-1.0); // no intersection
     h = sqrt(h);
     return vec2(-b-h, -b+h);
@@ -182,7 +183,7 @@ vec2 intesectSphere(vec3 ray_origin, vec3 ray_direction, sphere s)
  *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
- * @inout hitinfo Outvariable - Information about the nearest and selected hit 
+ * @inout hitinfo Outvariable - Information about the nearest and selected hit
  */
 bool intersectSpheres(vec3 origin, vec3 dir, inout hitinfo info)
 {
@@ -219,7 +220,7 @@ bool intersectSpheres(vec3 origin, vec3 dir, inout hitinfo info)
  * @in box the box to test against
  * @return A two component vector with the nearest and furthest intersection lambda (t)
  */
-vec2 intersectBox(vec3 origin, vec3 dir, const box b) 
+vec2 intersectBox(vec3 origin, vec3 dir, const box b)
 {
 	vec3 tMin = (b.min - origin) / dir;
 	vec3 tMax = (b.max - origin) / dir;
@@ -235,20 +236,20 @@ vec2 intersectBox(vec3 origin, vec3 dir, const box b)
  *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
- * @out hitinfo Outvariable - Information about the nearest and selected hit 
+ * @out hitinfo Outvariable - Information about the nearest and selected hit
  */
 bool intersectBoxes(vec3 origin, vec3 dir, inout hitinfo info)
 {
 	float smallest = MAX_SCENE_BOUNDS;
 	bool found = false;
-	for (int i = 0; i < NUM_BOXES; i++) 
+	for (int i = 0; i < NUM_BOXES; i++)
 	{
 		box b;
 		float y = i * 1.0 / NUM_BOXES + 0.5 / NUM_BOXES; // TODO
 		b.min = texture(cubes, vec2(0.0, y)).xyz;
 		b.max = texture(cubes, vec2(1.0, y)).xyz;
 		vec2 lambda = intersectBox(origin, dir, b);
-		if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) 
+		if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest)
 		{
 			info.lambda = lambda;
 			info.id = i;
@@ -272,9 +273,9 @@ bool intersectBoxes(vec3 origin, vec3 dir, inout hitinfo info)
  * @in box the btriangle to test against
  * @return A three component vector with the nearest intersection lambda (t) and u, v
  */
-vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt) 
+vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 {
-	// Get perpendicular ray by switching coords 
+	// Get perpendicular ray by switching coords
 	//vec3 normal_1 = ray_direction.zyx;
 	vec3 normal_1 = cross(ray_direction, vec3(-1.0));
 	vec3 normal_2 = cross(ray_direction, normal_1);
@@ -318,29 +319,29 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 	float t = 0.0;
 
 	#define NEWTON_IT_COUNT 4
-	for (int i = 0; i < NEWTON_IT_COUNT; i++) 
+	for (int i = 0; i < NEWTON_IT_COUNT; i++)
 	{
 		s = result.x;
 		t = result.y;
-		
+
 		// Partial derivate by s
-		dBs = 2 * q_1 * s + 
-			q_2 * t + 
+		dBs = 2 * q_1 * s +
+			q_2 * t +
 			q_5;
 
 		// Partial derivate by t
-		dBt = q_2 * s + 
-			2 * q_3 * t + 
+		dBt = q_2 * s +
+			2 * q_3 * t +
 			q_4;
 
 		// Original TODO should not be a derivate even if said so in the paper
-		B_uv = q_1 * pow(s, 2) + 
-			q_2 * s * t + 
+		B_uv = q_1 * pow(s, 2) +
+			q_2 * s * t +
 			q_3 * pow(t, 2) +
 			q_4 * t +
 			q_5 * s +
 			q_6;
-		
+
 
 		R = vec2(dot(normal_1, B_uv) + d_1, dot(normal_2, B_uv) + d_2);
 
@@ -368,19 +369,19 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 }
 
 /**
- * Test all Boxes of the cubes texture against the ray that is given.
+ * Test all Bezier Triangles of the texture against the ray that is given.
  *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
- * @out hitinfo Outvariable - Information about the nearest and selected hit 
+ * @out hitinfo Outvariable - Information about the nearest and selected hit
  */
 bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 {
 	float smallest = info.lambda.x;
 	bool found = false;
-	for (int i = 0; i < NUM_BTRIANGLES; i++) 
+	for (int i = 0; i < NUM_BTRIANGLES; i++)
 	{
-		btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
+		btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befï¿½llen
 		float y = i * 1.0 / NUM_BTRIANGLES + 0.5 / NUM_BTRIANGLES; // TODO
 		const float padding = 1; // TODO all as defines? from the cpu?
 		const float cp_count = 6;
@@ -394,8 +395,8 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 		bt.cp5 = texture(btriangles, vec2((padding + 5) * x + mid, y)).xyz;
 		vec3 lambda = intersectBTriangle(origin, dir, bt);
 		//if (lambda > 0.0 && lambda < smallest)
-		if (lambda.x >= 0.0 && lambda.x <= 1.0 && 
-			lambda.y >= 0.0 && lambda.y <= 1.0 && 
+		if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
+			lambda.y >= 0.0 && lambda.y <= 1.0 &&
 			lambda.z >= 0.0 && lambda.z <= 1.0
 		)
 		{
@@ -414,9 +415,9 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Trace a specific ray against all objects of the scene and color them 
+ * Trace a specific ray against all objects of the scene and color them
  * according to the Objectattributes.
- * 
+ *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
  * @return the color for this ray (pixel)
@@ -429,19 +430,19 @@ hitinfo trace(vec3 origin, vec3 dir)
 		hit.color.rgb = vec3(hit.id / 10.0 + 0.8);
 		hit.type = TYPE_CUBE;
 	}
-	
+
 	if (intersectSpheres(origin, dir, hit))
 	{
 		hit.color.rgb = texture(spheres, vec2(1.0, hit.id)).rgb;
 		hit.type = TYPE_SPHERE;
 	}
-	
+
 	if (intersectTriangles(origin, dir, hit))
 	{
 		hit.color.rgb = texture(triangles, vec2(0.0, hit.id)).rgb;
 		hit.type = TYPE_TRIANGLE;
 	}
-	
+
 	if (intersectBTriangles(origin, dir, hit))
 	{
 		hit.color.rgb = texture(btriangles, vec2(0.0, hit.id)).rgb;
@@ -461,23 +462,23 @@ vec3 sphNormal(vec3 pos, vec3 sphere_pos)
 
 vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
 {
-	switch (hit.type) 
+	switch (hit.type)
 	{
-		case TYPE_CUBE: 
+		case TYPE_CUBE:
 		{
 			return vec3(0.0, 1.0, 0.0); // TODO
 		}
-		case TYPE_SPHERE: 
+		case TYPE_SPHERE:
 		{
 			vec3 sphere_pos = texture(spheres, vec2(0.0, hit.id)).xyz;
 			vec3 pos = ray_origin + hit.lambda.x * ray_direction;
 			return sphNormal(pos, sphere_pos);
 		}
-		case TYPE_TRIANGLE: 
+		case TYPE_TRIANGLE:
 		{
 			return vec3(0.0, 1.0, 0.0); // TODO
 		}
-		case TYPE_BTRIANGLE: 
+		case TYPE_BTRIANGLE:
 		{
 			// TODO this is not the best solution
 			float y = hit.id * 1.0 / NUM_BTRIANGLES + 0.5 / NUM_BTRIANGLES; // TODO
@@ -491,12 +492,12 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
 			vec3 cp3 = texture(btriangles, vec2((padding + 3) * x + mid, y)).xyz;
 			vec3 cp4 = texture(btriangles, vec2((padding + 4) * x + mid, y)).xyz;
 			vec3 cp5 = texture(btriangles, vec2((padding + 5) * x + mid, y)).xyz;
-			
+
 			// TODO ordering is wrong - change here or where the points are set raytracingrenderer.cc
 			vec3 normal_1 = -normalize(cross(normalize(cp1-cp0), normalize(cp3-cp0)));
 			vec3 normal_2 = -normalize(cross(normalize(cp4-cp2), normalize(cp1-cp2)));
 			vec3 normal_3 = -normalize(cross(normalize(cp3-cp5), normalize(cp4-cp5)));
-			
+
 			return normalize(hit.lambda.x * normal_1 + hit.lambda.y * normal_2 + (1 - hit.lambda.x - hit.lambda.y) * normal_3);
 		}
 		default: return vec3(0.0, 1.0, 0.0);
@@ -507,9 +508,8 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, in hitinfo hit)
 // Main
 ///////////////////////////////////////////////////////////////////////////////
 
-void main() 
+void main()
 {
-
 	vec3 lig = normalize(vec3(0.6, 0.3, 0.4)); // TODO as texture/uniform
 
 	vec3 ray_direction = normalize(vRay);
@@ -517,14 +517,14 @@ void main()
 
 	hitinfo hit = trace(ray_origin, ray_direction);
 	oColor = hit.color;
-	
+
 	if (hit.id != -1)
 	{
 		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
 		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
 		//oColor.rgb = normal;
 	}
-	
+
 	//oColor = vec4(texture(triangles, vec2(0.5, 0)).xyz, 1.0);
 
 	//oColor = vec4(normalize(vRay), 1.0);
