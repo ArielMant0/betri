@@ -147,7 +147,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
-			if (true /*renderOption == 0*/) {
+			if (false /*renderOption == 0*/) {
 				// TODO this is a doublication
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
@@ -2083,6 +2083,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 {
+	/*
 	// TODO different bounding volumes
 	const int boundingVolumeVCount = 8;
 	// create vertex buffer
@@ -2238,6 +2239,113 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	surfaceIndexCount_ = numIndices;
 
 	invalidateSurfaceMesh_ = false;
+	*/
+
+
+	///////////////////////////////////////////////////////////////////////////
+	// Setup VBO and IBO
+	///////////////////////////////////////////////////////////////////////////
+
+	// TODO different bounding volumes
+	const int boundingVolumeVCount = 8;
+	// create vertex buffer
+	int vertexCount = bezierTriangleMesh_.n_faces() * boundingVolumeVCount;
+
+	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
+
+	const int boundingVolumeType = betri::PrismVolume;
+
+	const int boundingVolumeSides = boundingVolumeType == betri::AABB ? 6 : 4;
+	const int indicesPerSide = 6;
+	const int boundingVolumeICount = boundingVolumeSides * indicesPerSide;
+
+	// create index buffer
+	int numIndices = bezierTriangleMesh_.n_faces() * boundingVolumeICount;
+
+	std::vector<int> iboData(numIndices);
+
+	///////////////////////////////////////////////////////////////////////////
+	// Fill with boundingbox data
+	///////////////////////////////////////////////////////////////////////////
+
+	int vboIndex = 0;
+	int iboIndex = 0;
+	//for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
+	int face_index = 0;
+
+	for (auto &face : bezierTriangleMesh_.faces()) {
+
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		std::vector<Point> cpArray = std::vector<Point>();
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cpArray.push_back(faceControlP.getCPoint(i));
+		}
+
+		switch (boundingVolumeType) {
+			case betri::AABB:
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			case betri::PrismVolume:
+			{
+				// TODO is this the correct way to call this?
+				betri::addPrismVolumeFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			default: 
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+			}
+		}
+
+		face_index++;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	// Upload VBO and IBO and cleanup
+	///////////////////////////////////////////////////////////////////////////
+
+	if (vboSize)
+		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+
+	vboData.clear();
+
+	// TODO why is it here *4 is it because of size in bytes?!
+	if (numIndices)
+		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+
+	surfaceIndexCount_ = numIndices;
+
+	invalidateSurfaceMesh_ = false;
+
 }
 
 //----------------------------------------------------------------------------
