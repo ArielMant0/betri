@@ -357,7 +357,8 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 				// If it isnt an cornerpoint
 				if (i != 0 && i != GRAD && i != betri::gaussSum(GRAD + 1) - 1) {
 					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
-					p += n/2.5;
+					p += n / 2.5;
+					//p += Point(0.3, 0.0, 0.0);
 				}
 				i++;
 				cp_vec.push_back(p);
