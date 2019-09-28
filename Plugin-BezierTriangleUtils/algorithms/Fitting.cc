@@ -68,14 +68,14 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 		rhsz[i] = p[2];
 	}
 
-	for (size_t i = 0, column = 0; i <= m_degree; ++i) {
-		for (size_t j = 0; j + i <= m_degree; ++j, ++column) {
-			auto coeff = calcCoeffs(inner[column], i, j);
-			for (size_t row = 0; row < nv_inner_; ++row) {
-				A(row, column) = coeff;
+	size_t matSize = nv_inner_;
+
+	for (size_t row = 0; row < matSize; ++row) {
+		for (size_t i = 0, column=0; i <= m_degree; ++i) {
+			for (size_t j = 0; j + i <= m_degree; ++j, ++column) {
+				A(row, column) = calcCoeffs(inner[row], i, j);
 			}
 		}
-		assert(column <= nv_inner_);
 	}
 
 	std::cerr << "\nmatrix is\n" << A << "\n";

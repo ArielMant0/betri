@@ -54,7 +54,7 @@ public:
 	*
 	* @param _typeId   This is the type Id the Object will use. Should be typeId("TriangleMesh") or typeId("PolyMesh")
 	*/
-	BTMeshObject(DataType _typeId);
+	BTMeshObject();
 
 	/// destructor
 	virtual ~BTMeshObject();

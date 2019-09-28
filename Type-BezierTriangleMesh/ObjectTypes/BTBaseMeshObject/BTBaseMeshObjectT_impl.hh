@@ -41,7 +41,7 @@ BTBaseMeshObject<MeshT>::BTBaseMeshObject(const BTBaseMeshObject& _object) :
 *  objectDataType has to match the one of MeshT ( see Types.hh::DataType )
 */
 template <class MeshT>
-BTBaseMeshObject<MeshT>::BTBaseMeshObject(DataType _typeId) :
+BTBaseMeshObject<MeshT>::BTBaseMeshObject() :
     BaseObjectData(),
     mesh_(0),
     statusNode_(0),
@@ -54,7 +54,6 @@ BTBaseMeshObject<MeshT>::BTBaseMeshObject(DataType _typeId) :
     statusView_(0),
     triangle_bsp_(0)
 {
-    setDataType(_typeId);
     init();
 }
 

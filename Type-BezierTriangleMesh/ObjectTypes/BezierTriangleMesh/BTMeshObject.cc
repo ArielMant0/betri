@@ -20,7 +20,7 @@
 BTMeshObject::BTMeshObject(const BTMeshObject &_object) : BTBaseMeshObject<BezierTMesh>(_object) {}
 
 
-BTMeshObject::BTMeshObject(DataType _typeId) : BTBaseMeshObject<BezierTMesh>(_typeId) {}
+BTMeshObject::BTMeshObject() : BTBaseMeshObject<BezierTMesh>() {}
 
 
 BTMeshObject::~BTMeshObject() {}

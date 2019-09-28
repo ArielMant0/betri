@@ -19,7 +19,7 @@ public:
 	using HH = BezierTMesh::HalfedgeHandle;
 	using FH = BezierTMesh::FaceHandle;
 
-	using Container = std::vector<EH>;
+	using Container = std::vector<VH>;
 
 	ShortestPath() : m_small(-1), m_big(-1), m_border() {}
 
@@ -49,22 +49,15 @@ public:
 		assert(m_small < m_big);
 	}
 
-	void push(EH he) { return m_border.push_back(he); }
+	void push(VH vh) const { return m_border.push_back(vh); }
 
-	void pop() { m_border.pop_back(); }
+	void pop() const { m_border.pop_back(); }
 
-	Container& edges() { return m_border; }
+	Container& list() const { return m_border; }
 
-	bool contains(BezierTMesh &mesh, HalfedgeHandle he) const
+	bool contains(VH e) const
 	{
-		return std::any_of(m_border.begin(), m_border.end(), [he,&mesh](const EdgeHandle eh) {
-			return mesh.edge_handle(he) == eh;
-		});
-	}
-
-	bool contains(EdgeHandle e) const
-	{
-		return std::any_of(m_border.begin(), m_border.end(), [e](const EdgeHandle eh) {
+		return std::any_of(m_border.begin(), m_border.end(), [e](const VH eh) {
 			return eh == e;
 		});
 	}
@@ -74,29 +67,28 @@ public:
 	bool replace(
 		const BezierTMesh &mesh,
 		const VH adj,
-		const VH now,
-		std::function<void(EH)> funcOld,
-		std::function<void(EH,EH)> funcNew
+		const VH now
 	);
 
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
 
-	EdgeHandle last() { return m_border.back(); }
+	VH front() const { return m_border[0]; }
+	VH back() const { return m_border.back(); }
 
-	static ShortestPath path(ID id1, ID id2);
+	static const ShortestPath& path(ID id1, ID id2);
 	static void path(ShortestPath &s);
 
 	static bool has(const ID id1, const ID id2);
+
+	static void connect(BezierTMesh &mesh, const ID id1, const ID id2, const ID id3);
 
 	static void replace(
 		const BezierTMesh &mesh,
 		const VH adj,
 		const VH now,
 		const ID hint1,
-		const ID hint2,
-		std::function<void(EH)> funcOld,
-		std::function<void(EH,EH)> funcNew
+		const ID hint2
 	);
 
 	static void clear();
@@ -104,7 +96,7 @@ public:
 private:
 
 	ID m_small, m_big;
-	Container m_border; // the halfedges that make up the border
+	mutable Container m_border; // the halfedges that make up the border
 };
 
 inline bool operator==(const ShortestPath& lhs, const ShortestPath& rhs)

@@ -22,6 +22,8 @@ using EdgeIter = BezierTMesh::EdgeIter;
 using Vec2 = ACG::VectorT<Scalar, 2>;
 using Vec3 = ACG::VectorT<Scalar, 3>;
 
+using ID = int;
+
 struct TriToVertex
 {
 	std::vector<VertexHandle> inner; // inner vertices
@@ -43,7 +45,7 @@ struct TriToVertex
 struct VertexToTri
 {
 	FaceHandle face; // delaunay triangle in control mesh (invalid if border)
-	bool border = false;
+	ID id1 = -1, id2 = -1;
 	Vec2 uv; // parameterization
 
 	void setUV(double u, double v)
@@ -57,9 +59,15 @@ struct VertexToTri
 		face = f;
 	}
 
-	void setBorder()
+	void setBorder(ID i1, ID i2)
 	{
-		border = true;
+		id1 = i1;
+		id2 = i2;
+	}
+
+	bool isBorder() const
+	{
+		return id1 >= 0 && id2 >= 0;
 	}
 
 	const double& operator[](size_t index) const

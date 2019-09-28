@@ -40,6 +40,8 @@ void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
 
 	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
 
+	mesh->garbage_collection();
+
 	if (useColors) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED

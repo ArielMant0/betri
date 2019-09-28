@@ -60,9 +60,10 @@ public:
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
-	ID id(FH fh) const { return m_mesh.property(m_region, fh); }
+	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
 
 	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
+	FH pred(const FH fh) const { return m_mesh.property(m_pred, fh); }
 	double& dist(FH fh) { return m_mesh.property(m_distance, fh); }
 
 	TriToVertex& ttv(FH fh) { return m_ctrl.property(m_ttv, fh); }
@@ -73,20 +74,11 @@ public:
 	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
 	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
 
-	ID crossed(EH eh) const { return m_mesh.property(m_crossed, eh); }
-	ID crossed(HH he) const { return crossed(m_mesh.edge_handle(he)); }
+	ID crossed(const EH eh) const { return m_mesh.property(m_crossed, eh); }
+	ID crossed(const HH he) const { return crossed(m_mesh.edge_handle(he)); }
 
-	bool isCrossed(EH eh) const { return crossed(eh) >= 0; }
-	bool isCrossed(HH he) const { return isCrossed(m_mesh.edge_handle(he)); }
-
-	bool isCrossed(VH vh) const
-	{
-		int adj = 0;
-		for (auto e_it = m_mesh.cve_begin(vh); e_it != m_mesh.cve_end(vh); ++e_it) {
-			if (isCrossed(e_it)) adj++;
-		}
-		return adj >= 2;
-	}
+	bool isCrossed(const EH eh) const { return crossed(eh) >= 0; }
+	bool isCrossed(const HH he) const { return isCrossed(m_mesh.edge_handle(he)); }
 
 	bool nextEdgeCrossed(EH eh, FH fh) const
 	{
@@ -116,18 +108,37 @@ private:
 
 	void assignInnerVertices();
 
-	void splitClosedPaths(ShortestPath &sp);
+	void splitClosedPaths();
 
-	void fixPredecessor(const FH fh, const bool forceId=true);
+	void fixPredecessor(const FH fh);
 
 	void shortestPath(
 		const VH v,
-		const FH f1,
-		const FH f2,
+		const ID id_1,
+		const ID id_2,
 		const FH ctrlFace,
-		ShortestPath &path,
-		const std::vector<VH> &sv
+		const ShortestPath &path
 	);
+
+	ID seedVertex(const VH vh) const
+	{
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (!pred(*f_it).is_valid()) return id(*f_it);
+		}
+		return -1;
+	}
+
+	FH findDelaunayFace(std::unordered_set<ID> &regions)
+	{
+		for (FH f : m_ctrl.faces()) {
+			if (regions.find(ttv(f)[0]) != regions.end() &&
+				regions.find(ttv(f)[1]) != regions.end() &&
+				regions.find(ttv(f)[2]) != regions.end()) {
+				return f;
+			}
+		}
+		return FH();
+	}
 
 	// -------------------------------------------------------------- //
 

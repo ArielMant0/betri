@@ -99,7 +99,7 @@ private:
 		auto ca = ShortestPath::path(c, a);
 
 		for (auto he = m_mesh.cvih_begin(v); he != m_mesh.cvih_end(v); ++he) {
-			if (ab.edges()[0] == *he || bc.edges()[0] == *he || ca.edges()[0] == *he) {
+			if (ab.list()[0] == *he || bc.list()[0] == *he || ca.list()[0] == *he) {
 				return true;
 			}
 		}
@@ -151,7 +151,7 @@ private:
 
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;
-	std::vector<EdgeHandle> *m_outer;
+	std::vector<VertexHandle> *m_outer;
 
     // helper variables
     size_t nv_total_;

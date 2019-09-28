@@ -11,12 +11,22 @@ public:
 	BezierTMesh() :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
 		m_render(false),
-		m_degree(2) {}
+		m_degree(2)
+	{
+		request_edge_colors();
+		request_vertex_colors();
+		request_face_colors();
+	}
 
 	BezierTMesh(const BezierTMesh &other) :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(other),
 		m_render(other.m_render),
-		m_degree(other.m_degree) {}
+		m_degree(other.m_degree)
+	{
+		request_edge_colors();
+		request_vertex_colors();
+		request_face_colors();
+	}
 
 	void degreeElevation(FaceHandle fh);
 
@@ -151,6 +161,16 @@ public:
 			if (*v_it == v2) return true;
 		}
 		return false;
+	}
+
+	bool adjToEdge(const EdgeHandle e1, const EdgeHandle e2) const
+	{
+		VertexHandle v0 = to_vertex_handle(halfedge_handle(e1, 0));
+		VertexHandle v1 = to_vertex_handle(halfedge_handle(e1, 1));
+		VertexHandle v2 = to_vertex_handle(halfedge_handle(e2, 0));
+		VertexHandle v3 = to_vertex_handle(halfedge_handle(e2, 1));
+
+		return v0 == v2 || v0 == v3 || v1 == v2 || v1 == v3;
 	}
 
 private:

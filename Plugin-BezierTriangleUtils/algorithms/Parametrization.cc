@@ -16,7 +16,7 @@ void Parametrization::prepare()
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
 
-	m_outer = new std::vector<EdgeHandle>();
+	m_outer = new std::vector<VertexHandle>();
 	// TODO: only needs to be done once?
 	calcWeights();
 }
@@ -124,18 +124,19 @@ void Parametrization::initCoords(const FaceHandle face)
 
 	size_t innerIdx = 0;
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
-	for (auto &v : *m_inner) {
+	for (auto vh : *m_inner) {
 		// triangle
 		//hmap(v) = Vec2(0.33f, 0.33f);
 
 		// circle
-		hmap(v) = Vec2(0.5f, 0.5f);
-		sysid(v) = innerIdx++;
+		hmap(vh) = Vec2(0.5f, 0.5f);
+		sysid(vh) = innerIdx++;
 	}
 
 	Scalar length = 0.0;
-	for (auto he : *m_outer) {
-		length += m_mesh.calc_edge_length(he);
+	Point lastPos = m_mesh.point(*m_outer->begin());
+	for (auto vh : *m_outer) {
+		length += (lastPos - m_mesh.point(vh)).norm();
 	}
 
 	// TODO: keep angles of the triangle ?!
@@ -170,11 +171,13 @@ void Parametrization::initCoords(const FaceHandle face)
 	// map to circle
 	Scalar normFactor = 1.0 / length * 2.0 * M_PI;
 	Scalar l = 0.0, angle;
-	for (auto he : *m_outer) {
+	lastPos = m_mesh.point(*m_outer->begin());
+
+	for (auto vh : *m_outer) {
 		angle = l * normFactor;
 		// TODO: which vertex?
-		hmap(m_mesh.to_vertex_handle(m_mesh.halfedge_handle(he,0))) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
-		l += m_mesh.calc_edge_length(he);
+		hmap(vh) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
+		l += (lastPos - m_mesh.point(vh)).norm();
 	}
 }
 
@@ -266,9 +269,9 @@ void Parametrization::solve() {
 		auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
 		auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-		std::copy(ab.edges().begin(), ab.edges().end(), std::back_inserter(*m_outer));
-		std::copy(bc.edges().begin(), bc.edges().end(), std::back_inserter(*m_outer));
-		std::copy(ca.edges().begin(), ca.edges().end(), std::back_inserter(*m_outer));
+		std::copy(ab.list().begin(), ab.list().end(), std::back_inserter(*m_outer));
+		std::copy(bc.list().begin(), bc.list().end(), std::back_inserter(*m_outer));
+		std::copy(ca.list().begin(), ca.list().end(), std::back_inserter(*m_outer));
 
 		solveLocal(face);
 

@@ -185,7 +185,8 @@ bool TypeBezierTriangleMeshPlugin::registerType()
 int TypeBezierTriangleMeshPlugin::addEmpty()
 {
 	// new object data struct
-	BTMeshObject *object = new BTMeshObject(DATA_BEZIER_TRIANGLE_MESH);
+	BTMeshObject *object = new BTMeshObject();
+	object->setDataType(DATA_BEZIER_TRIANGLE_MESH);
 
 	if (OpenFlipperSettings().value("Core/File/AllTarget", false).toBool()) {
 		object->target(true);

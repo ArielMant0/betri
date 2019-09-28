@@ -54,7 +54,7 @@ class DLLEXPORTONLY BTBaseMeshObject : public BaseObjectData {
     *
     * @param _typeId   This is the type Id the Object will use. Should be typeId("TriangleMesh") or typeId("PolyMesh")
     */
-    BTBaseMeshObject(DataType _typeId);
+    BTBaseMeshObject();
 
     /// destructor
     virtual ~BTBaseMeshObject();
