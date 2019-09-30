@@ -33,10 +33,21 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 	return remesher;
 }
 
-void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
+void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors, bool steps)
 {
 	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
-	getVoronoiObject(object, ctrl)->remesh();
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->useColors(useColors);
+	remesher->useSteps(steps);
+
+	voronoiRemeshStep(object, ctrl, useColors);
+}
+
+void voronoiRemeshStep(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
+{
+	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->remesh();
 
 	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
 

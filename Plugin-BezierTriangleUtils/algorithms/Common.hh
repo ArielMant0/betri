@@ -27,7 +27,7 @@ using ID = int;
 struct TriToVertex
 {
 	std::vector<VertexHandle> inner; // inner vertices
-	size_t ids[3] = { 0, 0, 0 };// boundary numbers (shortest paths)
+	ID ids[3] = { 0, 0, 0 };// boundary numbers (shortest paths)
 
 	const size_t& operator[](size_t index) const
 	{
@@ -35,10 +35,17 @@ struct TriToVertex
 		return ids[index];
 	}
 
-	size_t& operator[](size_t index)
+	ID& operator[](size_t index)
 	{
 		assert(index <= 2);
 		return ids[index];
+	}
+
+	bool isRegion(ID r0, ID r1, ID r2) const
+	{
+		return (ids[0] == r0 || ids[1] == r0 || ids[2] == r0) &&
+			(ids[0] == r1 || ids[1] == r1 || ids[2] == r1) &&
+			(ids[0] == r2 || ids[1] == r2 || ids[2] == r2);
 	}
 };
 

@@ -46,7 +46,6 @@ public:
 		m_vtt(vtt),
 		m_pred(pred),
 		m_inner(nullptr),
-		m_outer(nullptr),
 		m_weightType(Uniform)
 	{
 		prepare();
@@ -55,7 +54,6 @@ public:
 	~Parametrization()
 	{
 		cleanup();
-		if (m_outer) delete m_outer;
 	}
 
 	/** Useful helper functions!
@@ -145,13 +143,37 @@ private:
 		FaceHandle face
 	);
 
+	Scalar countLength(ShortestPath &path)
+	{
+		Scalar l = 0.;
+		Point p = m_mesh.point(path.front());
+		for (VertexHandle vh : path.list()) {
+			l += (p - m_mesh.point(vh)).norm();
+			p = m_mesh.point(vh);
+		}
+		return l;
+	}
+
+	void calcBoundary(ShortestPath &path, Vec2 from, Vec2 to)
+	{
+		// calc normalizing factor
+		Scalar norm = (to - from).norm() / countLength(path);
+
+		Point p = m_mesh.point(path.front());
+		Scalar t = 0.;
+		for (VertexHandle vh : path.list()) {
+			t += (p - m_mesh.point(vh)).norm() * norm;
+			p = m_mesh.point(vh);
+			hmap(vh) = (1. - t) * from + t * to;
+		}
+	}
+
 	///////////////////////////////////////////////////////////
 	// member variables
 	///////////////////////////////////////////////////////////
 
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;
-	std::vector<VertexHandle> *m_outer;
 
     // helper variables
     size_t nv_total_;

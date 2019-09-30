@@ -7,7 +7,8 @@ namespace betri
 
 void Fitting::solve()
 {
-	m_degree = std::max(size_t(2), m_mesh.degree());
+	m_degree = m_mesh.degree();
+	assert(m_degree >= 2);
 
 	std::cerr << "fitting control points for degree " << m_degree << "\n";
 
@@ -59,16 +60,16 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 	EigenVectorT resultZ(nv_inner_);
 	resultZ.setZero();
 
+	size_t matSize = nv_inner_;
+
 	// TODO: does vertex order matter?
-	for (size_t i = 0; i < nv_inner_; ++i) {
+	for (size_t i = 0; i < matSize; ++i) {
 		Point p = m_mesh.point(inner[i]);
 		std::cerr << p << " (u,v) = " << hmap(inner[i]) << "\n";
 		rhsx[i] = p[0];
 		rhsy[i] = p[1];
 		rhsz[i] = p[2];
 	}
-
-	size_t matSize = nv_inner_;
 
 	for (size_t row = 0; row < matSize; ++row) {
 		for (size_t i = 0, column=0; i <= m_degree; ++i) {
@@ -77,6 +78,10 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 			}
 		}
 	}
+
+	rhsx = A.transpose() * rhsx;
+
+	A = A.transpose() * A;
 
 	std::cerr << "\nmatrix is\n" << A << "\n";
 	std::cerr << "-> rhs x\n" << rhsx << "\n";
@@ -97,7 +102,7 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 		std::cerr << __FUNCTION__ << ": solve failed for z!" << std::endl;
 
 	// write control point positions back
-	for (size_t i = 0; i < nv_inner_; ++i) {
+	for (size_t i = 0; i < matSize; ++i) {
 		Point p = { resultX(i), resultY(i), resultZ(i) };
 		std::cerr << "\tcontrol point " << i << " is " << p << "\n";
 		m_ctrl.data(face).controlPoint(i, p);

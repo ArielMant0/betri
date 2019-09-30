@@ -35,11 +35,15 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *voronoiGroup = new QGroupBox(tr("Voronoi Meshing"));
 
-	QPushButton *voronoiButton = new QPushButton(tr("Do it"));
+	QPushButton *voronoiButton = new QPushButton(tr("Voronoi Meshing"));
 	connect(voronoiButton, SIGNAL(clicked()), this, SLOT(callVoronoi()));
+
+	QPushButton *voronoiStepButton = new QPushButton(tr("Voronoi Meshing Stepwise"));
+	connect(voronoiStepButton, SIGNAL(clicked()), this, SLOT(callVoronoiStepwise()));
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0);
+	voronoiLayout->addWidget(voronoiStepButton, 1, 0);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -209,22 +213,61 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 
 		int ctrl_id;
-		BaseObjectData *obj;
-		BTMeshObject *ctrl_obj;
+		BTMeshObject *ctrlMeshObj;
 
 		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-		PluginFunctions::getObject(ctrl_id, obj);
-		ctrl_obj = PluginFunctions::btMeshObject(obj);
-		ctrl_obj->setName("control mesh");
-		ctrl_obj->hide();
-		ctrl_obj->target(false);
+		PluginFunctions::getObject(ctrl_id, ctrl_obj);
+		ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+		ctrlMeshObj->setName("control mesh");
+		ctrlMeshObj->hide();
+		ctrlMeshObj->target(false);
 
-		betri::voronoiRemesh(*o_it, obj);
-		emit log(LOGINFO, "Performed Voronoi Partition!");
+		betri::voronoiRemesh(*o_it, ctrl_obj, true, false);
+		emit log(LOGINFO, "Performed Voronoi Remeshing!");
 
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrl_id, UPDATE_ALL);
+
+		//ctrl_obj->show();
+		//ctrl_obj->mesh()->setRenderable();
+	}
+}
+
+void BezierTriangleUtilsPlugin::callVoronoiStepwise()
+{
+	++m_steps;
+
+
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+
+		if (m_steps == 1) {
+			int ctrl_id;
+			BTMeshObject *ctrlMeshObj;
+
+			emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+			PluginFunctions::getObject(ctrl_id, ctrl_obj);
+			ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+			ctrlMeshObj->setName("control mesh");
+			ctrlMeshObj->hide();
+			ctrlMeshObj->target(false);
+
+			betri::voronoiRemesh(*o_it, ctrl_obj, true, true);
+		} else {
+			betri::voronoiRemeshStep(*o_it, ctrl_obj, true);
+		}
+
+		emit log(LOGINFO, tr("Performed Voronoi Remeshing (step %1) !").arg(m_steps));
+
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
+		BTMeshObject *ctrlObj = dynamic_cast<BTMeshObject*>(ctrl_obj);
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		emit updatedObject(ctrlObj->id(), UPDATE_ALL);
 
 		//ctrl_obj->show();
 		//ctrl_obj->mesh()->setRenderable();

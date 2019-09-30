@@ -16,7 +16,6 @@ void Parametrization::prepare()
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
 
-	m_outer = new std::vector<VertexHandle>();
 	// TODO: only needs to be done once?
 	calcWeights();
 }
@@ -33,8 +32,6 @@ void Parametrization::cleanup()
 
 	if (m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.remove_property(m_sysid);
-
-	if (m_outer) delete m_outer;
 }
 
 //-----------------------------------------------------------------------------
@@ -126,72 +123,30 @@ void Parametrization::initCoords(const FaceHandle face)
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (auto vh : *m_inner) {
 		// triangle
-		//hmap(v) = Vec2(0.33f, 0.33f);
-
+		hmap(vh) = Vec2(0.33f, 0.33f);
 		// circle
-		hmap(vh) = Vec2(0.5f, 0.5f);
+		//hmap(vh) = Vec2(0.5f, 0.5f);
+
 		sysid(vh) = innerIdx++;
 	}
 
-	Scalar length = 0.0;
-	Point lastPos = m_mesh.point(*m_outer->begin());
-	for (auto vh : *m_outer) {
-		length += (lastPos - m_mesh.point(vh)).norm();
-	}
+	auto ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
+	auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
+	auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-	// TODO: keep angles of the triangle ?!
-	//constexpr float turn = 135.0 * M_PI / 180.0;
-	//const float cosTerm = std::cos(turn);
-	//const float sinTerm = std::sin(turn);
-
-	//// triangle circumference (unit triangle) ratio
-	//Scalar ratio = (2 + sqrt(2.0)) / length;
-	//// current position on the circumference and direction
-	//Vec2 pos{ 0.f, 0.f }, dir{ 1.f, 0.f };
-
-	//bool c = false;
-	//// assign boundary coordinates
-	//// TODO: order is important!, maybe get corner vertex (by looking at all vertices of the
-	////		 seed face) and then walking along the edge from there
-	//for (auto he : *m_outer) {
-	//	VertexHandle v = m_mesh.from_vertex_handle(he);
-	//	hmap(v) = pos;
-	//	pos += dir * m_mesh.calc_edge_length(he) * ratio;
-	//	// if we reached a corner of the triangle, go to next corner
-	//	if (isCorner(v, face)) {
-	//		if (c) {
-	//			const float tmp = dir[0];
-	//			dir[0] = tmp * cosTerm - dir[1] * sinTerm;
-	//			dir[1] = tmp * sinTerm + dir[1] * cosTerm;
-	//		}
-	//		c = true;
-	//	}
-	//}
-
-	// map to circle
-	Scalar normFactor = 1.0 / length * 2.0 * M_PI;
-	Scalar l = 0.0, angle;
-	lastPos = m_mesh.point(*m_outer->begin());
-
-	for (auto vh : *m_outer) {
-		angle = l * normFactor;
-		// TODO: which vertex?
-		hmap(vh) = Vec2(0.5*cos(angle) + 0.5, 0.5*sin(angle) + 0.5);
-		l += (lastPos - m_mesh.point(vh)).norm();
-	}
+	// map to triangle
+	calcBoundary(ab, { 0., 0. }, { 0., 1. });
+	calcBoundary(bc, { 0., 1. }, { 1., 0. });
+	calcBoundary(ca, { 1., 0. }, { 1., 1. });
 }
 
 void Parametrization::solveLocal(const FaceHandle face)
 {
-	nv_bdry_ = m_outer->size();
 	nv_inner_ = m_inner->size();
-	nv_total_ = nv_inner_ + nv_bdry_;
+	assert(nv_inner_ > 0);
 
 	// calculate coordinates
 	initCoords(face);
-
-	std::cerr << "INFO: this mesh has " << nv_bdry_ << " boundary vertices and " << nv_inner_;
-	std::cerr << " inner vertices, the total number is " << nv_total_ << std::endl;
 
 	// system matrix
 	EigenSpMatT A(nv_inner_, nv_inner_);
@@ -252,8 +207,9 @@ void Parametrization::solveLocal(const FaceHandle face)
 		std::cerr << "solve failed!" << std::endl;
 
 	// write back to hmap
-	for (const auto &v : *m_inner) {
+	for (const auto v : *m_inner) {
 		hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
+		std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
 		//assert(hmap(v).norm() <= 1.0);
 	}
 }
@@ -261,21 +217,9 @@ void Parametrization::solveLocal(const FaceHandle face)
 //-----------------------------------------------------------------------------
 
 void Parametrization::solve() {
-	m_outer->clear();
 	for (const auto &face : m_ctrl.faces()) {
 		m_inner = &ttv(face).inner;
-
-		auto ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
-		auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
-		auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
-
-		std::copy(ab.list().begin(), ab.list().end(), std::back_inserter(*m_outer));
-		std::copy(bc.list().begin(), bc.list().end(), std::back_inserter(*m_outer));
-		std::copy(ca.list().begin(), ca.list().end(), std::back_inserter(*m_outer));
-
 		solveLocal(face);
-
-		m_outer->clear();
 	}
 }
 

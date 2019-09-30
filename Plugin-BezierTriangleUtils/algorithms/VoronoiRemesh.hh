@@ -36,10 +36,11 @@ public:
 		FOUR = 4
 	};
 
-	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true) :
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true, bool steps=false) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_useColors(colors),
+		m_stepwise(steps),
 		m_colors(),
 		m_seeds(),
 		m_boundary()
@@ -55,7 +56,10 @@ public:
 	void prepare();
 	void cleanup();
 
-	void remesh();
+	void remesh(bool first=true);
+
+	void useColors(bool use) { m_useColors = use; }
+	void useSteps(bool use) { m_stepwise = use; }
 
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
@@ -80,16 +84,34 @@ public:
 	bool isCrossed(const EH eh) const { return crossed(eh) >= 0; }
 	bool isCrossed(const HH he) const { return isCrossed(m_mesh.edge_handle(he)); }
 
-	bool nextEdgeCrossed(EH eh, FH fh) const
-	{
-		for (auto e_it = m_mesh.cfe_begin(fh); e_it != m_mesh.cfe_end(fh); ++e_it) {
-			auto next = std::next(e_it) != m_mesh.cfe_end(fh) ?
-				std::next(e_it) :
-				m_mesh.cfe_begin(fh);
+	std::pair<ID,ID>& faceBorder(FH fh) { return m_mesh.property(m_fborder, fh); }
 
-			if (*e_it == eh && isCrossed(next)) return true;
+	bool isBorder(const FH fh)
+	{
+		auto b = faceBorder(fh);
+		return b.first != -1 && b.second != -1;
+	}
+
+	void setFaceBorder(const FH fh, ID id1=-1, ID id2=-1)
+	{
+		auto b = faceBorder(fh);
+		b.first = id1;
+		b.second = id2;
+	}
+
+	bool nextEdgeCrossed(EH eh, FH fh, FH next) const
+	{
+		HH he = m_mesh.halfedge_handle(eh, 0);
+		if (m_mesh.face_handle(he) != fh) {
+			he = m_mesh.halfedge_handle(eh, 1);
 		}
-		return false;
+		assert(m_mesh.face_handle(he) == fh);
+
+		HH hn = m_mesh.next_halfedge_handle(he);
+		HH hp = m_mesh.prev_halfedge_handle(he);
+
+		return (m_mesh.opposite_face_handle(hn) != next || !isCrossed(hn))  &&
+			(m_mesh.opposite_face_handle(hp) != next || !isCrossed(hp)) ;
 	}
 
 	bool isRegionBorderEdge(EH e) const
@@ -112,6 +134,13 @@ private:
 
 	void fixPredecessor(const FH fh);
 
+	HalfedgeHandle fixCrossing(
+		const FH f0,
+		const FH f1,
+		const VH prevNode=VH(),
+		const FH prevFace=FH()
+	);
+
 	void shortestPath(
 		const VH v,
 		const ID id_1,
@@ -128,12 +157,10 @@ private:
 		return -1;
 	}
 
-	FH findDelaunayFace(std::unordered_set<ID> &regions)
+	FH findDelaunayFace(ID r0, ID r1, ID r2)
 	{
 		for (FH f : m_ctrl.faces()) {
-			if (regions.find(ttv(f)[0]) != regions.end() &&
-				regions.find(ttv(f)[1]) != regions.end() &&
-				regions.find(ttv(f)[2]) != regions.end()) {
+			if (ttv(f).isRegion(r0, r1, r2)) {
 				return f;
 			}
 		}
@@ -145,7 +172,7 @@ private:
 	// member variables
 	BezierTMesh &m_mesh, &m_ctrl;
 
-	bool m_useColors;
+	bool m_useColors, m_stepwise;
 	std::vector<Color> m_colors;
 	std::set<FH> m_seeds;
 	std::vector<EH> m_boundary;
@@ -160,6 +187,8 @@ private:
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;
+
+	OpenMesh::FPropHandleT<std::pair<ID,ID>>   m_fborder;
 };
 
 }

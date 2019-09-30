@@ -27,7 +27,7 @@ class BezierTriangleUtilsPlugin : public QObject,
 
 public:
 
-	BezierTriangleUtilsPlugin() : m_tool(0) {}
+	BezierTriangleUtilsPlugin() : m_tool(0), m_steps(0) {}
 
 	~BezierTriangleUtilsPlugin() {};
 
@@ -42,6 +42,10 @@ private:
 
 	QWidget *m_tool;
 	QLineEdit *echoLineEdit; // TODO
+
+	int m_steps;
+
+	BaseObjectData *ctrl_obj;
 
 	void switchViewMode();
 
@@ -83,5 +87,7 @@ private slots:
 	void setTessType(int);
 
 	void callVoronoi();
+
+	void callVoronoiStepwise();
 
 };
