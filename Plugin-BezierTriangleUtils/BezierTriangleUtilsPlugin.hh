@@ -42,7 +42,6 @@ public:
 private:
 
 	QWidget *m_tool;
-	QLineEdit *echoLineEdit; // TODO
 
 	void switchViewMode();
 
@@ -70,8 +69,6 @@ public slots:
 
 private slots:
 
-	void echoChanged(int);
-
 	void initializePlugin() override;
 
 
@@ -81,6 +78,9 @@ private slots:
 	// option setting function
 	void setTessAmount(int);
 	void setTessType(int);
+	void setBoundVType(int);
+
+	void setBoundVShow(bool);
 
 	void callVoronoi();
 

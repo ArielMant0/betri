@@ -44,26 +44,35 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
+	// Mode group
+	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html	
+	///////////////////////////////////////////////////////////////////////////
+
+	QGroupBox *modeGroup = new QGroupBox(tr("Mode"));
+
+	// Create Drop down menu
+	QLabel *modeLabel = new QLabel(tr("Mode:"));
+	QComboBox *modeComboBox = new QComboBox;
+	modeComboBox->addItem(tr("NONE"));
+	modeComboBox->addItem(tr("CPU"));
+	modeComboBox->addItem(tr("GPU"));
+	modeComboBox->addItem(tr("Raytracing"));
+
+	// set the connection to the setTessType
+	// TODO warum ist das hier anders als bei der tessspinbox
+	connect(modeComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setTessType);
+
+	QGridLayout *modeLayout = new QGridLayout;
+	modeLayout->addWidget(modeLabel, 0, 0);
+	modeLayout->addWidget(modeComboBox, 0, 1);
+	modeGroup->setLayout(modeLayout);
+
+	///////////////////////////////////////////////////////////////////////////
 	// Tesselation group
 	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *tessGroup = new QGroupBox(tr("Tessellation"));
-
-	// Create Drop down menu
-	QLabel *tessMLabel = new QLabel(tr("Mode:"));
-	QComboBox *tessComboBox = new QComboBox;
-	tessComboBox->addItem(tr("CPU"));
-	tessComboBox->addItem(tr("GPU"));
-	tessComboBox->addItem(tr("Raytracing"));
-
-	// TODO this was from the tutorial
-	//connect(tessComboBox, QOverload<int>::of(&QComboBox::activated),
-	//	this, &BezierTriangleUtilsPlugin::echoChanged);
-
-	// set the connection to the setTessType
-	// TODO warum ist das hier anders als bei der tessspinbox
-	connect(tessComboBox, QOverload<int>::of(&QComboBox::activated),
-		this, &BezierTriangleUtilsPlugin::setTessType);
 
 	// Create the gui for tessamount selection
 	QLabel *tessALabel = new QLabel(tr("TesselationAmount:"));
@@ -80,56 +89,98 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 
 	QCheckBox *adaptCBox = new QCheckBox("Adaptive Tesselation");
 
-	// TODO from the turtorial
-	echoLineEdit = new QLineEdit;
-	echoLineEdit->setPlaceholderText("Placeholder Text");
-	echoLineEdit->setFocus();
+	// hide/show the appropriate widgets
+	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, [=](int index) {
+			switch (index) {
+				case betri::TESSELLATION_TYPE::NONE: 
+				case betri::TESSELLATION_TYPE::RAYTRACING:
+					if (tessGroup->isVisible()) {
+						tessGroup->hide();
+					}
+					break;
+				case 1: case 2:
+					if (tessGroup->isHidden()) {
+						tessGroup->show();
+					}
+					break;
+				default:
+					tessGroup->hide();
+			}
+		}
+	);
 
 	QGridLayout *tessLayout = new QGridLayout;
-	tessLayout->addWidget(tessMLabel, 0, 0);
-	tessLayout->addWidget(tessComboBox, 0, 1);
-	tessLayout->addWidget(tessALabel, 1, 0);
-	tessLayout->addWidget(tessSpinBox, 1, 1);
-	tessLayout->addWidget(tessSlider, 2, 0);
-	tessLayout->addWidget(adaptCBox, 3, 0);
-	tessLayout->addWidget(echoLineEdit, 4, 0, 1, 2);
+	tessLayout->addWidget(tessALabel, 0, 0);
+	tessLayout->addWidget(tessSpinBox, 0, 1);
+	tessLayout->addWidget(tessSlider, 1, 0);
+	tessLayout->addWidget(adaptCBox, 2, 0);
 	tessGroup->setLayout(tessLayout);
+	tessGroup->hide();
+
+	///////////////////////////////////////////////////////////////////////////
+	// Raytracing group
+	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *raytracingGroup = new QGroupBox(tr("Raytracing"));
+
+	QLabel *boundVLabel = new QLabel(tr("Use BoundingVolume:"));
+	QComboBox *boundVComboBox = new QComboBox;
+	//boundVComboBox->addItem(tr("NONE"));
+	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
+	boundVComboBox->addItem(tr("PRISM"));
+
+	// hide/show the appropriate widgets
+	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, [=](int index) {
+		switch (index) {
+			case betri::TESSELLATION_TYPE::RAYTRACING:
+				if (raytracingGroup->isHidden()) {
+					raytracingGroup->show();
+				}
+				break;
+			default:
+				raytracingGroup->hide();
+		}
+	}
+	);
+
+	connect(boundVComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setBoundVType);
+
+	QGridLayout *rayLayout = new QGridLayout;
+	rayLayout->addWidget(boundVLabel, 0, 0);
+	rayLayout->addWidget(boundVComboBox, 0, 1);
+	raytracingGroup->setLayout(rayLayout);
+	raytracingGroup->hide();
 
 	///////////////////////////////////////////////////////////////////////////
 	// Visualisation group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *visGroup = new QGroupBox(tr("Visualisation"));
 
-	QLabel *visLabel1 = new QLabel(tr("Mode:"));
-	QComboBox *visComboBox = new QComboBox;
-	visComboBox->addItem(tr("TODO"));
-	visComboBox->addItem(tr("TODO"));
-	visComboBox->addItem(tr("TODO"));
+	QCheckBox *boundVBox = new QCheckBox("Show BoundingVolume");
 
-	connect(visComboBox, QOverload<int>::of(&QComboBox::activated),
-		this, &BezierTriangleUtilsPlugin::echoChanged);
+	// hide/show the appropriate widgets
+	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, [=](int index) {
+		switch (index) {
+			case betri::TESSELLATION_TYPE::RAYTRACING:
+				if (boundVBox->isHidden()) {
+					boundVBox->show();
+				}
+				break;
+			default:
+				boundVBox->hide();
+		}
+	}
+	);
 
-	QLabel *visLabel2 = new QLabel(tr("Controll Point size:"));
-	QSpinBox *spinBox2 = new QSpinBox;
-	QSlider *slider2 = new QSlider(Qt::Horizontal);
-	spinBox2->setRange(0, 10);
-	slider2->setRange(0, 10);
-
-	connect(spinBox2, SIGNAL(valueChanged(int)), slider2, SLOT(setValue(int)));
-	connect(slider2, SIGNAL(valueChanged(int)), spinBox2, SLOT(setValue(int)));
-	spinBox2->setValue(1);
-
-	QCheckBox *controlNet = new QCheckBox("Show Controllnet");
-
-	//emit log(LOGINFO, tr("Option 0 is %1").arg(BezierOptionMng::instance().option(BezierOption::TESSELLATION_AMOUNT)));
+	connect(boundVBox, QOverload<bool>::of(&QCheckBox::clicked),
+		this, &BezierTriangleUtilsPlugin::setBoundVShow);
 
 	QGridLayout *visLayout = new QGridLayout;
-	visLayout->addWidget(visLabel1, 0, 0);
-	visLayout->addWidget(visComboBox, 0, 1);
-	visLayout->addWidget(visLabel2, 1, 0);
-	visLayout->addWidget(spinBox2, 1, 1);
-	visLayout->addWidget(slider2, 2, 0);
-	visLayout->addWidget(controlNet, 3, 0);
+	visLayout->addWidget(boundVBox, 0, 0);
 	visGroup->setLayout(visLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -137,8 +188,10 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(voronoiGroup, 0, 0);
-	grid->addWidget(tessGroup, 1, 0);
-	grid->addWidget(visGroup, 2, 0);
+	grid->addWidget(modeGroup, 1, 0);
+	grid->addWidget(tessGroup, 2, 0);
+	grid->addWidget(raytracingGroup, 3, 0);
+	grid->addWidget(visGroup, 4, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
@@ -158,23 +211,6 @@ void BezierTriangleUtilsPlugin::tessellateMesh()
 	emit log(LOGINFO, "Tessellated Bezier Triangles!");
 }
 
-void BezierTriangleUtilsPlugin::echoChanged(int index)
-{
-	switch (index) {
-		case 0:
-			echoLineEdit->setEchoMode(QLineEdit::Normal);
-			break;
-		case 1:
-			echoLineEdit->setEchoMode(QLineEdit::Password);
-			break;
-		case 2:
-			echoLineEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
-			break;
-		case 3:
-			echoLineEdit->setEchoMode(QLineEdit::NoEcho);
-	}
-}
-
 void BezierTriangleUtilsPlugin::setTessAmount(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
@@ -188,6 +224,11 @@ void BezierTriangleUtilsPlugin::setTessAmount(int value)
 void BezierTriangleUtilsPlugin::setTessType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
+	// TODO does franziska approves this?
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
 
 	// TODO: get these names in a more robust manner
 	switch (value) {
@@ -202,6 +243,21 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 			break;
 	}
 	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
+}
+
+void BezierTriangleUtilsPlugin::setBoundVType(int value)
+{
+	PluginFunctions::betriOption(BezierOption::BOUNDING_VOLUME, value);
+	// TODO does franziska approves this?
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+}
+
+void BezierTriangleUtilsPlugin::setBoundVShow(bool value)
+{
+	PluginFunctions::betriOption(BezierOption::SHOW_BOUNDING_VOLUME, value);
 }
 
 void BezierTriangleUtilsPlugin::callVoronoi()

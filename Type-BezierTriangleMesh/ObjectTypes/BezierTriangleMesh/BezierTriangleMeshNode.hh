@@ -263,7 +263,7 @@ private:
 	void tesselateMeshCPU();  // TODO richtige stelle finden
 
 	/// update vertex + index buffer of surface mesh
-	void updateSurfaceMesh();//int _vertexCountU = 50, int _vertexCountV = 50); TODO
+	void updateSurfaceMesh(const int meshOption);//int _vertexCountU = 50, int _vertexCountV = 50); TODO
 
 	void VBOfromMesh();
 

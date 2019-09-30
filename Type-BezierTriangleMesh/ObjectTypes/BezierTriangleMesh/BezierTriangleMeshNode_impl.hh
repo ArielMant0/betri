@@ -84,16 +84,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
-#ifdef RENDER_DEBUG
-	std::ofstream out("04getRenderObjects-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo" << "\n";
-#endif
 	// only render mesh if that is possible (e.g. has control points)
-	if (!bezierTriangleMesh_.isRenderable()) return;
+	if (!bezierTriangleMesh_.isRenderable()) 
+		return;
 
 	// TODO
 	if (controlPointsChangedR_) {
-
 		setControlPointsColumnwise();
 		controlPointsChangedR_ = false;
 		controlPointsChangedC_ = true;
@@ -113,12 +109,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
 		// TODO this can propably be done differently
-		ACG::GLState::enable(GL_CULL_FACE);
+		// TODO make this toggle
+		//ACG::GLState::enable(GL_CULL_FACE);
 		//ACG::GLState::cullFace(GL_FRONT);
 
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
 
-		//_state.cullFace(GL_CULL_FACE);
 		RenderObject ro;
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
@@ -134,7 +130,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
 			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME)
 		{
-			updateSurfaceMesh();
+			int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+			int showBVolume = betri::option(betri::BezierOption::SHOW_BOUNDING_VOLUME);
+
+			updateSurfaceMesh(renderOption);
 
 			ro.vertexBuffer = surfaceVBO_.id();
 			ro.indexBuffer = surfaceIBO_.id();
@@ -147,7 +146,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
-			if (false /*renderOption == 0*/) {
+			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING && !showBVolume) {
+
 				// TODO this is a doublication
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
@@ -176,9 +176,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			}
 
 #ifdef GL_ARB_tessellation_shader
-			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer() && false; // TODO
+			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
 
-			if (tessellationMode)
+			if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU)
 			{
 				// dynamic lod tessellation and spline evaluation on gpu
 
@@ -599,7 +599,8 @@ void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
 #endif
 	std::cerr << "Hallo" << std::endl;
 
-	updateSurfaceMesh();
+	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	updateSurfaceMesh(renderOption);
 
 	surfaceVBO_.bind();
 	surfaceIBO_.bind();
@@ -1665,7 +1666,7 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int _vertexCountV) TODO
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	if (!invalidateSurfaceMesh_)
 		return;
@@ -1702,7 +1703,6 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		}
 	}
 
-	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
 	if (false) { // TODO if apply tesselation - should get a separate call
 		// TODO
 		// TODO should the mesh really be changed? we could simple apply the
@@ -1714,19 +1714,19 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 	// TODO Performance verbessern indem in den vertex buffer alle vertices gepackt werden und dann
 	// beim index buffer die indices direkt genutzt werden
 
-	 // BIG TODO !!!
+	// BIG TODO !!!
 	// not really sure what happens - but the renderOption should
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
-	if (false && renderOption == 1) {
+	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
-	else if (false && renderOption == 0) {
+	else if (meshOption == betri::TESSELLATION_TYPE::CPU) {
 		VBOtesselatedFromMesh();
 	}
-	else {
+	else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
 		VBOfromBoundingMesh();
 	}
 }
@@ -2084,187 +2084,26 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 {
-	/*
-	// TODO different bounding volumes
-	const int boundingVolumeVCount = 8;
-	// create vertex buffer
-	int vertexCount = bezierTriangleMesh_.n_faces() * boundingVolumeVCount;
-
-	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
-	std::vector<float> vboData(vboSize/4); // float: 4 bytes
-
-	//int i = 0;
-	int index = 0;
-	// write counter
-	int elementOffset = 0;
-	Point pos;
-	Point normal; //BezierTMesh::Normal
-	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
-	for (auto &face : bezierTriangleMesh_.faces()) {
-		auto faceControlP = bezierTriangleMesh_.data(face);
-		Point cp;
-		Point min(INFINITY);
-		Point max(-INFINITY); // TODO minus
-		for (int i = 0; i < controlPointsPerFace; i++) {
-			cp = faceControlP.getCPoint(i);
-			for (int m = 0; m < 3; ++m) {
-				cp[m] < min[m] ? min[m] = cp[m] : -1;
-				cp[m] > max[m] ? max[m] = cp[m] : -1;
-			}
-		}
-
-		std::cerr << min << " " << max << " " << index << std::endl;
-
-		std::array<Point, boundingVolumeVCount> pointArray = {
-			// first quad
-			Point(min[0], min[1], min[2]),
-			Point(min[0], max[1], min[2]),
-			Point(min[0], max[1], max[2]),
-			Point(min[0], min[1], max[2]),
-			// second quad
-			Point(max[0], min[1], min[2]),
-			Point(max[0], max[1], min[2]),
-			Point(max[0], max[1], max[2]),
-			Point(max[0], min[1], max[2]),
-		};
-
-		for (auto p : pointArray) {
-			// store pos
-			for (int m = 0; m < 3; ++m)
-				vboData[elementOffset++] = float(p[m]);
-
-			// TODO not nessessary
-			// store normal
-			//for (int m = 0; m < 3; ++m)
-			vboData[elementOffset++] = float(index);
-			//vboData[elementOffset++] = float(1.0);
-			vboData[elementOffset++] = float(0.0);
-			vboData[elementOffset++] = float(0.0);
-
-			// store texcoord
-			//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
-			//vboData[elementOffset++] = texCoord[0];
-			//vboData[elementOffset++] = texCoord[1];
-			vboData[elementOffset++] = 1.0;
-			vboData[elementOffset++] = 0.0;
-		}
-		index++;
-	}
-
-	std::cerr << elementOffset << " " << vboSize << " " << (vboSize / 4) << std::endl;
-
-	for (int k = 0; k < elementOffset; k++) {
-		if (k % 8 == 0)
-			std::cerr << std::endl;
-		std::cerr << vboData[k] << " ";
-	}
-	std::cerr << std::endl;
-	std::cerr << std::endl;
-	if (vboSize)
-		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
-
-	vboData.clear();
-
-	const int boundingVolumeSides = 6;
-	const int indicesPerSide = 6;
-	const int boundingVolumeICount = boundingVolumeSides * indicesPerSide;
-
-	// create index buffer
-	int numIndices = bezierTriangleMesh_.n_faces() * boundingVolumeICount;
-
-	std::vector<int> iboData(numIndices);
-
-	// TODO backfaceculling? could it improve smthg?
-	// index counter
-	int idxOffset = 0;
-	for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
-		// first face - front
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
-		// second face - top
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
-		// third face - back
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
-		// forth face - bottom
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
-		// fifth face - left
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 4;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 0;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 1;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 5;
-		// sixth face -rigth
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 3;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 7;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 6;
-		iboData[idxOffset++] = face_index * boundingVolumeVCount + 2;
-	}
-
-	for (int k = 0; k < idxOffset; k++) {
-		if (k % 36 == 0)
-			std::cerr << std::endl;
-		std::cerr << iboData[k] << " ";
-	}
-	std::cerr << std::endl;
-	std::cerr << std::endl;
-
-	std::cerr << idxOffset << " " << numIndices << " " << vboSize << " " << std::endl;
-	std::cerr << vboSize << " " << vertexCount << " " << bezierTriangleMesh_.n_faces() << " " << surfaceDecl_.getVertexStride() << " " << std::endl;
-
-	// TODO why is it here *4 is it because of size in bytes?!
-	if (numIndices)
-		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
-
-	surfaceIndexCount_ = numIndices;
-
-	invalidateSurfaceMesh_ = false;
-	*/
-
-
 	///////////////////////////////////////////////////////////////////////////
 	// Setup VBO and IBO
 	///////////////////////////////////////////////////////////////////////////
 
 	// TODO different bounding volumes
-	const int boundingVolumeVCount = 8;
-	// create vertex buffer
-	int vertexCount = bezierTriangleMesh_.n_faces() * boundingVolumeVCount;
+	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
 
+	int numVerts;
+	int numIndices;
+	betri::getVertexIndexCounts(bVolume, numVerts, numIndices);
+
+	int vertexCount = bezierTriangleMesh_.n_faces() * numVerts;
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
-	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
-	const int boundingVolumeType = betri::PrismVolume;
-
-	const int boundingVolumeSides = boundingVolumeType == betri::AABB ? 6 : 4;
-	const int indicesPerSide = 6;
-	const int boundingVolumeICount = boundingVolumeSides * indicesPerSide;
+	int indexCount = bezierTriangleMesh_.n_faces() * numIndices;
 
 	// create index buffer
-	int numIndices = bezierTriangleMesh_.n_faces() * boundingVolumeICount;
-
-	std::vector<int> iboData(numIndices);
+	std::vector<int> iboData(indexCount);
+	// create vertex buffer
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
 	///////////////////////////////////////////////////////////////////////////
 	// Fill with boundingbox data
@@ -2283,8 +2122,8 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			cpArray.push_back(faceControlP.getCPoint(i));
 		}
 
-		switch (boundingVolumeType) {
-			case betri::AABB:
+		switch (bVolume) {
+			case betri::boundingVolumeType::AABB:
 			{
 				// TODO is this the correct way to call this?
 				betri::addBoundingBoxFromPoints(
@@ -2298,7 +2137,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 				); 
 				break;
 			}
-			case betri::PrismVolume:
+			case betri::boundingVolumeType::PrismVolume:
 			{
 				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
@@ -2340,10 +2179,10 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	vboData.clear();
 
 	// TODO why is it here *4 is it because of size in bytes?!
-	if (numIndices)
-		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+	if (indexCount)
+		surfaceIBO_.upload(indexCount * 4, &iboData[0], GL_STATIC_DRAW);
 
-	surfaceIndexCount_ = numIndices;
+	surfaceIndexCount_ = indexCount;
 
 	invalidateSurfaceMesh_ = false;
 

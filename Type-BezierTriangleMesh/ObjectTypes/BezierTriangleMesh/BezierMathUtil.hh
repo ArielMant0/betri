@@ -42,11 +42,34 @@ static inline BezierTMesh::Point getBaryCoords(double u, double v)
 	return BezierTMesh::Point(u, v, 1.0 - u - v);
 }
 
+// TODO this is accesseable without by betri::AABB
 enum boundingVolumeType
 {
 	AABB = 0,
 	PrismVolume = 1
 };
+
+static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
+{
+
+	constexpr int indicesPerTriangle = 3;
+	constexpr int AABBTriangles = 12;
+	constexpr int prismTriangles = 6 + 2;
+
+	switch (bVolume) {
+		case boundingVolumeType::AABB :
+			numVerts = 8;
+			numIndices = AABBTriangles * indicesPerTriangle;
+			break;
+		case boundingVolumeType::PrismVolume:
+			numVerts = 6;
+			numIndices = prismTriangles * indicesPerTriangle;
+			break;
+		default:
+			numVerts = 0;
+			numIndices = 0;
+	}
+}
 
 static void addBoundingBoxFromPoints(
 	const int controlPointsPerFace,

@@ -11,8 +11,8 @@ void main(void)
 	vec4 vertexPosition = g_mWV * inPosition;
     gl_Position = g_mP * vertexPosition;
 
-	outVertexColor = g_mWV * inPosition;
-	outVertexPosCS = g_mWV * inPosition;
+	//outVertexColor = g_mWV * inPosition;
+	//outVertexPosCS = g_mWV * inPosition;
 	//outVertexPosVS = g_mWV * inPosition;
 
 	vec3 pos = vec3(0.0);
