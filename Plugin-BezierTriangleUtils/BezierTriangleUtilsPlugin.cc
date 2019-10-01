@@ -184,6 +184,53 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	visGroup->setLayout(visLayout);
 
 	///////////////////////////////////////////////////////////////////////////
+	// Performance group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *perfGroup = new QGroupBox(tr("Performace Tester"));
+
+	QPushButton *startTestButton = new QPushButton(tr("Start"));
+	QPushButton *endTestButton = new QPushButton(tr("End"));
+
+	int result;
+
+	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/classBaseInterface.html#ace0d6b943ce94f48c40e8c0e17a8413e
+	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+
+		std::clock_t start = std::clock();
+		int frames = 6000;
+
+		std::cerr << frames << std::endl;
+
+		for (int i = 0; i < frames; i++) {
+			// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
+			// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
+			BaseInterface::updateView();
+			BaseInterface::updatedObject(-1);
+			BaseInterface::nodeVisibilityChanged(-1);
+
+			// qtbaseviewer.cc frame_time_
+			// http://www.openflipper.org/media/Documentation/OpenFlipper-1.1/classACG_1_1QtWidgets_1_1QtBaseViewer.html
+			auto bla = PluginFunctions::getRootNode();
+			bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
+		}
+
+		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+
+		std::cerr << "duration: " << duration << " " << (frames/duration) << '\n';
+		result = int(frames / duration);
+	}
+	);
+
+	std::cerr << "result: " << result << std::endl;
+
+
+	QGridLayout *perfLayout = new QGridLayout;
+	perfLayout->addWidget(startTestButton, 0, 0);
+	perfLayout->addWidget(endTestButton, 1, 0);
+	perfGroup->setLayout(perfLayout);
+
+	///////////////////////////////////////////////////////////////////////////
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
 	QGridLayout *grid = new QGridLayout();
@@ -192,6 +239,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	grid->addWidget(tessGroup, 2, 0);
 	grid->addWidget(raytracingGroup, 3, 0);
 	grid->addWidget(visGroup, 4, 0);
+	grid->addWidget(perfGroup, 5, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);

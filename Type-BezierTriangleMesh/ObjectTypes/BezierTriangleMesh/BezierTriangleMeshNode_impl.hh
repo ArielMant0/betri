@@ -84,6 +84,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
+	std::clock_t start = std::clock();
+
 	// only render mesh if that is possible (e.g. has control points)
 	if (!bezierTriangleMesh_.isRenderable()) 
 		return;
@@ -159,8 +161,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//std::cerr << _renderer->camPosWS_ << std::endl;
 				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
 
-				ro.setUniform("viewMatrix", _renderer->viewMatrix_);
 				//ro.setUniform("campos", _renderer->camPosWS_);
+				ro.setUniform("viewMatrix", _renderer->viewMatrix_);
 				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// vertex shader uniforms
@@ -188,10 +190,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
 				ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
 
-				// TODO
-				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
-
-
 				//QString shaderMacro;
 
 				/*
@@ -209,13 +207,14 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				*/
 
 				ro.setUniform("controlPointTex", int(1));
-				//ro.setUniform("knotBufferU", int(2));
-				//ro.setUniform("knotBufferV", int(3));
+
+				// Tesselation Control Shader Uniforms
 
 				//ro.setUniform("uvRange", Vec4f(bezierTriangleMesh_.loweru(), bezierTriangleMesh_.upperu(),
 				//	bezierTriangleMesh_.lowerv(), bezierTriangleMesh_.upperv()));
 
 				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// TODO warum geht das, aber uniform geht nicht?
 				// Liegt das an der for-schleife
@@ -305,6 +304,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			_renderer->addRenderObject(&ro);
 		}
 	}
+
+	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+
+	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
 

@@ -6,9 +6,7 @@
 
 layout(triangles, equal_spacing, ccw) in;
 
-
-//uniform samplerBuffer knotBufferU;
-//uniform samplerBuffer knotBufferV;
+//in vec3 position[];
 
 uniform sampler2D controlPointTex;
 
@@ -17,7 +15,7 @@ uniform sampler2D controlPointTex;
 // more then 12! is not possible because signed integer overflow
 // and therefore compilation errors
 uniform float FACTORIALS[13] = {
-	1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
+	1.0, 1.0, 2.0, 6, 24, 120, // 0, 1, 2, 3, 4, 5
 	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
 	39916800, 479001600 // 11, 12
 };
@@ -141,29 +139,17 @@ vec3 newPosition()
 void main()
 {
 	sg_MapIOBarycentric();
-	//outTeNormalOS = vec3(1.0, 0.0, 0.0);
-	//outTeColor = vec4(gl_PrimitiveID, 0.0, 0.0, 1.0);
+	//outTeColor = vec4(1.0, 0.0, 0.0, 1.0);
 
 	// Set Vertex-position
 	vec3 pos = newPosition();
-
-	//if (gl_TessCoord.x != 0 && gl_TessCoord.y != 0 && gl_TessCoord.z != 0)
 	gl_Position = g_mWVP * vec4(pos, 1.0);
-
-	//outTeNormalVS = gl_TessCoord.x * outTcNormalVS[0] + gl_TessCoord.y * outTcNormalVS[1] + gl_TessCoord.z * outTcNormalVS[2];
-	//outTeNormalOS = vec3(1.0, 1.0, 0.0);
-	// TODO er sagt hier, dass er nicht compilieren konnte das Ergebnis sagt aber was anderes - außerdem ist die reihenfolge anders rum
-	// aber das geht nur wenn man keine subdivision macht
-	//outTeNormalOS = gl_TessCoord.x * outTcNormalOS[2] + gl_TessCoord.y * outTcNormalOS[1] + gl_TessCoord.z * outTcNormalOS[0];
-
+	
+	//vec3 surfaceNormal = gl_TessCoord.x * outTcNormalOS[2] + gl_TessCoord.y * outTcNormalOS[1] + gl_TessCoord.z * outTcNormalOS[0];
 	vec3 surfaceNormal = normalize(cross(getCP(GRAD, 0, 0) - getCP(0, GRAD, 0), getCP(0, 0, GRAD) - getCP(0, GRAD, 0)));
+	//vec3 surfaceNormal = normalize(cross(getCP(GRAD, 0, 0) - pos, getCP(0, 0, GRAD) - pos));
+	//vec3 surfaceNormal = gl_Position.xyz;
 
-	// DEBUG ELEMENTS
-	// Just forward the Position
-	//gl_Position = g_mWVP * vec4(gl_TessCoord.x * getCP(GRAD, 0, 0) + gl_TessCoord.y * getCP(0, 0, GRAD) + gl_TessCoord.z * getCP(0, GRAD, 0), 1.0);
-	// Shows which vertex is processed first, by visualisation of the barycentric coords
-	// TODO does this mean, that the order in the texture in not correct for every vertex?
-	//vec3 surfaceNormal = vec3(gl_TessCoord.x, gl_TessCoord.y, gl_TessCoord.z);
 
 #ifdef SG_OUTPUT_POSOS
 	SG_OUTPUT_POSOS = vec4(pos, 1);

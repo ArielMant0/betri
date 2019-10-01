@@ -58,22 +58,6 @@ struct hitinfo {
 	vec4 color;
 };
 
-vec3 intersectTriangle(vec3 ray_origin, vec3 ray_direction, btriangle tri)
-{
-    vec3 v1v0 = tri.cp2 - tri.cp0;
-    vec3 v2v0 = tri.cp5 - tri.cp0;
-    vec3 rov0 = ray_origin - tri.cp0;
-    vec3  n = cross(v1v0, v2v0);
-    vec3  q = cross(rov0, ray_direction);
-    float d = 1.0 / dot(ray_direction, n);
-    float u = d * dot(-q, v2v0);
-    float v = d * dot( q, v1v0);
-    float t = d * dot(-n, rov0);
-    if (u < 0.0 || u > 1.0 || v < 0.0 || (u+v) > 1.0)
-		t = -1.0;
-    return vec3(t, u, v);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // Beziertriangle Intersect
 ///////////////////////////////////////////////////////////////////////////////
@@ -212,10 +196,7 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 	bt.cp3 = texelFetch(btriangles, ivec2(3, y), 0).xyz;
 	bt.cp4 = texelFetch(btriangles, ivec2(4, y), 0).xyz;
 	bt.cp5 = texelFetch(btriangles, ivec2(5, y), 0).xyz;
-	//vec3 lambda = intersectTriangle(origin, dir, bt);
-	//if (lambda.x > 0.0 && lambda.x < smallest)
-	//{
-	
+
 	vec3 lambda = intersectBTriangle(origin, dir, bt);
 	if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
 		lambda.y >= 0.0 && lambda.y <= 1.0 &&
@@ -307,15 +288,15 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 
 void main(void)
 {
+	// TODO var names
 	//vec3 tmp = (inverse(viewMatrix) * vec4(g_vCamPos, 1.0)).xyz;
 	//vec3 tmp = g_vCamPos;
-	vec3 tmp = campos;
-	//vec3 tmp = vec3(0.0, 0.0, 2.0);
-	// TODO var names
 	//vec3 ray_direction = normalize((viewMatrix * vec4(vRayDirection,1.0)).xyz - tmp);
-	vec3 ray_direction = normalize(vec4(vRayDirection,1.0).xyz - tmp);
 	//vec3 ray_direction = normalize((inverse(viewMatrix) * g_mWV * vec4(vRayDirection,1.0)).xyz - tmp);
 	//vec3 ray_direction = normalize(g_mWV * vec4(vRayDirection,1.0)).xyz - tmp);
+
+	vec3 tmp = campos;
+	vec3 ray_direction = normalize(vec4(vRayDirection,1.0).xyz - tmp);
 	vec3 ray_origin = tmp;
 
 	hitinfo hit = trace(ray_origin, ray_direction);
@@ -328,16 +309,12 @@ void main(void)
 		//oColor.rgb = normal;
 	}
 
-	//outFragment = vec4(texture(btriangles, vec2(0.3, 0.0)).rgb, 1.0);
-	// TODO texelfetch should be better
-	//outFragment = vec4(texelFetch(btriangles, ivec2(0, 0), 0).rgb, 1.0);
-
-
 	//gl_FragColor = vec4(ray_direction, 1.0);
 	outFragment = vec4(oColor.rgb, 1.0);
 
 	if (hit.id == -1)
 		discard;
-		//outFragment = vec4(normalize(ray_direction), 1.0);
+
+	//outFragment = vec4(normalize(ray_direction), 1.0);
 	//outFragment.xyz = normalize(abs(campos));
 }
