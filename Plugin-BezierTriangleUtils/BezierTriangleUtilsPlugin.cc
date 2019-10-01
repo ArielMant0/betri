@@ -229,8 +229,10 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrl_id, UPDATE_ALL);
 
-		//ctrl_obj->show();
-		//ctrl_obj->mesh()->setRenderable();
+		ctrlMeshObj->mesh()->setRenderable();
+		ctrlMeshObj->show();
+
+		meshObj->show();
 	}
 }
 

@@ -163,6 +163,14 @@ public:
 		return false;
 	}
 
+	bool adjToVertex(const FaceHandle f, const VertexHandle v) const
+	{
+		for (auto v_it = cfv_begin(f); v_it != cfv_end(f); ++v_it) {
+			if (*v_it == v) return true;
+		}
+		return false;
+	}
+
 	bool adjToEdge(const EdgeHandle e1, const EdgeHandle e2) const
 	{
 		VertexHandle v0 = to_vertex_handle(halfedge_handle(e1, 0));

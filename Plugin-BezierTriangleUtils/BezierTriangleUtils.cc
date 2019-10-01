@@ -49,10 +49,10 @@ void voronoiRemeshStep(BaseObjectData *object, BaseObjectData *ctrl, bool useCol
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->remesh();
 
-	ctrl->setObjectDrawMode(ACG::SceneGraph::DrawModes::HIDDENLINE);
-
 	mesh->garbage_collection();
+	dynamic_cast<BTMeshObject*>(ctrl)->mesh()->garbage_collection();
 
+#ifndef DRAW_CURVED
 	if (useColors) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
@@ -60,6 +60,7 @@ void voronoiRemeshStep(BaseObjectData *object, BaseObjectData *ctrl, bool useCol
 			// | ACG::SceneGraph::DrawModes::EDGES_COLORED
 		);
 	}
+#endif
 }
 
 void decimate(BaseObjectData *object) {}

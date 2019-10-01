@@ -154,17 +154,23 @@ private:
 		return l;
 	}
 
-	void calcBoundary(ShortestPath &path, Vec2 from, Vec2 to)
+	void calcBoundary(ShortestPath &path, bool first, bool second)
 	{
-		// calc normalizing factor
-		Scalar norm = (to - from).norm() / countLength(path);
+		Scalar length = countLength(path);
 
 		Point p = m_mesh.point(path.front());
 		Scalar t = 0.;
 		for (VertexHandle vh : path.list()) {
-			t += (p - m_mesh.point(vh)).norm() * norm;
+			t += (p - m_mesh.point(vh)).norm() / length;
 			p = m_mesh.point(vh);
-			hmap(vh) = (1. - t) * from + t * to;
+			Scalar minus = std::max(0., 1. - t);
+			if (first && !second) hmap(vh) = Vec2(minus, 0.);
+			else if (!first && second) hmap(vh) = Vec2(0., minus);
+			else if (first && second) hmap(vh) = Vec2(minus, t);
+			std::cerr << "\tcalculated t = " << t << " -> uv = " << hmap(vh) << "\n";
+			assert(hmap(vh)[0] >= 0.);
+			assert(hmap(vh)[1] >= 0.);
+			assert(hmap(vh)[0] + hmap(vh)[1] <= 1.);
 		}
 	}
 

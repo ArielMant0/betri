@@ -26,6 +26,11 @@ struct BezierTriangleTraits : public TriTraits
 			return m_cps;
 		}
 
+		void prepare(const size_t size)
+		{
+			m_cps.resize(size);
+		}
+
 		void controlPoint(int index, Point &point)
 		{
 			if (m_cps.size() <= index) {

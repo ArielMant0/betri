@@ -8,7 +8,14 @@
 
 //== INCLUDES =================================================================
 
+#define DRAW_CURVED
+
+#ifdef DRAW_CURVED
 #include <ObjectTypes/BezierTriangleMesh/BTMeshObject.hh>
+#else
+#include <ObjectTypes/BezierTriangleMesh/BTMeshObject_tri.hh>
+#endif
+
 #include <ObjectTypes/BezierTriangleMesh/PluginFunctionsBezierTriangleMesh.hh>
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMeshTypes.hh>
 

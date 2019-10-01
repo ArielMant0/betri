@@ -123,7 +123,7 @@ void Parametrization::initCoords(const FaceHandle face)
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (auto vh : *m_inner) {
 		// triangle
-		hmap(vh) = Vec2(0.33f, 0.33f);
+		hmap(vh) = Vec2(0.33, 0.33);
 		// circle
 		//hmap(vh) = Vec2(0.5f, 0.5f);
 
@@ -135,9 +135,9 @@ void Parametrization::initCoords(const FaceHandle face)
 	auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
 	// map to triangle
-	calcBoundary(ab, { 0., 0. }, { 0., 1. });
-	calcBoundary(bc, { 0., 1. }, { 1., 0. });
-	calcBoundary(ca, { 1., 0. }, { 1., 1. });
+	calcBoundary(ab, true, false);
+	calcBoundary(bc, true, true);
+	calcBoundary(ca, false, true);
 }
 
 void Parametrization::solveLocal(const FaceHandle face)
@@ -210,7 +210,9 @@ void Parametrization::solveLocal(const FaceHandle face)
 	for (const auto v : *m_inner) {
 		hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
 		std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
-		//assert(hmap(v).norm() <= 1.0);
+		assert(hmap(v)[0] >= 0.);
+		assert(hmap(v)[1] >= 0.);
+		assert(hmap(v)[0] + hmap(v)[1] <= 1.);
 	}
 }
 

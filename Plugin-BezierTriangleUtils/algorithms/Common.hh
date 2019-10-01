@@ -96,10 +96,10 @@ static constexpr float FACTORIALS[13] = {
 	39916800, 479001600
 };
 
-inline Scalar eval(int i, int j, float u, float v, unsigned int degree)
+inline Scalar eval(int i, int j, double u, double v, unsigned int degree)
 {
 	int k = degree - i - j;
-	float w = 1.f - u - v;
+	double w = 1.f - u - v;
 
 	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
 		* std::pow(u, i) * std::pow(v, j) * std::pow(w, k);

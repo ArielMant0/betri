@@ -138,7 +138,7 @@ private:
 		const FH f0,
 		const FH f1,
 		const VH prevNode=VH(),
-		const FH prevFace=FH()
+		const VH notNode=VH()
 	);
 
 	void shortestPath(
@@ -148,6 +148,8 @@ private:
 		const FH ctrlFace,
 		const ShortestPath &path
 	);
+
+	void connectPaths(const ShortestPath & p0, const ShortestPath & p1, const FH f);
 
 	ID seedVertex(const VH vh) const
 	{

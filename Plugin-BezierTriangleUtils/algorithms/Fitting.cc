@@ -41,15 +41,17 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 
 	assert(inner.size() >= nv_inner_);
 
+	size_t matSize = std::min(nv_inner_, std::max(inner.size()/2, nv_inner_));
+
 	// system matrix
-	EigenMatT A(nv_inner_, nv_inner_);
+	EigenMatT A(matSize, nv_inner_);
 
 	// right hand sides for x,y,z coordinates
-	EigenVectorT rhsx(nv_inner_);
+	EigenVectorT rhsx(matSize);
 	rhsx.setZero();
-	EigenVectorT rhsy(nv_inner_);
+	EigenVectorT rhsy(matSize);
 	rhsy.setZero();
-	EigenVectorT rhsz(nv_inner_);
+	EigenVectorT rhsz(matSize);
 	rhsz.setZero();
 
 	// resulting coordinates for x,y,z
@@ -60,12 +62,11 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 	EigenVectorT resultZ(nv_inner_);
 	resultZ.setZero();
 
-	size_t matSize = nv_inner_;
 
 	// TODO: does vertex order matter?
 	for (size_t i = 0; i < matSize; ++i) {
 		Point p = m_mesh.point(inner[i]);
-		std::cerr << p << " (u,v) = " << hmap(inner[i]) << "\n";
+		std::cerr << "\t" << p << " (u,v) = " << hmap(inner[i]) << "\n";
 		rhsx[i] = p[0];
 		rhsy[i] = p[1];
 		rhsz[i] = p[2];
@@ -79,9 +80,9 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 		}
 	}
 
-	rhsx = A.transpose() * rhsx;
-
-	A = A.transpose() * A;
+	rhsx = rhsx;//A.transpose() * rhsx;
+	rhsy = rhsy;//A.transpose() * rhsy;
+	rhsz = rhsz; //A.transpose() * rhsz;
 
 	std::cerr << "\nmatrix is\n" << A << "\n";
 	std::cerr << "-> rhs x\n" << rhsx << "\n";
@@ -102,7 +103,8 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 		std::cerr << __FUNCTION__ << ": solve failed for z!" << std::endl;
 
 	// write control point positions back
-	for (size_t i = 0; i < matSize; ++i) {
+	m_ctrl.data(face).prepare(nv_inner_);
+	for (size_t i = 0; i < nv_inner_; ++i) {
 		Point p = { resultX(i), resultY(i), resultZ(i) };
 		std::cerr << "\tcontrol point " << i << " is " << p << "\n";
 		m_ctrl.data(face).controlPoint(i, p);

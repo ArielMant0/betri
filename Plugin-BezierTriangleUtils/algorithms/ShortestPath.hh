@@ -21,11 +21,11 @@ public:
 
 	using Container = std::vector<VH>;
 
-	ShortestPath() : m_small(-1), m_big(-1), m_border() {}
+	ShortestPath() : m_small(-1), m_big(-1), m_start(-1), m_border() {}
 
 	ShortestPath(const ShortestPath &other) = default;
 
-	ShortestPath(ID id1, ID id2) : m_border()
+	ShortestPath(ID id1, ID id2) : m_start(id1), m_border()
 	{
 		if (id1 < id2) {
 			m_small = id1;
@@ -46,6 +46,7 @@ public:
 			m_small = m_big;
 			m_big = tmp;
 		}
+		m_start = *l.begin();
 		assert(m_small < m_big);
 	}
 
@@ -72,6 +73,8 @@ public:
 
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
+	ID start() const { return m_start;  }
+	ID end() const { return m_small == m_start ? m_big : m_small;  }
 
 	VH front() const { return m_border[0]; }
 	VH back() const { return m_border.back(); }
@@ -95,7 +98,7 @@ public:
 
 private:
 
-	ID m_small, m_big;
+	ID m_small, m_big, m_start;
 	mutable Container m_border; // the halfedges that make up the border
 };
 
