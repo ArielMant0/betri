@@ -135,9 +135,10 @@ void Parametrization::initCoords(const FaceHandle face)
 	auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
 	// map to triangle
-	calcBoundary(ab, true, false);
-	calcBoundary(bc, true, true);
-	calcBoundary(ca, false, true);
+	calcBoundary(ab, true, false, false);
+	bool rev = ab.end() == bc.end();
+	calcBoundary(bc, true, true, rev);
+	calcBoundary(ca, false, true, rev ? bc.start() == bc.end() : bc.end() == bc.end());
 }
 
 void Parametrization::solveLocal(const FaceHandle face)

@@ -154,19 +154,31 @@ private:
 		return l;
 	}
 
-	void calcBoundary(ShortestPath &path, bool first, bool second)
+	void calcBoundary(ShortestPath &path, bool first, bool second, bool reverse)
 	{
-		Scalar length = countLength(path);
+		Scalar norm = 1. / countLength(path);
 
 		Point p = m_mesh.point(path.front());
 		Scalar t = 0.;
-		for (VertexHandle vh : path.list()) {
-			t += (p - m_mesh.point(vh)).norm() / length;
+
+		auto vec = path.list();
+
+		int start = reverse ? vec.size() - 1 : 0;
+		int end = reverse ? -1 : vec.size();
+		int mod = reverse ? -1 : 1;
+
+		for (int i = start; i != end; i+=mod) {
+			VertexHandle vh = vec[i];
+			t += (p - m_mesh.point(vh)).norm() * norm;
 			p = m_mesh.point(vh);
-			Scalar minus = std::max(0., 1. - t);
-			if (first && !second) hmap(vh) = Vec2(minus, 0.);
-			else if (!first && second) hmap(vh) = Vec2(0., minus);
-			else if (first && second) hmap(vh) = Vec2(minus, t);
+
+			if (first && !second) hmap(vh) = Vec2(t, 0.);
+			else if (!first && second) hmap(vh) = Vec2(0., t);
+			else if (first && second) {
+				Scalar minus = std::max(0., 1. - t);
+				hmap(vh) = Vec2(t, minus);
+			}
+
 			std::cerr << "\tcalculated t = " << t << " -> uv = " << hmap(vh) << "\n";
 			assert(hmap(vh)[0] >= 0.);
 			assert(hmap(vh)[1] >= 0.);

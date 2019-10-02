@@ -455,9 +455,12 @@ void VoronoiRemesh::shortestPath(
 					m_mesh.from_vertex_handle(*he) :
 					m_mesh.to_vertex_handle(*he);
 
+				// TODO: IMPORTANT: it must be allowed to be adj to the prev face so that we can
+				// use both sides of a joined path (which use the same faces)
+				// maybe even prefer those
 				if (m_mesh.opposite_face_handle(*he) != to && m_mesh.adjToFace(v, to)) {
 					if (!isCrossed(*he) && (border || !vtt(v).isBorder()) &&
-						(!prev.is_valid() || !m_mesh.adjToFace(*he, prev))) {
+						(!prev.is_valid() || m_mesh.adjToFace(*he, prev))) {
 						return *he;
 					} else {
 						halfedge = *he;
