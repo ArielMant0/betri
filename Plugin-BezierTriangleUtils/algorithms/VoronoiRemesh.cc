@@ -40,19 +40,11 @@ void VoronoiRemesh::prepare()
 	if (!m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
 		m_mesh.add_property(m_vtt, Props::VERTEXTOTRI);
 
-	//if (!m_mesh.get_property_handle(m_border, Props::BORDER))
-	//	m_mesh.add_property(m_border, Props::BORDER);
-
-	//if (!m_mesh.get_property_handle(m_split, "split"))
-	//	m_mesh.add_property(m_split, "split");
-
 	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX)) {
 		m_ctrl.add_property(m_ttv, Props::TRITOVERTEX);
 	}
 
-	/*for (const auto &he : m_mesh.halfedges()) {
-		border(he) = -1;
-	}*/
+	ShortestPath::clear();
 
 	if (m_useColors) {
 		if (!m_mesh.has_face_colors()) {
@@ -87,12 +79,6 @@ void VoronoiRemesh::cleanup()
 
 	if (m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
 		m_mesh.remove_property(m_vtt);
-
-	//if (m_mesh.get_property_handle(m_border, Props::BORDER))
-	//	m_mesh.remove_property(m_border);
-
-	//if (m_mesh.get_property_handle(m_split, "split"))
-	//	m_mesh.remove_property(m_split);
 
 	if (m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX))
 		m_ctrl.remove_property(m_ttv);
@@ -288,6 +274,7 @@ void VoronoiRemesh::assignInnerVertices()
 void VoronoiRemesh::splitClosedPaths()
 {
 	size_t nedges = m_mesh.n_edges();
+
 	for (size_t i = 0; i < nedges; ++i) {
 		EH edge = m_mesh.edge_handle(i);
 
@@ -296,6 +283,7 @@ void VoronoiRemesh::splitClosedPaths()
 			VH to = m_mesh.to_vertex_handle(he);
 			VH from = m_mesh.from_vertex_handle(he);
 
+			// if both adj vertices are border vertices, split this edge
 			if (vtt(from).isBorder() && vtt(to).isBorder()) {
 				fixCrossing(m_mesh.face_handle(he), m_mesh.opposite_face_handle(he));
 
@@ -650,12 +638,13 @@ void VoronoiRemesh::connectPaths(const ShortestPath & p0, const ShortestPath & p
 	}
 }
 
-/**
- * Performs face-based dijkstra on the m_mesh (for the given seeds)
- * TODO: make it so at least 3 regions are created
- */
+ //////////////////////////////////////////////////////////
+ // create voronoi partition
+ //////////////////////////////////////////////////////////
 void VoronoiRemesh::partition()
 {
+	using QElem = std::pair<double, FH>;
+
 	ACG::HaltonColors cGenerator;
 	// special "priority-queue" for dijkstra
 	std::set<QElem> q;
@@ -697,10 +686,7 @@ void VoronoiRemesh::partition()
 			P p2 = m_mesh.calc_face_centroid(ff);
 			double distance = (p1 - p2).norm();
 			if (distance < dist(ff)) {
-				crossed(*he) = id(face);
 				grow(ff, face, distance);
-			} else {
-				crossed(*he) = -1;
 			}
 		}
 	};
@@ -779,18 +765,10 @@ void VoronoiRemesh::partition()
 				if (update < dist(f)) {
 					auto opp = m_mesh.opposite_halfedge_handle(*he);
 					auto next = m_mesh.next_halfedge_handle(opp);
-					// unmark edges
-					if (id(f) != id(face)) {
-						for (auto he = m_mesh.fh_begin(f); he != m_mesh.fh_end(f); ++he) {
-							crossed(*he) = -1;
-						}
-					}
-					crossed(*he) = id(face);
 					auto v = m_mesh.to_vertex_handle(next);
 					// COND 1: if not homeomorphic to disk (new face is adj to boundary across
 					// which lies a face of the same tile) add face as new seed
 					if (!homeomorphicDisk(f, v, id(face))) {
-						crossed(*he) = -1;
 						addSeedFace(f);
 						stop = true;
 						break;
@@ -890,7 +868,6 @@ void VoronoiRemesh::partition()
 			const auto f1 = m_mesh.face_handle(he);
 			const auto f2 = m_mesh.opposite_face_handle(he);
 			if (id(f1) == id(f2)) {
-				crossed(edge) = id(f1);
 				m_mesh.set_color(edge, m_colors[id(f1)]);
 			} else {
 				m_mesh.set_color(edge, boundaryColor);
@@ -902,64 +879,51 @@ void VoronoiRemesh::partition()
 		}
 	}
 
+	// do preventive edge splitting wherever there are two regions only touching at 1 edge
+	preventiveEdgeSplits();
+
+	// mark all edges as not crossed
+	for (auto e : m_mesh.edges()) {
+		crossed(e) = -1;
+	}
+
+	m_nvertices = m_mesh.n_vertices();
+	m_nedges = m_mesh.n_edges();
+
 	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
 	std::cerr << " faces as seeds" << std::endl;
+
+	m_ctrlVerts.resize(m_seeds.size());
+	// add vertices of seed faces
+	for (FH face : m_seeds) {
+		m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(face));
+	}
+
+	// TODO: only debug purposes (test if pred relation is correct for all faces)
+	for (FH fh : m_mesh.faces()) {
+		if (pred(fh).is_valid()) {
+			assert(m_mesh.adjToFace(fh, pred(fh)));
+			assert(pred(fh) != pred(pred(fh)));
+		}
+	}
 }
 
-void VoronoiRemesh::remesh(bool first)
+//////////////////////////////////////////////////////////
+// create base mesh
+//////////////////////////////////////////////////////////
+bool VoronoiRemesh::dualize(bool steps)
 {
-	if (first && m_useColors) {
-		if (!m_ctrl.has_face_colors()) m_ctrl.request_face_colors();
-
-		if (!m_mesh.has_face_colors()) m_mesh.request_face_colors();
-		if (!m_mesh.has_edge_colors()) m_mesh.request_edge_colors();
-		if (!m_mesh.has_vertex_colors()) m_mesh.request_vertex_colors();
-	}
-
-	if (first) partition();
-
-	// return; // EARLY DEBUG RETURN
-
-	size_t nvertices = m_mesh.n_vertices();
-	size_t nfaces = m_mesh.n_faces();
-
-	std::vector<VertexHandle> newverts(m_seeds.size());
-	if (first) {
-		// add vertices of seed faces
-		for (FH face : m_seeds) {
-			newverts[id(face)] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(face));
-		}
-
-		// do preventive edge splitting wherever there are two regions only touching at 1 edge
-		preventiveEdgeSplits();
-
-		// mark edges as not crossed
-		for (auto e : m_mesh.edges()) {
-			crossed(e) = -1;
-		}
-
-		for (FH fh : m_mesh.faces()) {
-			if (pred(fh).is_valid()) {
-				assert(m_mesh.adjToFace(fh, pred(fh)));
-				assert(pred(fh) != pred(pred(fh)));
-			}
-			//setFaceBorder(fh);
-		}
-	}
-
-	//return; // EARLY DEBUG RETURN
-
-	//////////////////////////////////////////////////////////
-	// create base m_mesh
-	//////////////////////////////////////////////////////////
 	std::unordered_set<ID> check;
 	std::vector<ID> seedIDs; // need a vector to keep correct iterator order
 	std::vector<VH> points;
 
 	VH v;
+
+	bool found = false;
+
 	// for each vertex in the m_mesh
-	for (size_t i = 0; i < nvertices; ++i) {
-		v = m_mesh.vertex_handle(i);
+	for (m_vertexIdx; m_vertexIdx < m_mesh.n_vertices() && (!found || !steps); ++m_vertexIdx) {
+		v = m_mesh.vertex_handle(m_vertexIdx);
 
 		std::cerr << "checking vertex " << v << "\n";
 
@@ -967,7 +931,7 @@ void VoronoiRemesh::remesh(bool first)
 		for (auto vf = m_mesh.vf_begin(v); vf != m_mesh.vf_end(v); ++vf) {
 			if (check.insert(id(*vf)).second) {
 				seedIDs.push_back(id(*vf));
-				points.push_back(newverts[id(*vf)]);
+				points.push_back(m_ctrlVerts[id(*vf)]);
 			}
 		}
 
@@ -1010,51 +974,56 @@ void VoronoiRemesh::remesh(bool first)
 			connectPaths(bc, ca, fh);
 			connectPaths(ca, ab, fh);
 
-			if (m_stepwise) return; // EARLY DEBUG RETURN
+			found = true;
 		}
 		points.clear();
 		seedIDs.clear();
 		check.clear();
 	}
 
-	if (m_ctrl.n_faces() < 4) return;
+	// if we finished, assign interior vertices
+	if (m_vertexIdx == m_mesh.n_vertices()) {
+		// TODO: make sure this doesnt happen in partition
+		if (m_ctrl.n_faces() < 4) return true;
 
-	// assign interior vertices
-	assignInnerVertices();
+		// perform assignment
+		assignInnerVertices();
+	}
 
-	//////////////////////////////////////////////////////////
-	// parameterization (harmonic map)
-	//////////////////////////////////////////////////////////
+	return m_vertexIdx == m_mesh.n_vertices();
+}
 
+//////////////////////////////////////////////////////////
+// parameterization (harmonic map) + surface fitting
+//////////////////////////////////////////////////////////
+void VoronoiRemesh::fitting()
+{
 	Parametrization param(m_mesh, m_ctrl, m_ttv, m_vtt, m_pred);
 
 	param.solve();
 
-	//////////////////////////////////////////////////////////
-	// fitting
-	//////////////////////////////////////////////////////////
-
 	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
 	fit.solve();
+}
 
-	//////////////////////////////////////////////////////////
+void VoronoiRemesh::remesh()
+{
+	partition();
+
+	dualize();
+
+	fitting();
+
 	// replace original mesh
-	//////////////////////////////////////////////////////////
+	if (m_copy) copyMesh(m_ctrl, m_mesh);
 
-	copyMesh(m_ctrl, m_mesh);
-
-	std::cerr << "done" << std::endl;
+	std::cerr << "----------- DONE -----------" << std::endl;
 }
 
 void VoronoiRemesh::copyMesh(BezierTMesh & src, BezierTMesh & dest)
 {
 	dest.clean_keep_reservation();
-	// does not work (also not with gc)
-	//m_mesh.assign(nmesh);
-
-	// does not work either (also not with gc)
-	//m_mesh = nmesh;
 
 	auto vs = OpenMesh::makeTemporaryProperty<VH, VH>(dest);
 	// works but seems really stupid

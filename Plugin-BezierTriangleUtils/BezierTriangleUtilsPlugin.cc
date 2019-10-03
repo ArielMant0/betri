@@ -38,12 +38,26 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *voronoiButton = new QPushButton(tr("Voronoi Meshing"));
 	connect(voronoiButton, SIGNAL(clicked()), this, SLOT(callVoronoi()));
 
-	QPushButton *voronoiStepButton = new QPushButton(tr("Voronoi Meshing Stepwise"));
-	connect(voronoiStepButton, SIGNAL(clicked()), this, SLOT(callVoronoiStepwise()));
+	QPushButton *patitionButton = new QPushButton(tr("Partition"));
+	connect(patitionButton, SIGNAL(clicked()), this, SLOT(callPartition()));
+	QPushButton *dualStepButton = new QPushButton(tr("Dual Step"));
+	connect(dualStepButton, SIGNAL(clicked()), this, SLOT(callDualStep()));
+	QPushButton *dualButton = new QPushButton(tr("Dual"));
+	connect(dualButton, SIGNAL(clicked()), this, SLOT(callDual()));
+	QPushButton *fittingButton = new QPushButton(tr("Fitting"));
+	connect(fittingButton, SIGNAL(clicked()), this, SLOT(callFitting()));
+
+	m_voronoiSteps.push_back(patitionButton);
+	m_voronoiSteps.push_back(dualStepButton);
+	m_voronoiSteps.push_back(dualButton);
+	m_voronoiSteps.push_back(fittingButton);
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0);
-	voronoiLayout->addWidget(voronoiStepButton, 1, 0);
+	voronoiLayout->addWidget(patitionButton, 1, 0);
+	voronoiLayout->addWidget(dualStepButton, 1, 1);
+	voronoiLayout->addWidget(dualButton, 1, 2);
+	voronoiLayout->addWidget(fittingButton, 1, 3);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -147,15 +161,6 @@ void BezierTriangleUtilsPlugin::initializePlugin()
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
 }
 
-void BezierTriangleUtilsPlugin::convertMesh()
-{
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
-	if (o_it != PluginFunctions::objectsEnd()) {
-		BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(*o_it)->mesh();
-		emit log(LOGINFO, "Nothing happend, wow!");
-	}
-}
-
 void BezierTriangleUtilsPlugin::tessellateMesh()
 {
 	emit log(LOGINFO, "Tessellated Bezier Triangles!");
@@ -209,8 +214,13 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 
 void BezierTriangleUtilsPlugin::callVoronoi()
 {
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
-	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
 
 		int ctrl_id;
 		BTMeshObject *ctrlMeshObj;
@@ -222,7 +232,8 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 		ctrlMeshObj->hide();
 		ctrlMeshObj->target(false);
 
-		betri::voronoiRemesh(*o_it, ctrl_obj, true, false);
+		betri::voronoiInit(*o_it, ctrl_obj, true);
+		betri::voronoiRemesh(*o_it, ctrl_obj);
 		emit log(LOGINFO, "Performed Voronoi Remeshing!");
 
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
@@ -231,48 +242,117 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 
 		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
-
-		meshObj->show();
 	}
 }
 
-void BezierTriangleUtilsPlugin::callVoronoiStepwise()
+void BezierTriangleUtilsPlugin::callDualStep()
 {
-	++m_steps;
-
-
+	// init object iterator
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::TARGET_OBJECTS,
 		DATA_BEZIER_TRIANGLE_MESH
 	);
 
-	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+	if (o_it != PluginFunctions::objectsEnd()) {
 
-		if (m_steps == 1) {
-			int ctrl_id;
-			BTMeshObject *ctrlMeshObj;
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-			emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-			PluginFunctions::getObject(ctrl_id, ctrl_obj);
-			ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
-			ctrlMeshObj->setName("control mesh");
-			ctrlMeshObj->hide();
-			ctrlMeshObj->target(false);
+		bool done = betri::voronoiDual(*o_it, ctrl_obj, false);
+		emit log(LOGINFO, "Performed Dualizing Step!");
 
-			betri::voronoiRemesh(*o_it, ctrl_obj, true, true);
-		} else {
-			betri::voronoiRemeshStep(*o_it, ctrl_obj, true);
+		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+
+		// only show control mesh obj if its complete
+		if (done) {
+			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+
+			ctrlMeshObj->mesh()->setRenderable();
+			ctrlMeshObj->show();
+			m_voronoiSteps[1]->setDisabled(true);
+			m_voronoiSteps[2]->setDisabled(true);
 		}
-
-		emit log(LOGINFO, tr("Performed Voronoi Remeshing (step %1) !").arg(m_steps));
-
-		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
-		BTMeshObject *ctrlObj = dynamic_cast<BTMeshObject*>(ctrl_obj);
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-		emit updatedObject(ctrlObj->id(), UPDATE_ALL);
-
-		//ctrl_obj->show();
-		//ctrl_obj->mesh()->setRenderable();
 	}
+}
+
+void BezierTriangleUtilsPlugin::callDual()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+		betri::voronoiDual(*o_it, ctrl_obj, false);
+		emit log(LOGINFO, "Performed Dualizing!");
+
+		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+
+		ctrlMeshObj->mesh()->setRenderable();
+		ctrlMeshObj->show();
+	}
+	m_voronoiSteps[1]->setDisabled(true);
+	m_voronoiSteps[2]->setDisabled(true);
+}
+
+void BezierTriangleUtilsPlugin::callFitting()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+		betri::voronoiFitting(*o_it, ctrl_obj);
+		emit log(LOGINFO, "Performed Dualizing!");
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+	}
+
+	for (auto button : m_voronoiSteps) {
+		button->setDisabled(false);
+	}
+}
+
+void BezierTriangleUtilsPlugin::callPartition()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		int ctrl_id;
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+
+		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+		PluginFunctions::getObject(ctrl_id, ctrl_obj);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+		ctrlMeshObj->setName(meshObj->name() + "_ctrl");
+		ctrlMeshObj->hide();
+		ctrlMeshObj->target(false);
+
+		betri::voronoiInit(*o_it, ctrl_obj, true);
+		betri::voronoiPartition(*o_it, ctrl_obj);
+		emit log(LOGINFO, "Performed Voronoi Partition!");
+
+		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+	}
+	m_voronoiSteps[0]->setDisabled(true);
 }
 

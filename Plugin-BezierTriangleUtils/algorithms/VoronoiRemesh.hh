@@ -28,22 +28,17 @@ public:
 		static constexpr char *BORDER = "border";
 	};
 
-	enum class FaceSplit : char
-	{
-		NONE = 0,
-		MAKE_FOUR = 1,
-		TWO = 2,
-		FOUR = 4
-	};
-
-	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true, bool steps=false) :
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true, bool copy=false) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_useColors(colors),
-		m_stepwise(steps),
+		m_copy(copy),
+		m_steps(0u),
+		m_vertexIdx(0u),
 		m_colors(),
 		m_seeds(),
-		m_boundary()
+		m_boundary(),
+		m_ctrlVerts()
 	{
 		prepare();
 	}
@@ -56,12 +51,19 @@ public:
 	void prepare();
 	void cleanup();
 
-	void remesh(bool first=true);
+	// performs all steps
+	void remesh();
+	// partitions mesh into voronoi regions
+	void partition();
+	// performs "dualizing" by finding paths on the mesh, can be performed stepwise
+	bool dualize(bool steps=false);
+	// parametrize and fit to surface
+	void fitting();
 
 	void useColors(bool use) { m_useColors = use; }
-	void useSteps(bool use) { m_stepwise = use; }
+	bool useColors() const { return m_useColors; }
 
-	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
+	void increaseStep() { m_steps++; }
 
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
 	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
@@ -122,9 +124,7 @@ public:
 
 private:
 
-	using QElem = std::pair<double, FH>;
-
-	void partition();
+	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
 	void preventiveEdgeSplits();
 
@@ -170,14 +170,19 @@ private:
 	}
 
 	// -------------------------------------------------------------- //
-
 	// member variables
+	// -------------------------------------------------------------- //
+
 	BezierTMesh &m_mesh, &m_ctrl;
 
-	bool m_useColors, m_stepwise;
+	bool m_useColors, m_copy;
+	size_t m_steps;
+	size_t m_nvertices, m_nedges, m_vertexIdx;
+
 	std::vector<Color> m_colors;
 	std::set<FH> m_seeds;
 	std::vector<EH> m_boundary;
+	std::vector<VH> m_ctrlVerts;
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;

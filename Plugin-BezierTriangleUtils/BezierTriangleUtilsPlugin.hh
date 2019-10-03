@@ -10,6 +10,7 @@
 
 
 #include <qlineedit.h> // TODO
+#include <qpushbutton.h> // TODO
 
 class BezierTriangleUtilsPlugin : public QObject,
 	BaseInterface,
@@ -42,12 +43,11 @@ private:
 
 	QWidget *m_tool;
 	QLineEdit *echoLineEdit; // TODO
+	std::vector<QPushButton*> m_voronoiSteps;
 
 	int m_steps;
 
 	BaseObjectData *ctrl_obj;
-
-	void switchViewMode();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Signals
@@ -78,8 +78,6 @@ private slots:
 
 	void initializePlugin() override;
 
-
-	void convertMesh();
 	void tessellateMesh();
 
 	// option setting function
@@ -87,7 +85,9 @@ private slots:
 	void setTessType(int);
 
 	void callVoronoi();
-
-	void callVoronoiStepwise();
+	void callPartition();
+	void callDualStep();
+	void callDual();
+	void callFitting();
 
 };

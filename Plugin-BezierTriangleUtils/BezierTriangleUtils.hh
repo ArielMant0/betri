@@ -3,10 +3,14 @@
 namespace betri
 {
 
-void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors, bool steps);
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors);
 
-void voronoiRemeshStep(BaseObjectData *object, BaseObjectData *ctrl, bool useColors);
+void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
 
-void decimate(BaseObjectData *object);
+void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl);
+
+bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
+
+void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
 }

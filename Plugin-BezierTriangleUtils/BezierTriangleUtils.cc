@@ -14,12 +14,10 @@ const char * VODName()
 VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	// initialize PerObjectData if not done yet
-	if (!object->hasObjectData(VODName()))
-	{
+	if (!object->hasObjectData(VODName())) {
 		// get mesh object
-		BezierTMesh* mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
-		BezierTMesh* ctrlMesh = dynamic_cast<BTMeshObject*>(ctrl)->mesh();
-
+		BezierTMesh* mesh = PluginFunctions::btMeshObject(object)->mesh();
+		BezierTMesh* ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
 
 		// initialize per object data
 		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
@@ -28,41 +26,80 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 	// get feature lines object
 	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
 		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
-	);
+		);
 
 	return remesher;
 }
 
-void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl, bool useColors, bool steps)
+// should be called once to allow for stepwise execution
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
 {
-	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->useColors(useColors);
-	remesher->useSteps(steps);
-
-	voronoiRemeshStep(object, ctrl, useColors);
 }
 
-void voronoiRemeshStep(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
+void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
 {
-	BezierTMesh *mesh = dynamic_cast<BTMeshObject*>(object)->mesh();
 	auto remesher = getVoronoiObject(object, ctrl);
+
 	remesher->remesh();
 
+	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
 	mesh->garbage_collection();
-	dynamic_cast<BTMeshObject*>(ctrl)->mesh()->garbage_collection();
+}
+
+void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->partition();
 
 #ifndef DRAW_CURVED
-	if (useColors) {
+	if (remesher->useColors()) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
 			| ACG::SceneGraph::DrawModes::WIREFRAME
-			// | ACG::SceneGraph::DrawModes::EDGES_COLORED
+		);
+	}
+#endif
+
+}
+
+bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)
+{
+
+	auto remesher = getVoronoiObject(object, ctrl);
+	bool done = remesher->dualize(steps);
+
+#ifndef DRAW_CURVED
+	if (remesher->useColors()) {
+		object->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
+			| ACG::SceneGraph::DrawModes::EDGES_COLORED
+		);
+	}
+#endif
+
+	return done;
+}
+
+void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->fitting();
+
+	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
+	mesh->garbage_collection();
+
+#ifndef DRAW_CURVED
+	if (remesher->useColors()) {
+		object->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+		);
+		ctrl->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 		);
 	}
 #endif
 }
-
-void decimate(BaseObjectData *object) {}
 
 }
