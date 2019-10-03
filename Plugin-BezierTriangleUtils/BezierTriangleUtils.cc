@@ -56,8 +56,8 @@ void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl)
 #ifndef DRAW_CURVED
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
-			| ACG::SceneGraph::DrawModes::WIREFRAME
+			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 	}
 #endif
@@ -73,8 +73,9 @@ bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)
 #ifndef DRAW_CURVED
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED
-			| ACG::SceneGraph::DrawModes::EDGES_COLORED
+			ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
+			//| ACG::SceneGraph::DrawModes::EDGES_COLORED
 		);
 	}
 #endif
@@ -93,10 +94,10 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 #ifndef DRAW_CURVED
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED
 		);
 		ctrl->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED
 		);
 	}
 #endif

@@ -258,19 +258,21 @@ void BezierTriangleUtilsPlugin::callDualStep()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-		bool done = betri::voronoiDual(*o_it, ctrl_obj, false);
+		bool done = betri::voronoiDual(*o_it, ctrl_obj, true);
 		emit log(LOGINFO, "Performed Dualizing Step!");
 
 		emit updatedObject(meshObj->id(), UPDATE_COLOR);
 
 		// only show control mesh obj if its complete
 		if (done) {
+			emit log(LOGINFO, "Finished Dualizing!");
 			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
 			ctrlMeshObj->mesh()->setRenderable();
 			ctrlMeshObj->show();
-			m_voronoiSteps[1]->setDisabled(true);
-			m_voronoiSteps[2]->setDisabled(true);
+
+			//m_voronoiSteps[1]->setDisabled(true);
+			//m_voronoiSteps[2]->setDisabled(true);
 		}
 	}
 }
@@ -296,9 +298,10 @@ void BezierTriangleUtilsPlugin::callDual()
 
 		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
+
+		//m_voronoiSteps[1]->setDisabled(true);
+		//m_voronoiSteps[2]->setDisabled(true);
 	}
-	m_voronoiSteps[1]->setDisabled(true);
-	m_voronoiSteps[2]->setDisabled(true);
 }
 
 void BezierTriangleUtilsPlugin::callFitting()
@@ -319,11 +322,12 @@ void BezierTriangleUtilsPlugin::callFitting()
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
-	}
 
+	}
 	for (auto button : m_voronoiSteps) {
 		button->setDisabled(false);
 	}
+
 }
 
 void BezierTriangleUtilsPlugin::callPartition()
@@ -352,7 +356,8 @@ void BezierTriangleUtilsPlugin::callPartition()
 		emit log(LOGINFO, "Performed Voronoi Partition!");
 
 		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+
+		//m_voronoiSteps[0]->setDisabled(true);
 	}
-	m_voronoiSteps[0]->setDisabled(true);
 }
 

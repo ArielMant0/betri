@@ -136,6 +136,7 @@ void Parametrization::initCoords(const FaceHandle face)
 
 	// map to triangle
 	calcBoundary(ab, true, false, false);
+	// do we need to reverse the order?
 	bool rev = ab.end() == bc.end();
 	calcBoundary(bc, true, true, rev);
 	calcBoundary(ca, false, true, rev ? bc.start() == bc.end() : bc.end() == bc.end());
@@ -257,7 +258,7 @@ void Parametrization::addRow(
 		w *= vertexweight;
 		weightsum += w;
 
-		if (!isInner(*vv_it, face)) {
+		if (vtt(*vv_it).isBorder()) {
 			// update rhs (u,v)
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];

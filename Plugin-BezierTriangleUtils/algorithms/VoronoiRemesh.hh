@@ -1,6 +1,8 @@
 #include "Common.hh"
 #include "ShortestPath.hh"
 
+#include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>
+
 namespace betri
 {
 
@@ -33,11 +35,9 @@ public:
 		m_ctrl(ctrl),
 		m_useColors(colors),
 		m_copy(copy),
-		m_steps(0u),
 		m_vertexIdx(0u),
 		m_colors(),
 		m_seeds(),
-		m_boundary(),
 		m_ctrlVerts()
 	{
 		prepare();
@@ -62,8 +62,6 @@ public:
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
-
-	void increaseStep() { m_steps++; }
 
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
 	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
@@ -101,19 +99,14 @@ public:
 		b.second = id2;
 	}
 
-	bool nextEdgeCrossed(EH eh, FH fh, FH next) const
+	bool commonEdgeCrossed(const FH fh, const FH next) const
 	{
-		HH he = m_mesh.halfedge_handle(eh, 0);
-		if (m_mesh.face_handle(he) != fh) {
-			he = m_mesh.halfedge_handle(eh, 1);
+		for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
+			if (m_mesh.opposite_face_handle(*h_it) == next) {
+				return isCrossed(*h_it);
+			}
 		}
-		assert(m_mesh.face_handle(he) == fh);
-
-		HH hn = m_mesh.next_halfedge_handle(he);
-		HH hp = m_mesh.prev_halfedge_handle(he);
-
-		return (m_mesh.opposite_face_handle(hn) != next || !isCrossed(hn))  &&
-			(m_mesh.opposite_face_handle(hp) != next || !isCrossed(hp)) ;
+		return false;
 	}
 
 	bool isRegionBorderEdge(EH e) const
@@ -123,6 +116,77 @@ public:
 	}
 
 private:
+
+	// everythign related to the voronoi partition
+	using QElem = std::pair<double, FH>;
+	using Dijkstra = std::set<QElem>;
+
+	void repartition(const ID id1, const ID id2);
+
+	void grow(Dijkstra &q, const FH face, const FH predFace=FH(), double distance=0.0)
+	{
+		id(face) = !predFace.is_valid() ? m_seeds.size() - 1 : id(predFace);
+		if (m_useColors) {
+			m_mesh.set_color(face, m_colors[id(face)]);
+		}
+		pred(face) = predFace;
+		auto pair = QElem(dist(face), face);
+		auto it = q.find(pair);
+		if (it != q.end()) q.erase(it);
+		dist(face) = distance;
+		pair.first = distance;
+		q.insert(pair);
+	};
+
+	bool homeomorphicDisk(const FH f, const VH v, const ID tile) const
+	{
+		const auto isAdjTo = [&](const VH v, const ID tile) {
+			for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
+				if (id(*f) == tile) return true;
+			}
+			return false;
+		};
+
+		int countEdge = 0;
+		for (auto he = m_mesh.cfh_begin(f); he != m_mesh.cfh_end(f); ++he) {
+			if (id(m_mesh.opposite_face_handle(*he)) != tile) countEdge++;
+		}
+		return !(isAdjTo(v, tile) && countEdge == 2);
+	}
+
+	void reduceCuts(Dijkstra &q);
+
+	void reduceAdjRegions(Dijkstra &q);
+
+	bool isSeed(const FH f) const
+	{
+		return std::find(m_seeds.begin(), m_seeds.end(), f) != m_seeds.end();
+	}
+
+	void addSeed(Dijkstra &q, const FH f)
+	{
+		assert(!isSeed(f));
+		m_seeds.push_back(f);
+		if (m_useColors) {
+			m_colors.push_back(m_colGen.generateNextColor());
+		}
+		grow(q, f);
+
+		// reduce alpha so seed faces are visible
+		Color c = m_colors[id(f)];
+		c[3] = 0.5f;
+		m_mesh.set_color(f, c);
+
+		P p1 = m_mesh.calc_face_centroid(f);
+		for (auto he = m_mesh.fh_begin(f); he != m_mesh.fh_end(f); ++he) {
+			auto ff = m_mesh.face_handle(he);
+			P p2 = m_mesh.calc_face_centroid(ff);
+			double distance = (p1 - p2).norm();
+			if (distance < dist(ff)) {
+				grow(q, ff, f, distance);
+			}
+		}
+	}
 
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
 
@@ -176,12 +240,11 @@ private:
 	BezierTMesh &m_mesh, &m_ctrl;
 
 	bool m_useColors, m_copy;
-	size_t m_steps;
 	size_t m_nvertices, m_nedges, m_vertexIdx;
+	ACG::HaltonColors m_colGen;
 
 	std::vector<Color> m_colors;
-	std::set<FH> m_seeds;
-	std::vector<EH> m_boundary;
+	std::vector<FH> m_seeds;
 	std::vector<VH> m_ctrlVerts;
 
 	// property handles

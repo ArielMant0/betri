@@ -86,46 +86,6 @@ private:
 	void prepare();
 	void cleanup();
 
-	bool isCorner(const VertexHandle v, const FaceHandle face)
-	{
-		auto a = ttv(face)[0];
-		auto b = ttv(face)[1];
-		auto c = ttv(face)[2];
-
-		auto ab = ShortestPath::path(a, b);
-		auto bc = ShortestPath::path(b, c);
-		auto ca = ShortestPath::path(c, a);
-
-		for (auto he = m_mesh.cvih_begin(v); he != m_mesh.cvih_end(v); ++he) {
-			if (ab.list()[0] == *he || bc.list()[0] == *he || ca.list()[0] == *he) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	bool isInner(const VertexHandle v, const FaceHandle face)
-	{
-		return std::find(ttv(face).inner.begin(), ttv(face).inner.end(), v) != ttv(face).inner.end();
-	}
-
-	bool isSeed(const VertexHandle v)
-	{
-		for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
-			if (isSeedFace(*f)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	bool isSeedFace(const FaceHandle f)
-	{
-		return !m_mesh.property(m_pred, f).is_valid();
-	}
-
 	// computes weights
 	void calcWeights();
 
@@ -158,7 +118,6 @@ private:
 	{
 		Scalar norm = 1. / countLength(path);
 
-		Point p = m_mesh.point(path.front());
 		Scalar t = 0.;
 
 		auto vec = path.list();
@@ -167,14 +126,17 @@ private:
 		int end = reverse ? -1 : vec.size();
 		int mod = reverse ? -1 : 1;
 
+		Point p = m_mesh.point(vec[start]);
 		for (int i = start; i != end; i+=mod) {
 			VertexHandle vh = vec[i];
 			t += (p - m_mesh.point(vh)).norm() * norm;
 			p = m_mesh.point(vh);
 
-			if (first && !second) hmap(vh) = Vec2(t, 0.);
-			else if (!first && second) hmap(vh) = Vec2(0., t);
-			else if (first && second) {
+			if (first && !second) {
+				hmap(vh) = Vec2(t, 0.);
+			}  else if (!first && second) {
+				hmap(vh) = Vec2(0., t);
+			} else if (first && second) {
 				Scalar minus = std::max(0., 1. - t);
 				hmap(vh) = Vec2(t, minus);
 			}
