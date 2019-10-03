@@ -85,16 +85,14 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
-#ifdef RENDER_DEBUG
-	std::ofstream out("04getRenderObjects-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo" << "\n";
-#endif
+	std::clock_t start = std::clock();
+
 	// only render mesh if that is possible (e.g. has control points)
-	if (!bezierTriangleMesh_.isRenderable()) return;
+	if (!bezierTriangleMesh_.isRenderable()) 
+		return;
 
 	// TODO
 	if (controlPointsChangedR_) {
-
 		setControlPointsColumnwise();
 		controlPointsChangedR_ = false;
 		controlPointsChangedC_ = true;
@@ -113,6 +111,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	{
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
+		// TODO this can propably be done differently
+		// TODO make this toggle
+		//ACG::GLState::enable(GL_CULL_FACE);
+		//ACG::GLState::cullFace(GL_FRONT);
+
+		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
 
 		RenderObject ro;
 		ro.initFromState(&_state);
@@ -129,7 +133,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
 			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME)
 		{
-			updateSurfaceMesh();
+			int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+			int showBVolume = betri::option(betri::BezierOption::SHOW_BOUNDING_VOLUME);
+
+			updateSurfaceMesh(renderOption);
 
 			ro.vertexBuffer = surfaceVBO_.id();
 			ro.indexBuffer = surfaceIBO_.id();
@@ -142,10 +149,39 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
-#ifdef GL_ARB_tessellation_shader
-			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer();
+			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING && !showBVolume) {
 
-			if (tessellationMode)
+				// TODO this is a doublication
+				if (!controlPointTex_.is_valid())
+					updateTexBuffers();
+
+				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
+				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+
+				//std::cerr << _state.eye() << std::endl;
+				//std::cerr << _renderer->camPosWS_ << std::endl;
+				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
+
+				//ro.setUniform("campos", _renderer->camPosWS_);
+				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+
+				// vertex shader uniforms
+				//ro.setUniform("cameraPos", );
+
+				// fragment shader uniforms
+				static float iteration = 0.0f;
+				iteration += 0.04f;
+				ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
+
+				ro.setUniform("btriangles", int(1));
+				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
+			}
+
+#ifdef GL_ARB_tessellation_shader
+			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
+
+			if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU)
 			{
 				// dynamic lod tessellation and spline evaluation on gpu
 
@@ -154,10 +190,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 				ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
 				ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
-
-				// TODO
-				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
-
 
 				//QString shaderMacro;
 
@@ -176,13 +208,14 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				*/
 
 				ro.setUniform("controlPointTex", int(1));
-				//ro.setUniform("knotBufferU", int(2));
-				//ro.setUniform("knotBufferV", int(3));
+
+				// Tesselation Control Shader Uniforms
 
 				//ro.setUniform("uvRange", Vec4f(bezierTriangleMesh_.loweru(), bezierTriangleMesh_.upperu(),
 				//	bezierTriangleMesh_.lowerv(), bezierTriangleMesh_.upperv()));
 
 				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// TODO warum geht das, aber uniform geht nicht?
 				// Liegt das an der for-schleife
@@ -272,6 +305,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			_renderer->addRenderObject(&ro);
 		}
 	}
+
+	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+
+	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
 
@@ -302,7 +339,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
@@ -324,7 +361,8 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 				// If it isnt an cornerpoint
 				if (i != 0 && i != GRAD && i != betri::gaussSum(GRAD + 1) - 1) {
 					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
-					p += n/2.5;
+					p += n / 2.5;
+					//p += Point(0.3, 0.0, 0.0);
 				}
 				i++;
 				cp_vec.push_back(p);
@@ -578,8 +616,10 @@ void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
 	std::ofstream out("01render-log.txt", std::ios::out | std::ofstream::app);
 	out << "Hallo" << "\n";
 #endif
+	std::cerr << "Hallo" << std::endl;
 
-	updateSurfaceMesh();
+	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	updateSurfaceMesh(renderOption);
 
 	surfaceVBO_.bind();
 	surfaceIBO_.bind();
@@ -891,7 +931,7 @@ void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 		{
 			if (render_control_net_)
 			{
-				// TODO ist der Count hier richtig, was soll da überhaupt hin?
+				// TODO ist der Count hier richtig, was soll da ï¿½berhaupt hin?
 				_state.pick_set_maximum(bezierTriangleMesh_.n_vertices() * 2);
 				pick_vertices(_state); // TODO tut das jetzt was ?
 			}
@@ -1645,7 +1685,7 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int _vertexCountV) TODO
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	if (!invalidateSurfaceMesh_)
 		return;
@@ -1684,29 +1724,35 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		}
 	}
 
-	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
 	if (false) { // TODO if apply tesselation - should get a separate call
 		// TODO
 		// TODO should the mesh really be changed? we could simple apply the
 		// changes to the vbo and dont change the Mesh itself
-		// TODO Button für applyTesselation
+		// TODO Button fï¿½r applyTesselation
 		tesselateMeshCPU();
 	}
 
 	// TODO Performance verbessern indem in den vertex buffer alle vertices gepackt werden und dann
 	// beim index buffer die indices direkt genutzt werden
 
-	 // BIG TODO !!!
+	// BIG TODO !!!
 	// not really sure what happens - but the renderOption should
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
+<<<<<<< HEAD
 	if (false && renderOption == 1) {
+=======
+	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
+>>>>>>> raytracing-renderer
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
-	else {
+	else if (meshOption == betri::TESSELLATION_TYPE::CPU) {
 		VBOtesselatedFromMesh();
+	}
+	else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
+		VBOfromBoundingMesh();
 	}
 }
 
@@ -1961,7 +2007,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	int numIndices = vboSize / 4;
+	int numIndices = vboSize / 4; // TODO warum hier durch 4
 
 	std::vector<int> iboData(numIndices);
 
@@ -2081,6 +2127,116 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	*/
 }
 
+/**
+ * Create a simple VBO from this Mesh.
+ */
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
+{
+	///////////////////////////////////////////////////////////////////////////
+	// Setup VBO and IBO
+	///////////////////////////////////////////////////////////////////////////
+
+	// TODO different bounding volumes
+	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
+
+	int numVerts;
+	int numIndices;
+	betri::getVertexIndexCounts(bVolume, numVerts, numIndices);
+
+	int vertexCount = bezierTriangleMesh_.n_faces() * numVerts;
+	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
+
+	int indexCount = bezierTriangleMesh_.n_faces() * numIndices;
+
+	// create index buffer
+	std::vector<int> iboData(indexCount);
+	// create vertex buffer
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
+
+	///////////////////////////////////////////////////////////////////////////
+	// Fill with boundingbox data
+	///////////////////////////////////////////////////////////////////////////
+
+	int vboIndex = 0;
+	int iboIndex = 0;
+	//for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
+	int face_index = 0;
+
+	for (auto &face : bezierTriangleMesh_.faces()) {
+
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		std::vector<Point> cpArray = std::vector<Point>();
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cpArray.push_back(faceControlP.getCPoint(i));
+		}
+
+		switch (bVolume) {
+			case betri::boundingVolumeType::AABB:
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			case betri::boundingVolumeType::PrismVolume:
+			{
+				// TODO is this the correct way to call this?
+				betri::addPrismVolumeFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			default: 
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+			}
+		}
+
+		face_index++;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	// Upload VBO and IBO and cleanup
+	///////////////////////////////////////////////////////////////////////////
+
+	if (vboSize)
+		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+
+	vboData.clear();
+
+	// TODO why is it here *4 is it because of size in bytes?!
+	if (indexCount)
+		surfaceIBO_.upload(indexCount * 4, &iboData[0], GL_STATIC_DRAW);
+
+	surfaceIndexCount_ = indexCount;
+
+	invalidateSurfaceMesh_ = false;
+
+}
+
 //----------------------------------------------------------------------------
 
 template <class MeshT>
@@ -2095,7 +2251,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// vertex layout:
 	//  float3 pos
 
-	// TODO HÄ?
+	// TODO Hï¿½?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
@@ -2129,7 +2285,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
 	int bottomTriangles = betri::gaussSum(GRAD);
-	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
+	// TODO unterschiedliche Faces kï¿½nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();

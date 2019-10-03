@@ -265,9 +265,12 @@ private:
 	void tesselateMeshCPU();  // TODO richtige stelle finden
 
 	/// update vertex + index buffer of surface mesh
-	void updateSurfaceMesh();//int _vertexCountU = 50, int _vertexCountV = 50); TODO
+	void updateSurfaceMesh(const int meshOption);//int _vertexCountU = 50, int _vertexCountV = 50); TODO
 
 	void VBOfromMesh();
+
+	// TODO ordering
+	void VBOfromBoundingMesh();
 
 	int pointsBefore(int level);
 	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
@@ -386,7 +389,7 @@ private:
 	// TODO Capital letters?
 	// TODO calculate the other two values if one of them is given
 	//static double STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
-	 double STEPSIZE;
+	double STEPSIZE;
 
 };
 
