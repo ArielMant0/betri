@@ -1,4 +1,4 @@
-#define ACG_BSPLINESURFACENODET_C
+#define ACG_BEZIERTRIANGLEMESHNODE_C
 
 //== INCLUDES =================================================================
 
@@ -71,7 +71,7 @@ DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 	drawModes |= DrawModes::SOLID_SHADER;
 	drawModes |= DrawModes::SOLID_TEXTURED;
 	drawModes |= DrawModes::SOLID_1DTEXTURED;
-	drawModes |= DrawModes::SOLID_FACES_COLORED;
+	//drawModes |= DrawModes::SOLID_FACES_COLORED;
 
 	return drawModes;
 }
@@ -555,6 +555,7 @@ void BezierTriangleMeshNode<MeshT>::draw(
 		//    ACG::GLState::disable(GL_BLEND);
 	}
 
+	/*
 	// BIG TODO here should be happening smth else, but i dont know how to color the faces
 	if ((_drawMode & DrawModes::SOLID_FACES_COLORED)) {
 		ACG::GLState::enable(GL_COLOR_MATERIAL);
@@ -569,7 +570,7 @@ void BezierTriangleMeshNode<MeshT>::draw(
 		render(_state, true);
 
 		ACG::GLState::depthRange(0.0, 1.0);
-	}
+	}*/
 
 	glPopAttrib();
 }
@@ -612,12 +613,6 @@ void BezierTriangleMeshNode<MeshT>::render(GLState& _state, bool _fill)
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
 {
-#ifdef RENDER_DEBUG
-	std::ofstream out("01render-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo" << "\n";
-#endif
-	std::cerr << "Hallo" << std::endl;
-
 	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
 	updateSurfaceMesh(renderOption);
 
@@ -1690,11 +1685,6 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 	if (!invalidateSurfaceMesh_)
 		return;
 
-#ifdef RENDER_DEBUG
-	std::ofstream out("01updateSurfaceMesh-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo2" << "\n";
-#endif
-
 	surfaceVBO_.del();
 	surfaceIBO_.del();
 
@@ -1713,7 +1703,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_NORMAL);
 		surfaceDecl_.addElement(GL_FLOAT, 2, VERTEX_USAGE_TEXCOORD);
-		surfaceDecl_.addElement(GL_FLOAT, 4, VERTEX_USAGE_COLOR);
+		//surfaceDecl_.addElement(GL_FLOAT, 4, VERTEX_USAGE_COLOR);
 		//surfaceDecl_.addElement(GL_UNSIGNED_BYTE, 4, VERTEX_USAGE_COLOR); TODO
 
 		if (provideDebugInfo)
@@ -1740,11 +1730,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
-<<<<<<< HEAD
-	if (false && renderOption == 1) {
-=======
 	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
->>>>>>> raytracing-renderer
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
@@ -1881,6 +1867,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				vboData[elementOffset++] = 1.0;
 				vboData[elementOffset++] = 0.0;
 
+				/*
 				// TODO use ints instead of floats
 				//color = std::vector<float>({ 1.0, 0.0, 0.0, 1.0 });
 				//color = bezierTriangleMesh_.texcoord2D(v);
@@ -1893,7 +1880,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 					std::cerr << x[0] << " " << x[1] << " " << x[2] << " " << y << " " << std::endl;
 					vboData[elementOffset++] = float(vecCol[m]);
 				}
-				vboData[elementOffset++] = float(1.0);
+				vboData[elementOffset++] = float(1.0);*/
 
 				/* DrawMeshT<Mesh>::readVertex(
 				byteCol[col] = (unsigned char)(vecCol[0]);
