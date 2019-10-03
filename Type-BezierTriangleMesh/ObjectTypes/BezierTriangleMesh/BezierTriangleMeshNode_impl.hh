@@ -162,7 +162,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
 
 				//ro.setUniform("campos", _renderer->camPosWS_);
-				ro.setUniform("viewMatrix", _renderer->viewMatrix_);
+				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
 				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// vertex shader uniforms

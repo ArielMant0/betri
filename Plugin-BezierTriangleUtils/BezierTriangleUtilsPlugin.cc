@@ -194,7 +194,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	int result;
 
 	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/classBaseInterface.html#ace0d6b943ce94f48c40e8c0e17a8413e
-	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
+	/*connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
 
 		std::clock_t start = std::clock();
@@ -220,9 +220,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		std::cerr << "duration: " << duration << " " << (frames/duration) << '\n';
 		result = int(frames / duration);
 	}
-	);
+	);*/
 
-	std::cerr << "result: " << result << std::endl;
+	//std::cerr << "result: " << result << std::endl;
 
 
 	QGridLayout *perfLayout = new QGridLayout;
