@@ -133,9 +133,10 @@ private:
 			p = m_mesh.point(vh);
 
 			if (first && !second) {
-				hmap(vh) = Vec2(t, 0.);
-			}  else if (!first && second) {
 				hmap(vh) = Vec2(0., t);
+			}  else if (!first && second) {
+				Scalar minus = std::max(0., 1. - t);
+				hmap(vh) = Vec2(minus, 0.);
 			} else if (first && second) {
 				Scalar minus = std::max(0., 1. - t);
 				hmap(vh) = Vec2(t, minus);
@@ -144,7 +145,7 @@ private:
 			std::cerr << "\tcalculated t = " << t << " -> uv = " << hmap(vh) << "\n";
 			assert(hmap(vh)[0] >= 0.);
 			assert(hmap(vh)[1] >= 0.);
-			assert(hmap(vh)[0] + hmap(vh)[1] <= 1.);
+			assert(hmap(vh)[0] + hmap(vh)[1] <= 1. + std::numeric_limits<double>::epsilon());
 		}
 	}
 

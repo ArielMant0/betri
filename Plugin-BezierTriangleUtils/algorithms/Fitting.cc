@@ -30,16 +30,11 @@ void Fitting::cleanup()
 		m_mesh.remove_property(m_sysid);
 }
 
-size_t Fitting::calcCPCount(unsigned int degree)
-{
-	return (degree*degree + 3 * degree + 2) / 2;
-}
-
 void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 {
-	size_t nv_inner_ = calcCPCount(m_degree);
+	size_t nv_inner_ = (m_degree + 1)*(m_degree + 2) / 2;
 
-	assert(inner.size() >= nv_inner_);
+	assert(inner.size() > 0);
 
 	size_t matSize = std::min(nv_inner_, std::max(inner.size()/2, nv_inner_));
 
@@ -65,7 +60,7 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 
 	// TODO: does vertex order matter?
 	for (size_t i = 0; i < matSize; ++i) {
-		Point p = m_mesh.point(inner[i]);
+		Point p = m_mesh.point(inner[i % inner.size()]);
 		std::cerr << "\t" << p << " (u,v) = " << hmap(inner[i]) << "\n";
 		rhsx[i] = p[0];
 		rhsy[i] = p[1];
@@ -75,39 +70,44 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 	for (size_t row = 0; row < matSize; ++row) {
 		for (size_t i = 0, column=0; i <= m_degree; ++i) {
 			for (size_t j = 0; j + i <= m_degree; ++j, ++column) {
-				A(row, column) = calcCoeffs(inner[row], i, j);
+				A(row, column) = calcCoeffs(inner[row % inner.size()], i, j);
 			}
 		}
 	}
 
-	rhsx = rhsx;//A.transpose() * rhsx;
-	rhsy = rhsy;//A.transpose() * rhsy;
-	rhsz = rhsz; //A.transpose() * rhsz;
+	rhsx = A.transpose() * rhsx;
+	rhsy = A.transpose() * rhsy;
+	rhsz = A.transpose() * rhsz;
 
 	std::cerr << "\nmatrix is\n" << A << "\n";
 	std::cerr << "-> rhs x\n" << rhsx << "\n";
 	std::cerr << "-> rhs y\n" << rhsy << "\n";
 	std::cerr << "-> rhs z\n" << rhsz << "\n";
 
-	const auto QRsolver = A.colPivHouseholderQr();
-	resultX = QRsolver.solve(rhsx);
-	if (QRsolver.info() != Eigen::Success)
+	const auto solver = (A.transpose() * A).ldlt();
+
+	resultX = solver.solve(rhsx);
+	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for x!" << std::endl;
 
-	resultY = QRsolver.solve(rhsy);
-	if (QRsolver.info() != Eigen::Success)
+	resultY = solver.solve(rhsy);
+	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for y!" << std::endl;
 
-	resultZ = QRsolver.solve(rhsz);
-	if (QRsolver.info() != Eigen::Success)
+	resultZ = solver.solve(rhsz);
+	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for z!" << std::endl;
 
 	// write control point positions back
 	m_ctrl.data(face).prepare(nv_inner_);
 	for (size_t i = 0; i < nv_inner_; ++i) {
-		Point p = { resultX(i), resultY(i), resultZ(i) };
-		std::cerr << "\tcontrol point " << i << " is " << p << "\n";
-		m_ctrl.data(face).controlPoint(i, p);
+		m_ctrl.data(face).controlPoint(i, Point(resultX(i), resultY(i), resultZ(i)));
+	}
+
+	std::cerr << "\nface " << face << " has control points:\n";
+	size_t i(0u);
+	for (Point p : m_ctrl.data(face).points()) {
+		std::cerr << "\t(" << i++ << ") = " << p << "\n";
 	}
 }
 

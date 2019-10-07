@@ -309,6 +309,8 @@ void VoronoiRemesh::fixPredecessor(const FH fh)
 		return dist(from) + (p1 - p2).norm();
 	};
 
+	// what if pred is -1
+
 	if (m_mesh.adjToFace(fh, pred(fh))) {
 		std::cerr << "\tface already adj to predecessor\n";
 		dist(fh) = calcDist(pred(fh), fh);

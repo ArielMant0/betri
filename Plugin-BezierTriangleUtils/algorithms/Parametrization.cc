@@ -214,7 +214,7 @@ void Parametrization::solveLocal(const FaceHandle face)
 		std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
 		assert(hmap(v)[0] >= 0.);
 		assert(hmap(v)[1] >= 0.);
-		assert(hmap(v)[0] + hmap(v)[1] <= 1.);
+		assert(hmap(v)[0] + hmap(v)[1] <= 1. + std::numeric_limits<double>::epsilon());
 	}
 }
 

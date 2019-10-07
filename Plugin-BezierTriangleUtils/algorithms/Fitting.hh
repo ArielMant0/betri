@@ -51,8 +51,6 @@ private:
 	void prepare();
 	void cleanup();
 
-	size_t calcCPCount(unsigned int degree);
-
 	void solveLocal(Vertices &inner, const FaceHandle face);
 
 	Scalar calcCoeffs(VertexHandle vh, int i, int j)
