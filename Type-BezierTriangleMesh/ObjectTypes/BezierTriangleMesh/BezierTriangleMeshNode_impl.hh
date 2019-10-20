@@ -24,7 +24,7 @@
 namespace ACG {
 namespace SceneGraph {
 
-static const int GRAD = 2; // 1 = linear, 2 = quadratisch
+static const int GRAD = 3; // 1 = linear, 2 = quadratisch
 //static const int ITERATIONS = 0;
 
 // Additional Control Points per edge

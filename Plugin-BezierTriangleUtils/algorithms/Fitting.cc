@@ -40,6 +40,7 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 
 	// system matrix
 	EigenMatT A(matSize, nv_inner_);
+	A.setZero();
 
 	// right hand sides for x,y,z coordinates
 	EigenVectorT rhsx(matSize);
@@ -68,16 +69,13 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 	}
 
 	for (size_t row = 0; row < matSize; ++row) {
+		auto vIndex = row % inner.size();
 		for (size_t i = 0, column=0; i <= m_degree; ++i) {
 			for (size_t j = 0; j + i <= m_degree; ++j, ++column) {
-				A(row, column) = calcCoeffs(inner[row % inner.size()], i, j);
+				A(row, column) = calcCoeffs(inner[vIndex], i, j);
 			}
 		}
 	}
-
-	rhsx = A.transpose() * rhsx;
-	rhsy = A.transpose() * rhsy;
-	rhsz = A.transpose() * rhsz;
 
 	std::cerr << "\nmatrix is\n" << A << "\n";
 	std::cerr << "-> rhs x\n" << rhsx << "\n";
@@ -86,15 +84,15 @@ void Fitting::solveLocal(Vertices &inner, const FaceHandle face)
 
 	const auto solver = (A.transpose() * A).ldlt();
 
-	resultX = solver.solve(rhsx);
+	resultX = solver.solve(A.transpose() * rhsx);
 	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for x!" << std::endl;
 
-	resultY = solver.solve(rhsy);
+	resultY = solver.solve(A.transpose() * rhsy);
 	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for y!" << std::endl;
 
-	resultZ = solver.solve(rhsz);
+	resultZ = solver.solve(A.transpose() * rhsz);
 	if (solver.info() != Eigen::Success)
 		std::cerr << __FUNCTION__ << ": solve failed for z!" << std::endl;
 

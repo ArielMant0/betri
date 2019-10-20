@@ -198,6 +198,18 @@ private:
 
 	void fixPredecessor(const FH fh);
 
+	template <class Container>
+	void fixAllFaces(Container &q)
+	{
+		for (FH face : q) {
+			if (!m_mesh.status(face).tagged()) fixPredecessor(face);
+		}
+
+		for (FH face : q) {
+			m_mesh.status(face).set_tagged(false);
+		}
+	}
+
 	HalfedgeHandle fixCrossing(
 		const FH f0,
 		const FH f1,
