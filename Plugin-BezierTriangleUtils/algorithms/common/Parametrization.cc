@@ -15,9 +15,6 @@ void Parametrization::prepare()
 
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
-
-	// TODO: only needs to be done once?
-	calcWeights();
 }
 
 //-----------------------------------------------------------------------------
@@ -113,33 +110,104 @@ void Parametrization::calcWeights()
 
 //-----------------------------------------------------------------------------
 
+void Parametrization::initCoords(const VertexHandle vh)
+{
+	// map boundary vertices onto n-gon in texture space
+	// (preserve edge length ratio)
+
+	size_t innerIdx = 0;
+	// reset all (interior) coordinates to ngon midpoint (also circle midpoint)
+	for (auto vh : *m_inner) {
+		hmap(vh) = Vec2(0.5f, 0.5f);
+		sysid(vh) = innerIdx++;
+	}
+
+	// TODO: map to boundary
+	std::vector<BoundaryMapper::Path*> p;
+
+	// map boundary
+	m_mapper.map(p);
+}
+
+//-----------------------------------------------------------------------------
+
 void Parametrization::initCoords(const FaceHandle face)
 {
-	// Map boundary vertices onto triangle in texture space
+	// map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
-	// Map interior vertices to triangle center
 
 	size_t innerIdx = 0;
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (auto vh : *m_inner) {
-		// triangle
-		hmap(vh) = Vec2(0.33, 0.33);
-		// circle
-		//hmap(vh) = Vec2(0.5f, 0.5f);
-
+		hmap(vh) = Vec2(0.5f, 0.5f);
 		sysid(vh) = innerIdx++;
 	}
 
-	auto ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
-	auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
-	auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
+	const ShortestPath &ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
+	const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
+	const ShortestPath &ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-	// map to triangle
-	calcBoundary(ab, true, false, false);
-	// do we need to reverse the order?
-	bool rev = ab.end() == bc.end();
-	calcBoundary(bc, true, true, rev);
-	calcBoundary(ca, false, true, rev ? bc.start() == bc.end() : bc.end() == bc.end());
+	std::vector<BoundaryMapper::Path*> p;
+	p.push_back(&ab.list());
+	p.push_back(&bc.list());
+	p.push_back(&ca.list());
+
+	// map boundary
+	m_mapper.map(p);
+}
+
+//-----------------------------------------------------------------------------
+
+void Parametrization::solveLocal(const VertexHandle vh)
+{
+	nv_inner_ = m_mesh.valence(vh);
+	assert(nv_inner_ > 0);
+
+	// calculate coordinates
+	initCoords(vh);
+
+	// system matrix
+	EigenSpMatT A(nv_inner_, nv_inner_);
+
+	// right hand sides for u and v coordinates
+	EigenVectorT rhsu(nv_inner_);
+	rhsu.setZero();
+	EigenVectorT rhsv(nv_inner_);
+	rhsv.setZero();
+
+	// resulting texture coordinates for u and v
+	EigenVectorT resultU(nv_inner_);
+	resultU.setZero();
+	EigenVectorT resultV(nv_inner_);
+	resultV.setZero();
+
+	std::vector<EigenTripletT> triplets;
+
+	// TODO: add stuff for other
+
+	// now we have all triplets to setup the matrix A
+	A.setFromTriplets(triplets.begin(), triplets.end());
+
+	// now we can solve for u and v
+
+	/**
+	 * vertexweight the matrix is not symmetric!  Hence, we cannot use an ordinary conjugate
+	 * gradient or cholesky decomposition. For solving this non-symmetric system we use a
+	 * Biconjugate gradient stabilized method. You can experiment with different solvers
+	 * (see http://eigen.tuxfamily.org/dox/TutorialSparse.html#TutorialSparseDirectSolvers) but
+	 * first you need to make the system SPD (symmetric positive definite) try e.g. setting
+	 * the vertexweight in add_row_to_system to 1. (this should NOT change the result)
+	 */
+	Eigen::BiCGSTAB<EigenSpMatT> bicg(A); // performs a Biconjugate gradient stabilized method
+	resultU = bicg.solve(rhsu);
+	if (bicg.info() != Eigen::Success)
+		std::cerr << "solve failed!" << std::endl;
+
+	resultV = bicg.solve(rhsv);
+	if (bicg.info() != Eigen::Success)
+		std::cerr << "solve failed!" << std::endl;
+
+	// TODO: write back to hmap
 }
 
 void Parametrization::solveLocal(const FaceHandle face)
@@ -165,21 +233,11 @@ void Parametrization::solveLocal(const FaceHandle face)
 	EigenVectorT resultV(nv_inner_);
 	resultV.setZero();
 
-	// the matrix is build/initialized from a set of triplets (i.e. (rowid, colid, value))
-
-	/**
-	 * Info: add_row_to_system_matrix should add entries to the vector of triplets, the matrix
-	 *
-	 * is build from these triplets below
-	 * see http://eigen.tuxfamily.org/dox/TutorialSparse.html#TutorialSparseFilling for more
-	 * details on triplets and setting up sparse matrices)
-	 */
 	std::vector<EigenTripletT> triplets;
 
 	// for all inner vertices, setup the corresponding row of the linear systems (u and v)
 	// call add_row_to_system for all inner vertices
-	// Smooth parameterization using Laplacian relaxation.
-
+	// smooth parameterization using Laplacian relaxation.
 	for (const auto &v : *m_inner) {
 		addRow(triplets, rhsu, rhsv, v, face);
 	}
@@ -220,7 +278,11 @@ void Parametrization::solveLocal(const FaceHandle face)
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::solve() {
+void Parametrization::solve()
+{
+	// TODO: only needs to be done once?
+	calcWeights();
+
 	for (const auto &face : m_ctrl.faces()) {
 		m_inner = &ttv(face).inner;
 		solveLocal(face);

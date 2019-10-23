@@ -1,7 +1,7 @@
 #include "VoronoiRemesh.hh"
 
-#include "Parametrization.hh"
-#include "Fitting.hh"
+#include "../common/Parametrization.hh"
+#include "../common/Fitting.hh"
 
 #include <queue>
 #include <unordered_set>
@@ -901,7 +901,7 @@ bool VoronoiRemesh::dualize(bool steps)
 //////////////////////////////////////////////////////////
 void VoronoiRemesh::fitting()
 {
-	Parametrization param(m_mesh, m_ctrl, m_ttv, m_vtt, m_pred);
+	Parametrization param(m_mesh, m_ctrl, m_vtt, m_region, m_ttv, m_pred);
 
 	param.solve();
 

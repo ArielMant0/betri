@@ -1,4 +1,4 @@
-#include "Common.hh"
+#include "../common/Common.hh"
 #include "ShortestPath.hh"
 
 #include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>

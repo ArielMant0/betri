@@ -11,9 +11,6 @@
 namespace betri
 {
 
-// for a fixed number of control points (dictated by degree)
-// || t-Matrix X coeff-Matrix X controlPoint-Matrix - surfacePoint-Matrix ||² = 0
-
 class Fitting
 {
 	using EigenMatT = Eigen::MatrixXd;
@@ -55,9 +52,8 @@ private:
 
 	Scalar calcCoeffs(VertexHandle vh, int i, int j)
 	{
-		//assert(vtt(vh).uv.norm() <= 1.0);
-		// TODO: ?!
-		return eval(i, j, vtt(vh).uv[0], vtt(vh).uv[1], m_degree);
+		assert(hmap(vh).norm() <= 1.0 + std::numeric_limits<Scalar>::epsilon());
+		return eval(i, j, hmap(vh)[0], hmap(vh)[1], m_degree);
 	}
 
 	///////////////////////////////////////////////////////////

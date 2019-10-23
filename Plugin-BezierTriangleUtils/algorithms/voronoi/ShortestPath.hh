@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common.hh"
+#include "../common/Common.hh"
 
 #include <vector>
 #include <unordered_set>
@@ -55,6 +55,8 @@ public:
 	void pop() const { m_border.pop_back(); }
 
 	Container& list() const { return m_border; }
+
+	Container list() { return m_border; }
 
 	bool contains(VH e) const
 	{

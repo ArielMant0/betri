@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Common.hh"
-#include "ShortestPath.hh"
+#include "../voronoi/ShortestPath.hh"
+#include "NGonMapper.hh"
 
 #include <ACG/Math/VectorT.hh>
 #include <OpenMesh/Core/Utils/Property.hh>
@@ -36,8 +37,9 @@ public:
 	Parametrization(
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
-		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
+		OpenMesh::VPropHandleT<ID> &id,
+		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::FPropHandleT<FaceHandle> &pred
 	) :
 		m_mesh(mesh),
@@ -46,7 +48,8 @@ public:
 		m_vtt(vtt),
 		m_pred(pred),
 		m_inner(nullptr),
-		m_weightType(Uniform)
+		m_weightType(Uniform),
+		m_mapper(mesh, vtt, id)
 	{
 		prepare();
 	}
@@ -68,8 +71,6 @@ public:
 	Vec2& hmap (VertexHandle _vh) { return vtt(_vh).uv; }
 	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
-	int& id (FaceHandle _fh) { return m_mesh.property(m_id, _fh); }
-
 	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
 
@@ -86,13 +87,16 @@ private:
 	void prepare();
 	void cleanup();
 
-	// computes weights
+	// computes weights (for complete mesh)
 	void calcWeights();
+	void calcWeights(const VertexHandle vh);
 
-	// initialize texture coordinates
+	// initialize uv coordinates
 	void initCoords(const FaceHandle face);
+	void initCoords(const VertexHandle vh);
 
 	void solveLocal(const FaceHandle face);
+	void solveLocal(const VertexHandle vh);
 
 	// Function for adding the entries of one row in the equation system
 	void addRow(
@@ -103,52 +107,6 @@ private:
 		FaceHandle face
 	);
 
-	Scalar countLength(ShortestPath &path)
-	{
-		Scalar l = 0.;
-		Point p = m_mesh.point(path.front());
-		for (VertexHandle vh : path.list()) {
-			l += (p - m_mesh.point(vh)).norm();
-			p = m_mesh.point(vh);
-		}
-		return l;
-	}
-
-	void calcBoundary(ShortestPath &path, bool first, bool second, bool reverse)
-	{
-		Scalar norm = 1. / countLength(path);
-
-		Scalar t = 0.;
-
-		auto vec = path.list();
-
-		int start = reverse ? vec.size() - 1 : 0;
-		int end = reverse ? -1 : vec.size();
-		int mod = reverse ? -1 : 1;
-
-		Point p = m_mesh.point(vec[start]);
-		for (int i = start; i != end; i+=mod) {
-			VertexHandle vh = vec[i];
-			t += (p - m_mesh.point(vh)).norm() * norm;
-			p = m_mesh.point(vh);
-
-			if (first && !second) {
-				hmap(vh) = Vec2(0., t);
-			}  else if (!first && second) {
-				Scalar minus = std::max(0., 1. - t);
-				hmap(vh) = Vec2(minus, 0.);
-			} else if (first && second) {
-				Scalar minus = std::max(0., 1. - t);
-				hmap(vh) = Vec2(t, minus);
-			}
-
-			std::cerr << "\tcalculated t = " << t << " -> uv = " << hmap(vh) << "\n";
-			assert(hmap(vh)[0] >= 0.);
-			assert(hmap(vh)[1] >= 0.);
-			assert(hmap(vh)[0] + hmap(vh)[1] <= 1. + std::numeric_limits<double>::epsilon());
-		}
-	}
-
 	///////////////////////////////////////////////////////////
 	// member variables
 	///////////////////////////////////////////////////////////
@@ -156,10 +114,8 @@ private:
     BezierTMesh &m_mesh, &m_ctrl;
 	Vertices *m_inner;
 
-    // helper variables
-    size_t nv_total_;
+    // helper variable
     size_t nv_inner_;
-    size_t nv_bdry_;
 
     // OpenMesh mesh properties holding the texture coordinates and weights
 	OpenMesh::VPropHandleT<Scalar>			m_vweight;
@@ -172,6 +128,9 @@ private:
 	OpenMesh::FPropHandleT<FaceHandle>		m_pred;
 
 	WeightType m_weightType;
+
+	/// maps boundary vertices (to some convex polygon dictated by the mapper class)
+	NGonMapper m_mapper;
 };
 
 }

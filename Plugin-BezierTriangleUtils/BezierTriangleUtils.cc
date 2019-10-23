@@ -1,5 +1,5 @@
 #include "BezierTriangleUtils.hh"
-#include "algorithms/VoronoiRemeshPerObjectData.hh"
+#include "algorithms/voronoi/VoronoiRemeshPerObjectData.hh"
 
 using VOD = VoronoiRemeshPerObjectData;
 
