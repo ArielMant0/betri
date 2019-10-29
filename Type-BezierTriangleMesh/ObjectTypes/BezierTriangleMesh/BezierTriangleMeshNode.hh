@@ -19,6 +19,8 @@
 #include <ACG/GL/VertexDeclaration.hh>
 #include <ACG/GL/GLPrimitives.hh>
 
+#include "DrawBTMesh.hh"
+
 #include "BezierTMesh.hh"
 
 //== FORWARDDECLARATIONS ======================================================
@@ -38,7 +40,7 @@ namespace SceneGraph {
 */
 
 template <class MeshT>
-class BezierTriangleMeshNode : public BaseNode
+class BezierTriangleMeshNode : public MeshNodeBase //public BaseNode
 {
 public:
 
@@ -49,7 +51,8 @@ public:
 	BezierTriangleMeshNode(MeshT& _bss,
 		BaseNode*    _parent = 0,
 		std::string  _name = "<BezierTriangleMeshNode>") :
-		BaseNode(_parent, _name),
+		MeshNodeBase(_parent, _name), // TODO
+		//BaseNode(_parent, _name),
 		bezierTriangleMesh_(_bss),
 		bspline_draw_mode_(NORMAL),
 		bspline_selection_draw_mode_(NONE),
@@ -88,12 +91,19 @@ public:
 		oldFaceCount_(0), // TODO
 		NEWVERTICES(0), // TODO
 		VERTEXSUM(3), // TODO
-		STEPSIZE(1.0) // TODO
+		STEPSIZE(1.0), // TODO
+		textureMap_(0) // TODO
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
 		fancySphere_ = new GLSphere(16, 16);
 		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
+
+		drawBTMesh_ = new DrawBTMesh(bezierTriangleMesh_);
+
+		// TODO why is this nessessary?
+		// Hand draw mesh down to super class.
+		MeshNodeBase::supplyDrawMesh(drawBTMesh_);
 	}
 
 	/// Destructor
@@ -287,6 +297,45 @@ private:
 	/// update texture resources for gpu-based spline evaluation
 	void updateTexBuffers();
 
+
+private:
+
+	/** \brief draws all vertices of the mesh
+	*
+	*/
+	//inline void draw_vertices();
+
+	//inline void add_point_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
+
+	/** \brief draws all edges of the mesh
+	*
+	*/
+	//inline void draw_lines();
+
+	//inline void add_line_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
+
+
+	/** \brief draws all halfedges of the mesh
+	*
+	*/
+	//inline void draw_halfedges();
+
+
+	/** \brief draws all faces of the mesh
+	*
+	*/
+	//void draw_faces();
+
+	void add_face_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj, bool _nonindexed = false);
+
+	void add_line_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
+
+private:
+
+	VertexDeclaration halfedgeDecl;
+	std::map<int, GLuint>* textureMap_;
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Private Membervariables
 ///////////////////////////////////////////////////////////////////////////////
@@ -294,6 +343,14 @@ private:
 private:
 
 	MeshT& bezierTriangleMesh_;
+
+//===========================================================================
+/** @name Draw-mesh handling
+* @{ */
+//===========================================================================  
+	DrawBTMesh* drawBTMesh_;
+
+/** @} */
 
 	BTDrawMode bspline_draw_mode_;
 	BTSelectionDrawMode bspline_selection_draw_mode_;
