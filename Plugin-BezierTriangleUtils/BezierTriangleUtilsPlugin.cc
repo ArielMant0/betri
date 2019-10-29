@@ -8,6 +8,7 @@
 #include <qlabel.h>
 #include <qspinbox.h>
 #include <qcheckbox.h>
+#include <qinputdialog.h>
 
 //#include <OpenFlipper/common/UpdateType.hh>
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
@@ -53,12 +54,27 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	m_voronoiSteps.push_back(fittingButton);
 
 	QGridLayout *voronoiLayout = new QGridLayout;
-	voronoiLayout->addWidget(voronoiButton, 0, 0);
+	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 4);
 	voronoiLayout->addWidget(patitionButton, 1, 0);
 	voronoiLayout->addWidget(dualStepButton, 1, 1);
 	voronoiLayout->addWidget(dualButton, 1, 2);
 	voronoiLayout->addWidget(fittingButton, 1, 3);
 	voronoiGroup->setLayout(voronoiLayout);
+
+	///////////////////////////////////////////////////////////////////////////
+	// Decimation group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *deciGroup = new QGroupBox(tr("Decimation"));
+
+	QPushButton *deciButton = new QPushButton(tr("Decimation"));
+	connect(deciButton, SIGNAL(clicked()), this, SLOT(callDecimation()));
+	QPushButton *deciStepButton = new QPushButton(tr("Decimation Step"));
+	connect(deciStepButton, SIGNAL(clicked()), this, SLOT(callDecimationStep()));
+
+	QGridLayout *deciLayout = new QGridLayout;
+	deciLayout->addWidget(deciButton, 0, 0);
+	deciLayout->addWidget(deciStepButton, 1, 0);
+	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Tesselation group
@@ -154,8 +170,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(voronoiGroup, 0, 0);
-	grid->addWidget(tessGroup, 1, 0);
-	grid->addWidget(visGroup, 2, 0);
+	grid->addWidget(deciGroup, 1, 0);
+	grid->addWidget(tessGroup, 2, 0);
+	grid->addWidget(visGroup, 3, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
@@ -358,6 +375,59 @@ void BezierTriangleUtilsPlugin::callPartition()
 		emit updatedObject(meshObj->id(), UPDATE_COLOR);
 
 		//m_voronoiSteps[0]->setDisabled(true);
+	}
+}
+
+void BezierTriangleUtilsPlugin::callDecimation()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BezierTMesh *mesh = meshObj->mesh();
+
+		int complexity = QInputDialog::getInt(
+			m_tool,
+			"Decimation Meshing",
+			"Please enter target complexity: ",
+			// value, min value
+			mesh->n_vertices(), 0,
+			// max value, steps
+			mesh->n_vertices(), 1
+		);
+
+		betri::decimation(meshObj, complexity, false);
+		emit log(LOGINFO, "Performed Decimation (DONE)!");
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+	}
+}
+
+void BezierTriangleUtilsPlugin::callDecimationStep()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+
+		const bool done = betri::decimationStep(meshObj);
+		if (done) {
+			emit log(LOGINFO, "Performed Decimation Step (DONE)!");
+		} else {
+			emit log(LOGINFO, "Performed Decimation Step!");
+		}
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
 	}
 }
 

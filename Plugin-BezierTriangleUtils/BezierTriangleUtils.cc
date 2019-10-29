@@ -1,7 +1,9 @@
 #include "BezierTriangleUtils.hh"
 #include "algorithms/voronoi/VoronoiRemeshPerObjectData.hh"
+#include "algorithms/decimation/DecimationPerObjectData.hh"
 
 using VOD = VoronoiRemeshPerObjectData;
+using DEC = DecimationPerObjectData;
 
 namespace betri
 {
@@ -101,6 +103,40 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 		);
 	}
 #endif
+}
+
+const char * DECName()
+{
+	return "DECIMATION_PER_OBJECT_DATA";
+}
+
+Decimation* getDecimationObject(BaseObjectData *object)
+{
+	// initialize PerObjectData if not done yet
+	if (!object->hasObjectData(DECName())) {
+		// get mesh object
+		BezierTMesh* mesh = PluginFunctions::btMeshObject(object)->mesh();
+
+		// initialize per object data
+		object->setObjectData(DECName(), new DEC(*mesh));
+	}
+
+	// get feature lines object
+	Decimation* decimator = dynamic_cast<Decimation*>(
+		&(dynamic_cast<DEC*>(object->objectData(DECName())))->decimator()
+	);
+
+	return decimator;
+}
+
+bool decimation(BaseObjectData *object, size_t complexity, bool steps)
+{
+	return getDecimationObject(object)->decimate(complexity, steps);
+}
+
+bool decimationStep(BaseObjectData *object)
+{
+	return getDecimationObject(object)->decimate();
 }
 
 }

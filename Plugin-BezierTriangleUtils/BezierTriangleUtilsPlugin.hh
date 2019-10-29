@@ -84,10 +84,14 @@ private slots:
 	void setTessAmount(int);
 	void setTessType(int);
 
+	// voronoi meshing functions
 	void callVoronoi();
 	void callPartition();
 	void callDualStep();
 	void callDual();
 	void callFitting();
 
+	// decimation meshing functions
+	void callDecimation();
+	void callDecimationStep();
 };
