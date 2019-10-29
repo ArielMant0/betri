@@ -10,7 +10,6 @@ class VoronoiRemesh
 {
 public:
 
-	using ID = ShortestPath::ID;
 	using VH = ShortestPath::VH;
 	using EH = ShortestPath::EH;
 	using HH = ShortestPath::HH;
@@ -35,6 +34,7 @@ public:
 		m_ctrl(ctrl),
 		m_useColors(colors),
 		m_copy(copy),
+		m_debugCancel(false),
 		m_vertexIdx(0u),
 		m_colors(),
 		m_seeds(),
@@ -81,8 +81,8 @@ public:
 	ID crossed(const EH eh) const { return m_mesh.property(m_crossed, eh); }
 	ID crossed(const HH he) const { return crossed(m_mesh.edge_handle(he)); }
 
-	bool isCrossed(const EH eh) const { return crossed(eh) >= 0; }
-	bool isCrossed(const HH he) const { return isCrossed(m_mesh.edge_handle(he)); }
+	bool isCrossed(const EH eh) const { return eh.is_valid() && crossed(eh) >= 0; }
+	bool isCrossed(const HH he) const { return he.is_valid() && isCrossed(m_mesh.edge_handle(he)); }
 
 	std::pair<ID,ID>& faceBorder(FH fh) { return m_mesh.property(m_fborder, fh); }
 
@@ -101,6 +101,9 @@ public:
 
 	bool commonEdgeCrossed(const FH fh, const FH next) const
 	{
+		assert(m_mesh.adjToFace(fh, next));
+		if (!pred(next).is_valid()) return false;
+
 		for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
 			if (m_mesh.opposite_face_handle(*h_it) == next) {
 				return isCrossed(*h_it);
@@ -121,7 +124,19 @@ private:
 	using QElem = std::pair<double, FH>;
 	using Dijkstra = std::set<QElem>;
 
-	void repartition(const ID id1, const ID id2);
+	void resetPath(Dijkstra &q, const FH face);
+
+	void repartition(const ID id1);
+
+	EH commonEdge(const FH f0, const FH f1)
+	{
+		for (auto ff = m_mesh.cfh_begin(f0); ff != m_mesh.cfh_end(f0); ++ff) {
+			if (m_mesh.opposite_face_handle(*ff) == f1) {
+				return m_mesh.edge_handle(*ff);
+			}
+		}
+		return EH();
+	}
 
 	void grow(Dijkstra &q, const FH face, const FH predFace=FH(), double distance=0.0)
 	{
@@ -130,6 +145,7 @@ private:
 			m_mesh.set_color(face, m_colors[id(face)]);
 		}
 		pred(face) = predFace;
+		if (predFace.is_valid()) assert(face != pred(pred(face)));
 		auto pair = QElem(dist(face), face);
 		auto it = q.find(pair);
 		if (it != q.end()) q.erase(it);
@@ -160,7 +176,11 @@ private:
 
 	bool isSeed(const FH f) const
 	{
-		return std::find(m_seeds.begin(), m_seeds.end(), f) != m_seeds.end();
+		if (id(f) >= 0) {
+			return id(f) < m_seeds.size() && m_seeds[id(f)] == f;
+		} else {
+			return std::find(m_seeds.begin(), m_seeds.end(), f) != m_seeds.end();
+		}
 	}
 
 	void addSeed(Dijkstra &q, const FH f)
@@ -196,16 +216,24 @@ private:
 
 	void splitClosedPaths();
 
-	void fixPredecessor(const FH fh);
+	void fixPredecessor(const FH fh, const bool rewrite=false);
 
 	template <class Container>
-	void fixAllFaces(Container &q)
+	void fixAllFaces(Container &q1, Container &q2)
 	{
-		for (FH face : q) {
+		std::cerr << "FIX INNER FACES\n";
+		for (FH face : q1) {
+			if (!m_mesh.status(face).tagged()) fixPredecessor(face, true);
+		}
+		std::cerr << "FIX OUTER FACES\n";
+		for (FH face : q2) {
 			if (!m_mesh.status(face).tagged()) fixPredecessor(face);
 		}
-
-		for (FH face : q) {
+		// reset tags
+		for (FH face : q1) {
+			m_mesh.status(face).set_tagged(false);
+		}
+		for (FH face : q2) {
 			m_mesh.status(face).set_tagged(false);
 		}
 	}
@@ -251,7 +279,7 @@ private:
 
 	BezierTMesh &m_mesh, &m_ctrl;
 
-	bool m_useColors, m_copy;
+	bool m_useColors, m_copy, m_debugCancel;
 	size_t m_nvertices, m_nedges, m_vertexIdx;
 	ACG::HaltonColors m_colGen;
 

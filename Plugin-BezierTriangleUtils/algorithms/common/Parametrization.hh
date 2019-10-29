@@ -34,11 +34,10 @@ public:
 		Cotangent, Uniform
 	};
 
-	Parametrization(
+	explicit Parametrization(
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
-		OpenMesh::VPropHandleT<ID> &id,
 		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::FPropHandleT<FaceHandle> &pred
 	) :
@@ -49,7 +48,7 @@ public:
 		m_pred(pred),
 		m_inner(nullptr),
 		m_weightType(Uniform),
-		m_mapper(mesh, vtt, id)
+		m_mapper(mesh, vtt)
 	{
 		prepare();
 	}
@@ -121,7 +120,6 @@ private:
 	OpenMesh::VPropHandleT<Scalar>			m_vweight;
 	OpenMesh::EPropHandleT<Scalar>			m_eweight;
 	OpenMesh::VPropHandleT<int>				m_sysid;
-	OpenMesh::FPropHandleT<int>				m_id;
 
 	OpenMesh::FPropHandleT<TriToVertex>		m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>		m_vtt;

@@ -11,11 +11,8 @@ class NGonMapper : public BoundaryMapper
 {
 public:
 
-	explicit NGonMapper(
-		BezierTMesh &mesh,
-		OpenMesh::VPropHandleT<VertexToTri> &vtt,
-		OpenMesh::VPropHandleT<ID> &id
-	) : BoundaryMapper(mesh, vtt, id) {}
+	explicit NGonMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<VertexToTri> &vtt) :
+		BoundaryMapper(mesh, vtt) {}
 
     void map(std::vector<Path*> &paths) override;
 

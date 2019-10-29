@@ -61,11 +61,11 @@ void Parametrization::calcWeights()
 
 			// Compute cotangent edge weights
 
-			h0 = m_mesh.halfedge_handle(e_it.handle(), 0);
+			h0 = m_mesh.halfedge_handle(*e_it, 0);
 			v0 = m_mesh.to_vertex_handle(h0);
 			p0 = m_mesh.point(v0);
 
-			h1 = m_mesh.halfedge_handle(e_it.handle(), 1);
+			h1 = m_mesh.halfedge_handle(*e_it, 1);
 			v1 = m_mesh.to_vertex_handle(h1);
 			p1 = m_mesh.point(v1);
 
@@ -106,6 +106,67 @@ void Parametrization::calcWeights()
 			weight(*v_it) = 1.0 / (4.0 * area);
 		}
 	}
+}
+
+//-----------------------------------------------------------------------------
+
+void Parametrization::calcWeights(const VertexHandle vh)
+{
+	if (m_weightType == Uniform) {
+		// vertex weight
+		weight(vh) = 1.0 / m_mesh.valence(vh);
+		// edge weights
+		for (auto e_it = m_mesh.cve_begin(vh); e_it != m_mesh.cve_end(vh); ++e_it) {
+			weight(*e_it) = 1.0;
+		}
+	} else if (m_weightType == Cotangent) {
+		// Compute vertex weights:
+		//   1.0 / sum(1/3 of area of incident triangles)
+
+		Scalar area = 0.0;
+		auto vf_end = m_mesh.vf_end(vh);
+		for (auto vf_it = m_mesh.vf_begin(vh); vf_it != vf_end; ++vf_it) {
+			auto fv_it = m_mesh.fv_begin(*vf_it);
+
+			const Point& P = m_mesh.point(*fv_it);  ++fv_it;
+			const Point& Q = m_mesh.point(*fv_it);  ++fv_it;
+			const Point& R = m_mesh.point(*fv_it);
+
+			area += ((Q - P) % (R - P)).norm() * 0.5 * 0.3333;
+		}
+
+		weight(vh) = 1.0 / (4.0 * area);
+
+
+		Scalar w;
+		// Compute cotangent edge weights
+		for (auto e_it = m_mesh.cve_begin(vh); e_it != m_mesh.cve_end(vh); ++e_it) {
+			w = 0.0;
+
+			HalfedgeHandle h0 = m_mesh.halfedge_handle(*e_it, 0);
+			VertexHandle v0 = m_mesh.to_vertex_handle(h0);
+			Point p0 = m_mesh.point(v0);
+
+			HalfedgeHandle h1 = m_mesh.halfedge_handle(*e_it, 1);
+			VertexHandle v1 = m_mesh.to_vertex_handle(h1);
+			Point p1 = m_mesh.point(v1);
+
+			HalfedgeHandle h2 = m_mesh.next_halfedge_handle(h0);
+			Point p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+			Point d0 = (p0 - p2).normalize();
+			Point d1 = (p1 - p2).normalize();
+			w += 1.0 / tan(acos(d0 | d1));
+
+			h2 = m_mesh.next_halfedge_handle(h1);
+			p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+			d0 = (p0 - p2).normalize();
+			d1 = (p1 - p2).normalize();
+			w += 1.0 / tan(acos(d0 | d1));
+
+			weight(*e_it) = w;
+		}
+	}
+
 }
 
 //-----------------------------------------------------------------------------

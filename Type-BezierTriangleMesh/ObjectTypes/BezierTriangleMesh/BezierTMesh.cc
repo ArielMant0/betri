@@ -231,49 +231,6 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHand
 	VertexHandle vh = new_vertex(calc_edge_midpoint(connect));
 	EdgeHandle eh = edge_handle(connect);
 
-	/*HalfedgeHandle nh = halfedge_handle(edge_handle(connect), 0);
-	connect = splitEdgeSimple(edge_handle(connect), v, false);
-
-	HalfedgeHandle o0 = next_halfedge_handle(nh);
-	HalfedgeHandle o1 = next_halfedge_handle(opposite_halfedge_handle(connect));
-	HalfedgeHandle on0 = next_halfedge_handle(o0);
-	HalfedgeHandle on1 = next_halfedge_handle(o1);
-
-	HalfedgeHandle i0 = new_edge(v, to_vertex_handle(o0));
-	HalfedgeHandle i1 = new_edge(v, to_vertex_handle(o1));
-
-	set_next_halfedge_handle(o0, opposite_halfedge_handle(i0));
-	set_next_halfedge_handle(opposite_halfedge_handle(i0), nh);
-	set_next_halfedge_handle(i0, on0);
-	set_next_halfedge_handle(connect, i0);
-
-	set_next_halfedge_handle(o1, i1);
-	set_next_halfedge_handle(i1, opposite_halfedge_handle(connect));
-	set_next_halfedge_handle(opposite_halfedge_handle(i1), on1);
-	set_next_halfedge_handle(opposite_halfedge_handle(nh), opposite_halfedge_handle(i1));
-
-	FaceHandle f11 = new_face(), f22 = new_face();
-
-	set_face_handle(on0, f1);
-	set_face_handle(connect, f1);
-	set_face_handle(i0, f1);
-	set_halfedge_handle(f1, connect);
-
-	set_face_handle(o1, f2);
-	set_face_handle(opposite_halfedge_handle(connect), f2);
-	set_face_handle(i1, f2);
-	set_halfedge_handle(f2, opposite_halfedge_handle(connect));
-
-	set_face_handle(nh, f11);
-	set_face_handle(o0, f11);
-	set_face_handle(opposite_halfedge_handle(i0), f11);
-	set_halfedge_handle(f11, nh);
-
-	set_face_handle(opposite_halfedge_handle(nh), f22);
-	set_face_handle(on1, f22);
-	set_face_handle(opposite_halfedge_handle(i1), f22);
-	set_halfedge_handle(f22, opposite_halfedge_handle(nh));*/
-
 	HalfedgeHandle h0 = halfedge_handle(eh, 0);
 	HalfedgeHandle o0 = halfedge_handle(eh, 1);
 
@@ -299,7 +256,7 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHand
 
 		FaceHandle f1 = new_face();
 		if (copy) {
-			copy_all_properties(f0, f1);
+			copy_all_properties(f0, f1, false);
 			set_color(f1, color(f0));
 		}
 		set_halfedge_handle(f0, h0);
@@ -338,7 +295,7 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHand
 
 		FaceHandle f2 = new_face();
 		if (copy) {
-			copy_all_properties(f3, f2);
+			copy_all_properties(f3, f2, false);
 			set_color(f2, color(f3));
 		}
 		set_halfedge_handle(f2, o1);

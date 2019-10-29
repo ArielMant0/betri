@@ -66,6 +66,12 @@ struct VertexToTri
 		face = f;
 	}
 
+	void setFace(const FaceHandle f, const ID id)
+	{
+		face = f;
+		id1 = id;
+	}
+
 	void setBorder(ID i1, ID i2)
 	{
 		id1 = i1;
