@@ -15,6 +15,4 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
 bool decimation(BaseObjectData *object, size_t complexity, bool steps);
 
-bool decimationStep(BaseObjectData *object);
-
 }

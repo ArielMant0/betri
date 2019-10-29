@@ -390,7 +390,7 @@ HalfedgeHandle VoronoiRemesh::fixCrossing(
 	// TODO: is this the correct edge
 	m_mesh.copy_all_properties(commonEdge, m_mesh.edge_handle(nedge), false);
 	m_mesh.set_color(m_mesh.edge_handle(nedge), m_mesh.color(commonEdge));
-	for (nedge+1; nedge < m_mesh.n_edges(); ++nedge) {
+	for (nedge+=1; nedge < m_mesh.n_edges(); ++nedge) {
 		crossed(m_mesh.edge_handle(nedge)) = -1;
 	}
 
@@ -426,7 +426,7 @@ void VoronoiRemesh::shortestPath(
 	const ShortestPath & path
 ) {
 
-	std::cerr << "\calculating shortest path for regions " << id_1 << '(' << m_seeds[id_1] << ')';
+	std::cerr << "\tcalculating shortest path for regions " << id_1 << '(' << m_seeds[id_1] << ')';
 	std::cerr << " and " << id_2 << '(' << m_seeds[id_2] << ")\n";
 
 	// find next edge of a region border
@@ -461,6 +461,13 @@ void VoronoiRemesh::shortestPath(
 		return HH();
 	};
 
+	const auto adjToSeed = [&](const VH vh) {
+		for (auto vf = m_mesh.cvf_begin(vh); vf != m_mesh.cvf_end(vh); ++vf) {
+			if (isSeed(*vf)) return true;
+		}
+		return false;
+	};
+
 	const auto connectingHalfedge = [&](
 		const FH from,
 		const FH to,
@@ -480,7 +487,7 @@ void VoronoiRemesh::shortestPath(
 				// maybe even prefer those
 				if (m_mesh.opposite_face_handle(*he) != to && m_mesh.adjToFace(v, to) &&
 					m_mesh.opposite_face_handle(*he) != before) {
-					if (!isCrossed(*he) && (border || !vtt(v).isBorder())) {
+					if (!isCrossed(*he) && (border || !vtt(v).isBorder() || adjToSeed(v))) {
 						return *he;
 					} else {
 						halfedge = *he;
@@ -515,13 +522,6 @@ void VoronoiRemesh::shortestPath(
 		assert(vh.is_valid());
 
 		return vh;
-	};
-
-	const auto adjToSeed = [&](const VH vh) {
-		for (auto vf = m_mesh.cvf_begin(vh); vf != m_mesh.cvf_end(vh); ++vf) {
-			if (isSeed(*vf)) return true;
-		}
-		return false;
 	};
 
 	HH start = findStartBorder(v), he = start;
@@ -1087,7 +1087,7 @@ void VoronoiRemesh::repartition(const ID id1)
 		}
 
 		for (size_t i = beforeSeeds; i < m_seeds.size(); ++i) {
-			m_ctrlVerts[i] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(m_seeds[i]));
+			m_ctrlVerts.push_back(m_ctrl.add_vertex(m_mesh.calc_face_centroid(m_seeds[i])));
 		}
 
 	} while (!q.empty());

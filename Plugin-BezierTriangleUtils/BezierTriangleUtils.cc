@@ -134,9 +134,4 @@ bool decimation(BaseObjectData *object, size_t complexity, bool steps)
 	return getDecimationObject(object)->decimate(complexity, steps);
 }
 
-bool decimationStep(BaseObjectData *object)
-{
-	return getDecimationObject(object)->decimate();
-}
-
 }

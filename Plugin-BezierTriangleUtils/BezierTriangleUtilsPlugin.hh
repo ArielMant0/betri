@@ -28,7 +28,7 @@ class BezierTriangleUtilsPlugin : public QObject,
 
 public:
 
-	BezierTriangleUtilsPlugin() : m_tool(0), m_steps(0) {}
+	BezierTriangleUtilsPlugin() : m_tool(0), m_steps(0), m_target(0) {}
 
 	~BezierTriangleUtilsPlugin() {};
 
@@ -45,7 +45,7 @@ private:
 	QLineEdit *echoLineEdit; // TODO
 	std::vector<QPushButton*> m_voronoiSteps;
 
-	int m_steps;
+	int m_steps, m_target;
 
 	BaseObjectData *ctrl_obj;
 

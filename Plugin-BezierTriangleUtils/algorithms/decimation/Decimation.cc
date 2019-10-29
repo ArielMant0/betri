@@ -164,11 +164,12 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 		if (stepwise) break;
 	}
 
+	m_mesh.garbage_collection();
+
 	done = m_nverts <= m_complexity || m_q->empty();
 	// only update when we're done
 	if (done) {
 		m_q->clear();
-		m_mesh.garbage_collection();
 		// reset parameters to avoid buggy behaviour on next round
 		m_nverts = m_mesh.n_vertices();
 		m_complexity = m_nverts;

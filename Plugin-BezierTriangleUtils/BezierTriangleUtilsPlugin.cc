@@ -408,6 +408,7 @@ void BezierTriangleUtilsPlugin::callDecimation()
 	}
 }
 
+// TODO: not really useful right now and also does not work
 void BezierTriangleUtilsPlugin::callDecimationStep()
 {
 	// init object iterator
@@ -420,14 +421,27 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
-		const bool done = betri::decimationStep(meshObj);
+		if (m_target == 0) {
+			BezierTMesh *mesh = meshObj->mesh();
+
+			int complexity = QInputDialog::getInt(
+				m_tool,
+				"Decimation Meshing",
+				"Please enter target complexity: ",
+				// value, min value
+				mesh->n_vertices(), 0,
+				// max value, steps
+				mesh->n_vertices(), 1
+			);
+			m_target = complexity;
+		}
+
+		const bool done = betri::decimation(meshObj, m_target, true);
 		if (done) {
 			emit log(LOGINFO, "Performed Decimation Step (DONE)!");
 		} else {
 			emit log(LOGINFO, "Performed Decimation Step!");
 		}
-
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
 	}
 }
 

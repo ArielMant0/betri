@@ -13,20 +13,24 @@ public:
     Decimation(BezierTMesh &mesh) :
 		m_mesh(mesh),
 		m_complexity(m_mesh.n_vertices()),
-		m_nverts(m_mesh.n_vertices())
+		m_nverts(m_mesh.n_vertices()),
+		m_q(nullptr)
     {
         prepare();
+		// initialize quadrics
+		initQuadrics();
 		// create priority q
 		VertexCmp cmp(mesh, m_prio);
 		m_q = new std::set<VertexHandle, VertexCmp>(cmp);
-		// initialize quadrics
-		initQuadrics();
     }
 
     ~Decimation()
     {
         cleanup();
-		if (m_q) delete m_q;
+		if (m_q) {
+			delete m_q;
+			m_q = nullptr;
+		}
     }
 
     bool decimate(size_t complexity=0, bool stepwise=false);
@@ -42,10 +46,10 @@ private:
 		BezierTMesh *m_mesh;
 		OpenMesh::VPropHandleT<double> m_prio;
 
-		VertexCmp(BezierTMesh mesh, OpenMesh::VPropHandleT<double> prio) :
+		VertexCmp(BezierTMesh &mesh, OpenMesh::VPropHandleT<double> &prio) :
 			m_mesh(&mesh), m_prio(prio) {}
 
-		bool operator()(VertexHandle v0, VertexHandle v1) const
+		bool operator()(const VertexHandle v0, const VertexHandle v1) const
 		{
 			assert(m_mesh != nullptr);
 			// std::set needs UNIQUE keys -> handle equal priorities

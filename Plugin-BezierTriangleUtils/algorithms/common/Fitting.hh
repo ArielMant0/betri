@@ -52,7 +52,8 @@ private:
 
 	Scalar calcCoeffs(VertexHandle vh, int i, int j)
 	{
-		assert(hmap(vh).norm() <= 1.0 + std::numeric_limits<Scalar>::epsilon());
+		assert(std::islessequal(hmap(vh)[0], 1.0));
+		assert(std::islessequal(hmap(vh)[1], 1.0));
 		return eval(i, j, hmap(vh)[0], hmap(vh)[1], m_degree);
 	}
 

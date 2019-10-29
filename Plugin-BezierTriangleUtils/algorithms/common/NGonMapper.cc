@@ -38,13 +38,15 @@ void NGonMapper::map(std::vector<Path*> &paths)
         const long mod = reverse ? -1 : 1;
 
         // starting point is always on the unit circle
-		Point initialT = Point(cos(angle*i), sin(angle*i), 0.) + trans, t = initialT;
+		Point initialT = trans + Point(0.5 * cos(angle*i), 0.5 * sin(angle*i), 0.);
+		Point t = Point(initialT);
+
         // norm factor depends on the side length of the ngon and the path length
         Scalar norm = sideLength / pathLength(path);
 		Point first = m_mesh.point(path->at(start));
 
 		size_t k = i < path->size() - 1 ? i + 1 : 0u;
-		Point next = Point(cos(angle*k), sin(angle*k), 0.) + trans;
+		Point next = trans + Point(0.5 * cos(angle*k), 0.5 * sin(angle*k), 0.);
 		Point dir = (t - next).normalize();
 
         for (long j = start; j != end; j+=mod) {
@@ -54,7 +56,8 @@ void NGonMapper::map(std::vector<Path*> &paths)
             std::cerr << "\tcalculated uv = " << hmap(vh) << "\n";
             assert(std::isgreaterequal(hmap(vh)[0], 0.));
             assert(std::isgreaterequal(hmap(vh)[1], 0.));
-            assert(std::islessequal(hmap(vh)[0] + hmap(vh)[1], 1.0));
+            assert(std::islessequal(hmap(vh)[0], 1.0));
+            assert(std::islessequal(hmap(vh)[1], 1.0));
 
 			t = initialT + dir * (first - m_mesh.point(vh)).norm() * norm;
         }

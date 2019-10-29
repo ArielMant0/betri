@@ -146,9 +146,11 @@ private:
 		}
 		pred(face) = predFace;
 		if (predFace.is_valid()) assert(face != pred(pred(face)));
+
 		auto pair = QElem(dist(face), face);
 		auto it = q.find(pair);
 		if (it != q.end()) q.erase(it);
+
 		dist(face) = distance;
 		pair.first = distance;
 		q.insert(pair);
