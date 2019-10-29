@@ -21,6 +21,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define MAX_SCENE_BOUNDS 1000.0
+#define POSITIONS 4
+#define NEWTON_IT_COUNT 4
 
 in vec3 vRayOrigin;
 in vec3 vRayDirection;
@@ -58,6 +60,47 @@ struct hitinfo {
 	vec4 color;
 };
 
+vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
+//vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
+
+void reorder(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
+{
+	float dist = 0.0;
+	
+	// TODO why is the order like this
+	float tmp[POSITIONS] = float[] ( 
+		dot(bt.cp0, ray_direction),
+		dot(bt.cp5, ray_direction),
+		dot(bt.cp2, ray_direction),
+		dot((bt.cp1 + bt.cp3 + bt.cp4) / 3.0, ray_direction)
+	);
+	
+	/*
+	float tmp[POSITIONS] = float[] ( 
+		length(bt.cp0 - ray_origin),
+		length(bt.cp5 - ray_origin),
+		length(bt.cp2 - ray_origin),
+		100.0
+		//length((bt.cp1 + bt.cp3 + bt.cp4) / 3.0 - ray_origin)
+	);
+	*/
+
+	for (int j = 1; j < baryCoords.length(); ++j)
+	{
+		vec2 key = baryCoords[j];
+		float k2 = tmp[j];
+		int i = j - 1;
+		while (i >= 0 && tmp[i] > k2)
+		{
+			baryCoords[i+1] = baryCoords[i];
+			tmp[i+1] = tmp[i];
+			--i;
+		}
+		baryCoords[i+1] = key;
+		tmp[i+1] = k2;
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Beziertriangle Intersect
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,6 +116,9 @@ struct hitinfo {
  */
 vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 {	
+	// TODO heavy on performance maybe not ordering but rather search for i min
+	reorder(ray_origin, ray_direction, bt);
+
 	// TODO
 	// Get perpendicular ray by switching coords
 	//vec3 normal_1 = ray_direction.zyx;
@@ -99,81 +145,99 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 	// TODO was das?
 	vec2 R = vec2(0.0);
 
-	vec2 baryCoords[4] = vec2[] ( vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0/3.0) );
-
 	vec3 dBs;
 	vec3 dBt;
 	vec3 B_uv;
 	vec3 B_uv_old;
 	vec2 result;
-	vec2 result_2;
+	vec3 result_2;
+	float b_error = 0.01; // TODO as uniform
+	float d_error = 0.01; // TODO as uniform
 
-	for (int j = 0; j < 4; j++) { // TODO
+	bool found = false;
 
-	// Initial guess
-	result = baryCoords[j];
+	for (int j = 0; j < baryCoords.length(); j++) {
+		// Initial guess
+		result = baryCoords[j];
 
-	float s = 0.0;
-	float t = 0.0;
+		float s = 0.0;
+		float t = 0.0;
 
-	#define NEWTON_IT_COUNT 4
-	for (int i = 0; i < NEWTON_IT_COUNT; i++)
-	{
-		s = result.x;
-		t = result.y;
+		for (int i = 0; i < NEWTON_IT_COUNT; i++)
+		{
+			s = result.x;
+			t = result.y;
 
-		// Partial derivate by s
-		dBs = 2 * q_1 * s +
-			q_2 * t +
-			q_5;
+			// Partial derivate by s
+			dBs = 2 * q_1 * s +
+				q_2 * t +
+				q_5;
 
-		// Partial derivate by t
-		dBt = q_2 * s +
-			2 * q_3 * t +
-			q_4;
+			// Partial derivate by t
+			dBt = q_2 * s +
+				2 * q_3 * t +
+				q_4;
 
-		// Original TODO should not be a derivate even if said so in the paper
-		B_uv = q_1 * pow(s, 2) +
-			q_2 * s * t +
-			q_3 * pow(t, 2) +
-			q_4 * t +
-			q_5 * s +
-			q_6;
+			// Original TODO should not be a derivate even if said so in the paper
+			B_uv = q_1 * pow(s, 2) +
+				q_2 * s * t +
+				q_3 * pow(t, 2) +
+				q_4 * t +
+				q_5 * s +
+				q_6;
 
 
-		R = vec2(dot(normal_1, B_uv) + d_1, dot(normal_2, B_uv) + d_2);
+			R = vec2(dot(normal_1, B_uv) + d_1, dot(normal_2, B_uv) + d_2);
 
-		float dotN_1B_s = dot(normal_1, dBs);
-		float dotN_1B_t = dot(normal_1, dBt);
-		float dotN_2B_s = dot(normal_2, dBs);
-		float dotN_2B_t = dot(normal_2, dBt);
+			float dotN_1B_s = dot(normal_1, dBs);
+			float dotN_1B_t = dot(normal_1, dBt);
+			float dotN_2B_s = dot(normal_2, dBs);
+			float dotN_2B_t = dot(normal_2, dBt);
 
-		inv_constant = 1 / (dotN_1B_s * dotN_2B_t - dotN_1B_t * dotN_2B_s);
+			inv_constant = 1 / (dotN_1B_s * dotN_2B_t - dotN_1B_t * dotN_2B_s);
 
-		inv_jacobi = mat2(
-			dotN_2B_t * inv_constant, -dotN_2B_s * inv_constant,
-			-dotN_1B_t * inv_constant, dotN_1B_s * inv_constant
-		);
+			inv_jacobi = mat2(
+				dotN_2B_t * inv_constant, -dotN_2B_s * inv_constant,
+				-dotN_1B_t * inv_constant, dotN_1B_s * inv_constant
+			);
 
-		// Newton iteration
-		result = result - inv_jacobi * R;
+			// Newton iteration
+			result = result - inv_jacobi * R;
+		}
+
+		float z = 1.0 - result.x - result.y;
+		if (result.x >= -b_error && result.x <= 1.0 + b_error &&
+			result.y >= -b_error && result.y <= 1.0 + b_error &&
+			z >= -b_error &&
+			abs(dot(normal_1, B_uv) + d_1) < d_error && 
+		    abs(dot(normal_2, B_uv) + d_2) < d_error
+		) 
+		{
+			//outFragment = vec4(vec3(float(j)/4.0), 1.0);
+		    return vec3(result, z);
+			/*
+			if (!found) 
+			{
+				result_2 = vec3(result, z);
+				found = true;
+			}
+			else if (dot(ray_direction, result.x * bt.cp0 + result.y * bt.cp2 + z * bt.cp5) < 
+				dot(ray_direction, result_2.x * bt.cp0 + result_2.y * bt.cp2 + result_2.z * bt.cp5)
+			)
+			{ 
+				//result_2 = vec3(result, z);
+				result_2 = vec3(-1.0);
+			}
+			*/
+		}
 	}
 
-	if (abs(dot(normal_1, B_uv) + d_1) < abs(dot(normal_1, B_uv_old) + d_1) && abs(dot(normal_2, B_uv) + d_2) < abs(dot(normal_2, B_uv_old) + d_2)) {
-		B_uv_old = B_uv;
-		result_2 = result;
-	}
+	//if (found)
+	//	return vec3(result_2);
 
-	//if (abs(dot(normal_1, B_uv) + d_1) <= 0.001 && abs(dot(normal_2, B_uv) + d_2) <= 0.001)
-	//	continue;
-
-	}// TODO
-
-	float error = 0.001;
-	if (abs(dot(normal_1, B_uv_old) + d_1) > error || abs(dot(normal_2, B_uv_old) + d_2) > error)
-		result_2.x = -100;
-
-    return vec3(result_2.x, result_2.y, 1.0 - result_2.x - result_2.y);
+	// discard;
+	//outFragment = vec4(0.0, 0.0, 1.0, 1.0);
+    return vec3(-1.0);
 }
 
 /**
