@@ -24,7 +24,7 @@
 namespace ACG {
 namespace SceneGraph {
 
-static const int GRAD = 2; // 1 = linear, 2 = quadratisch
+static const int GRAD = 3; // 1 = linear, 2 = quadratisch
 //static const int ITERATIONS = 0;
 
 // Additional Control Points per edge
@@ -577,6 +577,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
+				shaderMacro.sprintf("#define CPSUM %i", controlPointsPerFace);
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
 				// vertex shader uniforms
 				//ro.setUniform("cameraPos", );
 
@@ -619,9 +625,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 				// TODO warum geht das, aber uniform geht nicht?
 				// Liegt das an der for-schleife
-				//QString shaderMacro;
-				//shaderMacro.sprintf("#define GRAD %i", GRAD);
-				//ro.shaderDesc.macros.push_back(shaderMacro);
+				QString shaderMacro;
+				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				ro.shaderDesc.macros.push_back(shaderMacro);
 				//ro.setUniform("GRAD", int(2));
 
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
@@ -648,7 +654,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	///////////////////////////////////////////////////////////////////////////
 	// draw the control net (includes selection on the net)
 	///////////////////////////////////////////////////////////////////////////
-	if (render_control_net_)
+	// TODO
+	if (render_control_net_ || true)
 	{
 		// update if necessary
 		updateControlNetMesh();
@@ -2608,6 +2615,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
 					controlPointsPerFace,
+					GRAD,
 					vboIndex,
 					iboIndex,
 					face_index,
@@ -2615,6 +2623,21 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 					iboData,
 					cpArray
 				); 
+				break;
+			}
+			case betri::boundingVolumeType::ConvexHull:
+			{
+				// TODO is this the correct way to call this?
+				betri::addConvexHullFromPoints(
+					controlPointsPerFace,
+					GRAD,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
 				break;
 			}
 			default: 

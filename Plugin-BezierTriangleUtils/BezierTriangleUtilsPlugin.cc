@@ -215,7 +215,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 				break;
 			default:
 				boundVBox->hide();
-				visLabel->hide()
+				visLabel->hide();
 				visComboBox->hide();
 		}
 	}

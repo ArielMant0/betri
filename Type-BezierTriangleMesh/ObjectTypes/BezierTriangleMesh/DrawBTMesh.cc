@@ -1453,6 +1453,7 @@ void DrawBTMesh::VBOfromBoundingMesh()
 				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
 					controlPointsPerFace,
+					GRAD,
 					vboIndex,
 					iboIndex,
 					face_index,

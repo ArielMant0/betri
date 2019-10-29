@@ -44,6 +44,7 @@ uniform vec3 lig;
 // cp3 - controllpoint 3
 // cp4 - controllpoint 4
 // cp5 - controllpoint 5 and vertex 2
+/*
 struct btriangle {
 	vec3 cp0;
 	vec3 cp1;
@@ -51,7 +52,14 @@ struct btriangle {
 	vec3 cp3;
 	vec3 cp4;
 	vec3 cp5;
-};
+} bt;*/
+
+//#define CPSUM 6
+//#define GRAD 2
+
+struct btriangle {
+	vec3[CPSUM] cps;
+} bt;
 
 // lambda - distances to the intersection on the ray
 // id - object index
@@ -65,16 +73,16 @@ struct hitinfo {
 vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
 //vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
 
-void reorder(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
+void reorder(vec3 ray_origin, vec3 ray_direction)
 {
 	float dist = 0.0;
 	
 	// TODO why is the order like this
 	float tmp[POSITIONS] = float[] ( 
-		dot(bt.cp0, ray_direction),
-		dot(bt.cp5, ray_direction),
-		dot(bt.cp2, ray_direction),
-		dot((bt.cp1 + bt.cp3 + bt.cp4) / 3.0, ray_direction)
+		dot(bt.cps[0], ray_direction),
+		dot(bt.cps[CPSUM-1], ray_direction),
+		dot(bt.cps[GRAD], ray_direction),
+		dot((bt.cps[1] + bt.cps[3] + bt.cps[4]) / 3.0, ray_direction)
 	);
 	
 	/*
@@ -116,10 +124,10 @@ void reorder(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
  * @in box the btriangle to test against
  * @return A three component vector with the nearest intersection lambda (t) and u, v
  */
-vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
+vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 {	
 	// TODO heavy on performance maybe not ordering but rather search for i min
-	reorder(ray_origin, ray_direction, bt);
+	reorder(ray_origin, ray_direction);
 
 	// TODO
 	// Get perpendicular ray by switching coords
@@ -130,13 +138,30 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 	float d_1 = -dot(normal_1, ray_origin);
 	float d_2 = -dot(normal_2, ray_origin);
 
+#if GRAD == 2
 	// TODO test if MAD (multiply then add) makes a difference in performance - see B_uv also
-	vec3 q_1 = bt.cp0 + bt.cp2 - 2 * bt.cp1;
-	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4 + 2 * bt.cp2;
-	vec3 q_3 = bt.cp5 - 2 * bt.cp4 + bt.cp2;
-	vec3 q_4 = 2 * bt.cp4 - 2 * bt.cp2;
-	vec3 q_5 = 2 * bt.cp1 - 2 * bt.cp2;
-	vec3 q_6 = bt.cp2;
+	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
+	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
+	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
+	vec3 q_4 = 2 * bt.cps[4] - 2 * bt.cps[2];
+	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
+	vec3 q_6 = bt.cps[2];
+#elif GRAD == 3
+	// 030
+	// 120 021
+    // 210 111 012
+	// 300 201 102 003
+	vec3 q_30 = bt.cps[0] - bt.cps[3] - 3 * bt.cps[1] + 3 * bt.cps[2]; 
+	vec3 q_03 = bt.cps[9] - bt.cps[3] - 3 * bt.cps[8] + 3 * bt.cps[6];
+	vec3 q_21 = 3 * bt.cps[4] - 3 * bt.cps[3] - 3 * bt.cps[1] + 6 * bt.cps[2] + 3 * bt.cps[6] - 6 * bt.cps[5];
+	vec3 q_12 = 3 * bt.cps[7] - 3 * bt.cps[3] + 3 * bt.cps[2] - 3 * bt.cps[8] + 6 * bt.cps[6] - 6 * bt.cps[5];
+	vec3 q_20 = 3 * bt.cps[3] + 3 * bt.cps[1] - 6 * bt.cps[2];
+	vec3 q_02 = 3 * bt.cps[3] + 3 * bt.cps[8] - 6 * bt.cps[6];
+	vec3 q_11 = 6 * bt.cps[3] - 6 * bt.cps[2] - 6 * bt.cps[6] + 6 * bt.cps[5];
+	vec3 q_10 = 3 * bt.cps[2] - 3 * bt.cps[3];
+	vec3 q_01 = 3 * bt.cps[6] - 3 * bt.cps[3];
+	vec3 q_00 = bt.cps[3];
+#endif
 
 	// N1 * B(u, v) + d1 = 0
 	// N2 * B(u, v) + d2 = 0
@@ -168,6 +193,7 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 			s = result.x;
 			t = result.y;
 
+#if GRAD == 2
 			// Partial derivate by s
 			dBs = 2 * q_1 * s +
 				q_2 * t +
@@ -186,6 +212,36 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 				q_4 * t +
 				q_5 * s +
 				q_6;
+#elif GRAD == 3
+			// Partial derivate by s
+			dBs = 3 * q_30 * s * s +
+				2 * q_21 * s * t +
+				q_12 * t * t + 
+				2 * q_20 * s +
+				q_11 * t + 
+				q_10;
+
+			// Partial derivate by t
+			dBt = 3 * q_03 * t * t +
+				q_21 * s * s +
+				2 * q_12 * s * t +
+				2 * q_02 * t + 
+				q_11 * s +
+				q_01;
+
+			// Original TODO should not be a derivate even if said so in the paper
+			// TODO pow vs s*s
+			B_uv = q_30 * pow(s, 3) +
+				q_03 * t * t * t +
+				q_21 * pow(s, 2) * t +
+				q_12 * s * t * t +
+				q_20 * s * s +
+				q_02 * t * t +
+				q_11 * s * t +
+				q_10 * s +
+				q_01 * t +
+				q_00;
+#endif
 
 
 			R = vec2(dot(normal_1, B_uv) + d_1, dot(normal_2, B_uv) + d_2);
@@ -252,23 +308,20 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 {
 	float smallest = info.lambda.x;
 	bool found = false;
-	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
 	int y = index; // TODO
 
-	bt.cp0 = texelFetch(btriangles, ivec2(0, y), 0).xyz;
-	bt.cp1 = texelFetch(btriangles, ivec2(1, y), 0).xyz;
-	bt.cp2 = texelFetch(btriangles, ivec2(2, y), 0).xyz;
-	bt.cp3 = texelFetch(btriangles, ivec2(3, y), 0).xyz;
-	bt.cp4 = texelFetch(btriangles, ivec2(4, y), 0).xyz;
-	bt.cp5 = texelFetch(btriangles, ivec2(5, y), 0).xyz;
+	// TODO direkt construktor nehmen und mit texture stuff befüllen
+	for (int i = 0; i < bt.cps.length(); i++)
+	{
+		bt.cps[i] = texelFetch(btriangles, ivec2(i, y), 0).xyz;
+	}
 
-	vec3 lambda = intersectBTriangle(origin, dir, bt);
+	vec3 lambda = intersectBTriangle(origin, dir);
 	if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
 		lambda.y >= 0.0 && lambda.y <= 1.0 &&
 		lambda.z >= 0.0 && lambda.z <= 1.0
 	)
 	{
-	
 		// TODO this are the barycentric coord (used for normal) but this should be the distance on the ray
 		info.lambda = lambda.xy;
 		info.id = y;
@@ -314,21 +367,14 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 
 	int y = index; // TODO
 
-	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
 
-	bt.cp0 = texelFetch(btriangles, ivec2(0, y), 0).xyz;
-	bt.cp1 = texelFetch(btriangles, ivec2(1, y), 0).xyz;
-	bt.cp2 = texelFetch(btriangles, ivec2(2, y), 0).xyz;
-	bt.cp3 = texelFetch(btriangles, ivec2(3, y), 0).xyz;
-	bt.cp4 = texelFetch(btriangles, ivec2(4, y), 0).xyz;
-	bt.cp5 = texelFetch(btriangles, ivec2(5, y), 0).xyz;
 
-	vec3 q_1 = bt.cp0 + bt.cp2 - 2 * bt.cp1;
-	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4 + 2 * bt.cp2;
-	vec3 q_3 = bt.cp5 - 2 * bt.cp4 + bt.cp2;
-	vec3 q_4 = 2 * bt.cp4 - 2 * bt.cp2;
-	vec3 q_5 = 2 * bt.cp1 - 2 * bt.cp2;
-	vec3 q_6 = bt.cp2;
+	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
+	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
+	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
+	vec3 q_4 = 2 * bt.cps[4] - 2 * bt.cps[2];
+	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
+	vec3 q_6 = bt.cps[2];
 
 	
 	float s = hit.lambda.x;
@@ -358,21 +404,12 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal
 
 	int y = index; // TODO
 
-	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
-
-	bt.cp0 = texelFetch(btriangles, ivec2(0, y), 0).xyz;
-	bt.cp1 = texelFetch(btriangles, ivec2(1, y), 0).xyz;
-	bt.cp2 = texelFetch(btriangles, ivec2(2, y), 0).xyz;
-	bt.cp3 = texelFetch(btriangles, ivec2(3, y), 0).xyz;
-	bt.cp4 = texelFetch(btriangles, ivec2(4, y), 0).xyz;
-	bt.cp5 = texelFetch(btriangles, ivec2(5, y), 0).xyz;
-
-	vec3 q_1 = bt.cp0 + bt.cp2 - 2 * bt.cp1;
-	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4 + 2 * bt.cp2;
-	vec3 q_3 = bt.cp5 - 2 * bt.cp4 + bt.cp2;
-	vec3 q_4 = 2 * bt.cp4 - 2 * bt.cp2;
-	vec3 q_5 = 2 * bt.cp1 - 2 * bt.cp2;
-	vec3 q_6 = bt.cp2;
+	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
+	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
+	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
+	vec3 q_4 = 2 * bt.cps[4] - 2 * bt.cps[2];
+	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
+	vec3 q_6 = bt.cps[2];
 
 	
 	float s = hit.lambda.x;

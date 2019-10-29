@@ -20,7 +20,7 @@ uniform float FACTORIALS[13] = {
 	39916800, 479001600 // 11, 12
 };
 
-const int GRAD = 2;
+//const int GRAD = 2;
 
 /**
  * Function to calculate Exponentiation.
