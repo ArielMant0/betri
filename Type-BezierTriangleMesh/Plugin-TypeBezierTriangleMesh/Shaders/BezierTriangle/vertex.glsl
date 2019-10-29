@@ -1,7 +1,7 @@
 
 out vec3 vRayOrigin;
 out vec3 vRayDirection;
-out float index;
+flat out int index;
 
 void main(void)
 {
@@ -22,7 +22,7 @@ void main(void)
 	// TODO das hier im fragmentshader tun
 	//vRayDirection = vertexPosition.xyz;
 	vRayDirection = inPosition.xyz;
-	index = inNormal.x;
+	index = int(inNormal.x);
 
 /*
 #ifdef SG_OUTPUT_POSOS

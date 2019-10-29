@@ -561,6 +561,22 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
 				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
+				ro.setUniform("b_error", (1.0f / betri::option(betri::BezierOption::B_ERROR)));
+				ro.setUniform("d_error", (1.0f / betri::option(betri::BezierOption::D_ERROR)));
+
+				// TODO is the shader recompiled every frame?
+				QString shaderMacro;
+				shaderMacro.sprintf("#define NEWTON_IT_COUNT %i", betri::option(betri::BezierOption::NEWTON_IT_COUNT));
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 0)
+					shaderMacro.sprintf("#define SG_OUTPUT_COLOR");
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 1)
+					shaderMacro.sprintf("#define SG_OUTPUT_NORMALOS");
+				else
+					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
 				// vertex shader uniforms
 				//ro.setUniform("cameraPos", );
 

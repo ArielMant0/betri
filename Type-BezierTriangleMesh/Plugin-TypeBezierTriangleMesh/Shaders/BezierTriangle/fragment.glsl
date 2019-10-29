@@ -22,15 +22,17 @@
 
 #define MAX_SCENE_BOUNDS 1000.0
 #define POSITIONS 4
-#define NEWTON_IT_COUNT 4
 
 in vec3 vRayOrigin;
 in vec3 vRayDirection;
-in float index; // TODO name
+flat in int index; // TODO name
 
 uniform sampler2D btriangles;
 uniform mat4 viewMatrix;
 uniform vec3 campos;
+
+uniform float b_error;
+uniform float d_error;
 
 // TODO there are already lightuniform slots
 uniform vec3 lig;
@@ -151,8 +153,6 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 	vec3 B_uv_old;
 	vec2 result;
 	vec3 result_2;
-	float b_error = 0.01; // TODO as uniform
-	float d_error = 0.01; // TODO as uniform
 
 	bool found = false;
 
@@ -179,6 +179,7 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction, const btriangle bt)
 				q_4;
 
 			// Original TODO should not be a derivate even if said so in the paper
+			// TODO pow vs s*s
 			B_uv = q_1 * pow(s, 2) +
 				q_2 * s * t +
 				q_3 * pow(t, 2) +
@@ -252,7 +253,7 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 	float smallest = info.lambda.x;
 	bool found = false;
 	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
-	int y = int(index); // TODO
+	int y = index; // TODO
 
 	bt.cp0 = texelFetch(btriangles, ivec2(0, y), 0).xyz;
 	bt.cp1 = texelFetch(btriangles, ivec2(1, y), 0).xyz;
@@ -311,7 +312,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 {
 	// TODO refactor everything, this is a stupid doublication
 
-	int y = int(index); // TODO
+	int y = index; // TODO
 
 	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
 
@@ -347,6 +348,60 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Curvature
+///////////////////////////////////////////////////////////////////////////////
+
+// http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
+vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal) 
+{
+	// TODO refactor everything, this is a stupid doublication
+
+	int y = index; // TODO
+
+	btriangle bt; // TODO direkt construktor nehmen und mit texture stuff befüllen
+
+	bt.cp0 = texelFetch(btriangles, ivec2(0, y), 0).xyz;
+	bt.cp1 = texelFetch(btriangles, ivec2(1, y), 0).xyz;
+	bt.cp2 = texelFetch(btriangles, ivec2(2, y), 0).xyz;
+	bt.cp3 = texelFetch(btriangles, ivec2(3, y), 0).xyz;
+	bt.cp4 = texelFetch(btriangles, ivec2(4, y), 0).xyz;
+	bt.cp5 = texelFetch(btriangles, ivec2(5, y), 0).xyz;
+
+	vec3 q_1 = bt.cp0 + bt.cp2 - 2 * bt.cp1;
+	vec3 q_2 = 2 * bt.cp3 - 2 * bt.cp1 - 2 * bt.cp4 + 2 * bt.cp2;
+	vec3 q_3 = bt.cp5 - 2 * bt.cp4 + bt.cp2;
+	vec3 q_4 = 2 * bt.cp4 - 2 * bt.cp2;
+	vec3 q_5 = 2 * bt.cp1 - 2 * bt.cp2;
+	vec3 q_6 = bt.cp2;
+
+	
+	float s = hit.lambda.x;
+	float t = hit.lambda.y;
+
+	// second partial derivate by s and s
+	vec3 dBss = 2 * q_1;
+
+	// second partial derivate by s and t
+	vec3 dBst = q_2;
+
+	// second partial derivate by t and t
+	vec3 dBtt = 2 * q_3;
+
+	mat2 secFund = mat2(
+		dot(dBss, normal), dot(dBst, normal),
+		dot(dBst, normal), dot(dBtt, normal)
+	);
+
+	float trace = secFund[0][0] + secFund[1][1];
+	float det = secFund[0][0] * secFund[1][1] - secFund[1][0] * secFund[1][0];
+
+	float l1 = trace * 0.5 + sqrt(trace * trace * 0.25 - det);
+	float l2 = trace * 0.5 - sqrt(trace * trace * 0.25 - det);
+
+	return vec3(-l1, -l2, 0.0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Main
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -369,10 +424,17 @@ void main(void)
 	if (hit.id != -1)
 	{
 		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
+#ifdef SG_OUTPUT_NORMALOS
+		oColor.rgb = normal;
+#endif
+#ifdef SG_OUTPUT_CURVATURE
+		oColor.rgb = calcCurvature(ray_origin, ray_direction, hit, normal);
+#endif
+#ifdef SG_OUTPUT_COLOR
 		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
-		//oColor.rgb = normal;
+#endif
 	}
-
+	
 	//gl_FragColor = vec4(ray_direction, 1.0);
 	outFragment = vec4(oColor.rgb, 1.0);
 

@@ -79,6 +79,12 @@ private slots:
 	void setTessAmount(int);
 	void setTessType(int);
 	void setBoundVType(int);
+	void setVisulisationType(int);
+	
+	// TODO wirklich nötig?
+	void setBError(int);
+	void setDError(int);
+	void setNewtonIt(int);
 
 	void setBoundVShow(bool);
 

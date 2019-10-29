@@ -7,6 +7,7 @@
 #include <qcombobox.h>
 #include <qlabel.h>
 #include <qspinbox.h>
+#include <qdoublespinbox>
 #include <qcheckbox.h>
 
 //#include <OpenFlipper/common/UpdateType.hh>
@@ -130,6 +131,30 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
 
+	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
+	QSpinBox *berrorSpinBox = new QSpinBox;
+	berrorSpinBox->setRange(0, 10000);
+	//QDoubleSpinBox *berrorSpinBox = new QDoubleSpinBox;
+	//berrorSpinBox->setRange(0.0, 0.1);
+	//berrorSpinBox->setSingleStep(0.001);
+	//berrorSpinBox->setValue(0.001);
+
+	QLabel *derrorLabel = new QLabel(tr("dot-error:"));
+	QSpinBox *derrorSpinBox = new QSpinBox;
+	derrorSpinBox->setRange(0, 10000);
+
+	QLabel *niterationLabel = new QLabel(tr("Newton Iteration Count:"));
+	QSpinBox *niterationSpinBox = new QSpinBox;
+	niterationSpinBox->setRange(0, 20);
+
+	connect(berrorSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setBError(int)));
+	connect(derrorSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setDError(int)));
+	connect(niterationSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setNewtonIt(int)));
+
+	berrorSpinBox->setValue(1000);
+	derrorSpinBox->setValue(1000);
+	niterationSpinBox->setValue(6);
+
 	// hide/show the appropriate widgets
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
 		this, [=](int index) {
@@ -151,6 +176,12 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QGridLayout *rayLayout = new QGridLayout;
 	rayLayout->addWidget(boundVLabel, 0, 0);
 	rayLayout->addWidget(boundVComboBox, 0, 1);
+	rayLayout->addWidget(berrorLabel, 1, 0);
+	rayLayout->addWidget(berrorSpinBox, 1, 1);
+	rayLayout->addWidget(derrorLabel, 2, 0);
+	rayLayout->addWidget(derrorSpinBox, 2, 1);
+	rayLayout->addWidget(niterationLabel, 3, 0);
+	rayLayout->addWidget(niterationSpinBox, 3, 1);
 	raytracingGroup->setLayout(rayLayout);
 	raytracingGroup->hide();
 
@@ -160,6 +191,12 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QGroupBox *visGroup = new QGroupBox(tr("Visualisation"));
 
 	QCheckBox *boundVBox = new QCheckBox("Show BoundingVolume");
+	QLabel *visLabel = new QLabel(tr("Facecoloring:"));
+	QComboBox *visComboBox = new QComboBox;
+	//boundVComboBox->addItem(tr("NONE"));
+	visComboBox->addItem(tr("Color")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
+	visComboBox->addItem(tr("Normal"));
+	visComboBox->addItem(tr("Curvature"));
 
 	// hide/show the appropriate widgets
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -169,9 +206,17 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 				if (boundVBox->isHidden()) {
 					boundVBox->show();
 				}
+				if (visComboBox->isHidden()) {
+					visComboBox->show();
+				}
+				if (visLabel->isHidden()) {
+					visLabel->show();
+				}
 				break;
 			default:
 				boundVBox->hide();
+				visLabel->hide()
+				visComboBox->hide();
 		}
 	}
 	);
@@ -179,9 +224,18 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(boundVBox, QOverload<bool>::of(&QCheckBox::clicked),
 		this, &BezierTriangleUtilsPlugin::setBoundVShow);
 
+	connect(visComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setVisulisationType);
+
 	QGridLayout *visLayout = new QGridLayout;
 	visLayout->addWidget(boundVBox, 0, 0);
+	visLayout->addWidget(visLabel, 1, 0);
+	visLayout->addWidget(visComboBox, 1, 1);
 	visGroup->setLayout(visLayout);
+
+	boundVBox->hide();
+	visLabel->hide();
+	visComboBox->hide();
 
 	///////////////////////////////////////////////////////////////////////////
 	// Performance group
@@ -303,9 +357,49 @@ void BezierTriangleUtilsPlugin::setBoundVType(int value)
 	}
 }
 
+void BezierTriangleUtilsPlugin::setVisulisationType(int value)
+{
+	PluginFunctions::betriOption(BezierOption::VISUALISATION_MODE, value);
+	// TODO does franziska approves this?
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+}
+
 void BezierTriangleUtilsPlugin::setBoundVShow(bool value)
 {
 	PluginFunctions::betriOption(BezierOption::SHOW_BOUNDING_VOLUME, value);
+}
+
+void BezierTriangleUtilsPlugin::setBError(int value)
+{
+	PluginFunctions::betriOption(BezierOption::B_ERROR, value);
+	emit log(LOGINFO, tr("set B_ERROR to %1").arg(value));
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+}
+
+void BezierTriangleUtilsPlugin::setDError(int value)
+{
+	PluginFunctions::betriOption(BezierOption::D_ERROR, value);
+	emit log(LOGINFO, tr("set D_ERROR to %1").arg(value));
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+}
+
+void BezierTriangleUtilsPlugin::setNewtonIt(int value)
+{
+	PluginFunctions::betriOption(BezierOption::NEWTON_IT_COUNT, value);
+	emit log(LOGINFO, tr("set D_ERROR to %1").arg(value));
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::TARGET_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
 }
 
 void BezierTriangleUtilsPlugin::callVoronoi()
