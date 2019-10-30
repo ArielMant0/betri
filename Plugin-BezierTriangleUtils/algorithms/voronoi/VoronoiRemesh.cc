@@ -472,8 +472,7 @@ void VoronoiRemesh::shortestPath(
 		const FH from,
 		const FH to,
 		const FH before,
-		const VH adj,
-		const bool border
+		const VH adj
 	) {
 		HH halfedge;
 		for (auto he = m_mesh.cfh_begin(from); he != m_mesh.cfh_end(from); ++he) {
@@ -487,7 +486,7 @@ void VoronoiRemesh::shortestPath(
 				// maybe even prefer those
 				if (m_mesh.opposite_face_handle(*he) != to && m_mesh.adjToFace(v, to) &&
 					m_mesh.opposite_face_handle(*he) != before) {
-					if (!isCrossed(*he) && (border || !vtt(v).isBorder() || adjToSeed(v))) {
+					if (!isCrossed(*he) && (!vtt(v).isBorder() || adjToSeed(v))) {
 						return *he;
 					} else {
 						halfedge = *he;
@@ -499,25 +498,21 @@ void VoronoiRemesh::shortestPath(
 	};
 
 	const auto commonVertex = [&](const FH fh1, const FH fh2) {
-		VH vh, vb0, vb1;
+		VH vh;
 		for (auto v_it = m_mesh.cfv_begin(fh1); v_it != m_mesh.cfv_end(fh1); ++v_it) {
-			if (vtt(*v_it).isBorder()) {
-				vb0 = *v_it;
-				if (m_mesh.adjToFace(*v_it, fh2)) {
-					vb1 = *v_it;
+			if (m_mesh.adjToFace(*v_it, fh2)) {
+				if (vtt(*v_it).isBorder()) {
+					return *v_it;
 				}
-			} else if (m_mesh.adjToFace(*v_it, fh2)) {
 				vh = *v_it;
 			}
 		}
 
-		if (vb1.is_valid()) return vb1;
-
-		if (vb0.is_valid() && vh.is_valid() && vb0 != vh) {
+		/*if (vb0.is_valid() && vh.is_valid() && vb0 != vh) {
 			EH edge = m_mesh.edge_handle(m_mesh.find_halfedge(vh, vb0));
 			m_mesh.set_color(edge, { 0.f, 0.f, 0.f, 1.f });
 			crossed(edge) = ctrlFace.idx();
-		}
+		}*/
 
 		assert(vh.is_valid());
 
@@ -599,7 +594,7 @@ void VoronoiRemesh::shortestPath(
 
 		FH prev = subpath[i - 1];
 		// find halfedge to next vertex in the path
-		way = connectingHalfedge(f_it, next, prev, node, i == subpath.size()-2);
+		way = connectingHalfedge(f_it, next, prev, node);
 		edge = m_mesh.edge_handle(way);
 		prevNode = node;
 

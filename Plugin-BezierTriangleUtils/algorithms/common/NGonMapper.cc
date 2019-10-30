@@ -64,11 +64,10 @@ void NGonMapper::map(std::vector<Path*> &paths)
 	}*/
     // const Path path = connect(paths);
 
-	const Scalar ri = .5; // inner radius
-	const Scalar ru = ri; // ri / std::cos(M_PI / paths.size()); // outer radius
+	const Scalar ru = 0.5; // ri / std::cos(M_PI / paths.size()); // outer radius
     const Scalar angle = (2.0 * M_PI) / paths.size();
     const Scalar sideLength = 2.0 * ru * std::sin(M_PI / paths.size());
-	const Point trans(ri, ri, 0.0);
+	const Point trans(ru, ru, 0.0);
 
 	const auto connectPaths = [&](Path *p0, Path *p1) {
 		const bool reverse = id(p0->front()) == id(p1->front());
