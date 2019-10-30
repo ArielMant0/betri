@@ -58,23 +58,15 @@ public:
 		cleanup();
 	}
 
-	/** Useful helper functions!
-	 * use these for getting and setting the:
-	 *  edge weights
-	 *  vertex weights
-	 *  texcoords
-	 *  and for getting the equation system index of inner mesh vertices
-	 */
-	Scalar& weight (EdgeHandle _eh) { return m_mesh.property(m_eweight, _eh); }
-	Scalar& weight (VertexHandle _vh) { return m_mesh.property(m_vweight, _vh); }
-	Vec2& hmap (VertexHandle _vh) { return vtt(_vh).uv; }
-	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
-
-	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
-	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
-
 	// directly solve parametrization
-	void solve();
+	bool solve();
+
+	bool solveLocal(const FaceHandle face);
+	bool solveLocal(const VertexHandle vh);
+
+	// computes weights (for complete mesh)
+	void calcWeights();
+	void calcWeights(const VertexHandle vh);
 
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";
@@ -86,16 +78,17 @@ private:
 	void prepare();
 	void cleanup();
 
-	// computes weights (for complete mesh)
-	void calcWeights();
-	void calcWeights(const VertexHandle vh);
+	Scalar& weight (EdgeHandle _eh) { return m_mesh.property(m_eweight, _eh); }
+	Scalar& weight (VertexHandle _vh) { return m_mesh.property(m_vweight, _vh); }
+	Vec2& hmap (VertexHandle _vh) { return vtt(_vh).uv; }
+	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
+
+	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
+	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
 
 	// initialize uv coordinates
 	void initCoords(const FaceHandle face);
 	void initCoords(const VertexHandle vh);
-
-	void solveLocal(const FaceHandle face);
-	void solveLocal(const VertexHandle vh);
 
 	// Function for adding the entries of one row in the equation system
 	void addRow(

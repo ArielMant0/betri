@@ -91,7 +91,10 @@ private slots:
 	void callDual();
 	void callFitting();
 
+	void testFitting();
+
 	// decimation meshing functions
 	void callDecimation();
 	void callDecimationStep();
+
 };

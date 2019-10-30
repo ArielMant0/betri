@@ -36,19 +36,22 @@ public:
 		prepare();
 	}
 
-	void solve();
+	void degree(size_t degree) { m_degree = degree; }
+	size_t degree() const { return m_degree; }
 
-	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
-	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
-	Vec2& hmap (VertexHandle vh) { return vtt(vh).uv; }
-	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
+	bool solve();
+
+	bool solveLocal(const FaceHandle face);
 
 private:
 
 	void prepare();
 	void cleanup();
 
-	void solveLocal(Vertices &inner, const FaceHandle face);
+	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
+	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
+	Vec2& hmap (VertexHandle vh) { return vtt(vh).uv; }
+	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
 	Scalar calcCoeffs(VertexHandle vh, int i, int j)
 	{

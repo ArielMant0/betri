@@ -48,6 +48,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *fittingButton = new QPushButton(tr("Fitting"));
 	connect(fittingButton, SIGNAL(clicked()), this, SLOT(callFitting()));
 
+	QPushButton *testFitButton = new QPushButton(tr("Test Fitting"));
+	connect(testFitButton, SIGNAL(clicked()), this, SLOT(testFitting()));
+
 	m_voronoiSteps.push_back(patitionButton);
 	m_voronoiSteps.push_back(dualStepButton);
 	m_voronoiSteps.push_back(dualButton);
@@ -59,6 +62,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualStepButton, 1, 1);
 	voronoiLayout->addWidget(dualButton, 1, 2);
 	voronoiLayout->addWidget(fittingButton, 1, 3);
+	voronoiLayout->addWidget(testFitButton, 2, 0, 1, 4);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -335,7 +339,7 @@ void BezierTriangleUtilsPlugin::callFitting()
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
 		betri::voronoiFitting(*o_it, ctrl_obj);
-		emit log(LOGINFO, "Performed Dualizing!");
+		emit log(LOGINFO, "Performed Fitting!");
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
@@ -375,6 +379,40 @@ void BezierTriangleUtilsPlugin::callPartition()
 		emit updatedObject(meshObj->id(), UPDATE_COLOR);
 
 		//m_voronoiSteps[0]->setDisabled(true);
+	}
+}
+
+void BezierTriangleUtilsPlugin::testFitting()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		int ctrl_id;
+		BaseObjectData *ctrl;
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+
+		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+		PluginFunctions::getObject(ctrl_id, ctrl);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl);
+
+		ctrlMeshObj->setName(meshObj->name() + "_ctrl");
+		ctrlMeshObj->hide();
+		ctrlMeshObj->target(false);
+
+		betri::voronoiFittingTest(*o_it, ctrl);
+
+		emit log(LOGINFO, "Performed Fitting Test!");
+
+		ctrlMeshObj->mesh()->setRenderable();
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 	}
 }
 

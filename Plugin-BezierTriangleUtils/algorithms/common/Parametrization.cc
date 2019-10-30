@@ -219,7 +219,7 @@ void Parametrization::initCoords(const FaceHandle face)
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::solveLocal(const VertexHandle vh)
+bool Parametrization::solveLocal(const VertexHandle vh)
 {
 	nv_inner_ = m_mesh.valence(vh);
 	assert(nv_inner_ > 0);
@@ -269,10 +269,12 @@ void Parametrization::solveLocal(const VertexHandle vh)
 		std::cerr << "solve failed!" << std::endl;
 
 	// TODO: write back to hmap
+	return false;
 }
 
-void Parametrization::solveLocal(const FaceHandle face)
+bool Parametrization::solveLocal(const FaceHandle face)
 {
+	m_inner = &ttv(face).inner;
 	nv_inner_ = m_inner->size();
 	assert(nv_inner_ > 0);
 
@@ -308,8 +310,6 @@ void Parametrization::solveLocal(const FaceHandle face)
 	// now we have all triplets to setup the matrix A
 	A.setFromTriplets(triplets.begin(), triplets.end());
 
-	// now we can solve for u and v
-
 	/**
 	 * vertexweight the matrix is not symmetric!  Hence, we cannot use an ordinary conjugate
 	 * gradient or cholesky decomposition. For solving this non-symmetric system we use a
@@ -319,35 +319,47 @@ void Parametrization::solveLocal(const FaceHandle face)
 	 * the vertexweight in add_row_to_system to 1. (this should NOT change the result)
 	 */
 	Eigen::BiCGSTAB<EigenSpMatT> bicg(A); // performs a Biconjugate gradient stabilized method
+
+	bool error = false;
+
 	resultU = bicg.solve(rhsu);
-	if (bicg.info() != Eigen::Success)
+	if (bicg.info() != Eigen::Success) {
+		error = true;
 		std::cerr << "solve failed!" << std::endl;
+	}
 
 	resultV = bicg.solve(rhsv);
-	if (bicg.info() != Eigen::Success)
+	if (bicg.info() != Eigen::Success) {
+		error = true;
 		std::cerr << "solve failed!" << std::endl;
-
-	// write back to hmap
-	for (const auto v : *m_inner) {
-		hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
-		std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
-		assert(hmap(v)[0] >= 0.);
-		assert(hmap(v)[1] >= 0.);
-		assert(hmap(v)[0] + hmap(v)[1] <= 1. + std::numeric_limits<double>::epsilon());
 	}
+
+	if (!error) {
+		// write back to hmap
+		for (const auto v : *m_inner) {
+			hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
+			//std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
+			assert(std::isgreaterequal(hmap(v)[0], 0.0));
+			assert(std::isgreaterequal(hmap(v)[1], 0.0));
+			assert(std::islessequal(hmap(v)[0], 1.0));
+			assert(std::islessequal(hmap(v)[1], 1.0));
+		}
+	}
+
+	return !error;
 }
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::solve()
+bool Parametrization::solve()
 {
 	// TODO: only needs to be done once?
 	calcWeights();
 
-	for (const auto &face : m_ctrl.faces()) {
-		m_inner = &ttv(face).inner;
-		solveLocal(face);
+	for (FaceHandle face : m_ctrl.faces()) {
+		if (!solveLocal(face)) return false;
 	}
+	return true;
 }
 
 //-----------------------------------------------------------------------------

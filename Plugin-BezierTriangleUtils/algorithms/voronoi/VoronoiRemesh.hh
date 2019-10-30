@@ -29,12 +29,13 @@ public:
 		static constexpr char *BORDER = "border";
 	};
 
-	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors=true, bool copy=false) :
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors = true, bool copy = false) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_useColors(colors),
 		m_copy(copy),
 		m_debugCancel(false),
+		m_useBaseMesh(false),
 		m_vertexIdx(0u),
 		m_colors(),
 		m_seeds(),
@@ -48,43 +49,99 @@ public:
 		cleanup();
 	}
 
-	void prepare();
-	void cleanup();
-
 	// performs all steps
 	void remesh();
+
 	// partitions mesh into voronoi regions
 	void partition();
+	// use orignal mesh and initialize all needed data structures
+	void prepareFromBaseMesh();
+
 	// performs "dualizing" by finding paths on the mesh, can be performed stepwise
 	bool dualize(bool steps=false);
+	// initialize shortest paths if original mesh is used as base
+	void makeShortestPaths();
+
 	// parametrize and fit to surface
 	void fitting();
+
+	// -------------------------------------
+	// settings
+	// -------------------------------------
+
+	void useBaseMesh(bool use) { m_useBaseMesh = use; }
+	bool useBaseMesh() const { return m_useBaseMesh; }
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
 
-	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
-	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
+private:
 
-	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
-	FH pred(const FH fh) const { return m_mesh.property(m_pred, fh); }
-	double& dist(FH fh) { return m_mesh.property(m_distance, fh); }
+	void prepare();
+	void cleanup();
 
-	TriToVertex& ttv(FH fh) { return m_ctrl.property(m_ttv, fh); }
-	VertexToTri& vtt(VH vh) { return m_mesh.property(m_vtt, vh); }
+	ID& id(FH fh)
+	{
+		return m_mesh.property(m_region, fh);
+	}
+	ID id(const FH fh) const
+	{
+		return m_mesh.property(m_region, fh);
+	}
 
-	//FaceSplit& split(FH fh) { return m_mesh.property(m_split, fh); }
+	FH& pred(FH fh)
+	{
+		return m_mesh.property(m_pred, fh);
+	}
+	FH pred(const FH fh) const
+	{
+		return m_mesh.property(m_pred, fh);
+	}
+	double& dist(FH fh)
+	{
+		return m_mesh.property(m_distance, fh);
+	}
 
-	ID& crossed(EH eh) { return m_mesh.property(m_crossed, eh); }
-	ID& crossed(HH he) { return crossed(m_mesh.edge_handle(he)); }
+	TriToVertex& ttv(FH fh)
+	{
+		return m_ctrl.property(m_ttv, fh);
+	}
+	VertexToTri& vtt(VH vh)
+	{
+		return m_mesh.property(m_vtt, vh);
+	}
 
-	ID crossed(const EH eh) const { return m_mesh.property(m_crossed, eh); }
-	ID crossed(const HH he) const { return crossed(m_mesh.edge_handle(he)); }
+	ID& crossed(EH eh)
+	{
+		return m_mesh.property(m_crossed, eh);
+	}
+	ID& crossed(HH he)
+	{
+		return crossed(m_mesh.edge_handle(he));
+	}
 
-	bool isCrossed(const EH eh) const { return eh.is_valid() && crossed(eh) >= 0; }
-	bool isCrossed(const HH he) const { return he.is_valid() && isCrossed(m_mesh.edge_handle(he)); }
+	ID crossed(const EH eh) const
+	{
+		return m_mesh.property(m_crossed, eh);
+	}
+	ID crossed(const HH he) const
+	{
+		return crossed(m_mesh.edge_handle(he));
+	}
 
-	std::pair<ID,ID>& faceBorder(FH fh) { return m_mesh.property(m_fborder, fh); }
+	bool isCrossed(const EH eh) const
+	{
+		return eh.is_valid() && crossed(eh) >= 0;
+	}
+	bool isCrossed(const HH he) const
+	{
+		return he.is_valid() && isCrossed(m_mesh.edge_handle(he));
+	}
+
+	std::pair<ID, ID>& faceBorder(FH fh)
+	{
+		return m_mesh.property(m_fborder, fh);
+	}
 
 	bool isBorder(const FH fh)
 	{
@@ -92,7 +149,7 @@ public:
 		return b.first != -1 && b.second != -1;
 	}
 
-	void setFaceBorder(const FH fh, ID id1=-1, ID id2=-1)
+	void setFaceBorder(const FH fh, ID id1 = -1, ID id2 = -1)
 	{
 		auto b = faceBorder(fh);
 		b.first = id1;
@@ -114,11 +171,9 @@ public:
 
 	bool isRegionBorderEdge(EH e) const
 	{
-		HH h = m_mesh.halfedge_handle(e,0);
+		HH h = m_mesh.halfedge_handle(e, 0);
 		return id(m_mesh.face_handle(h)) != id(m_mesh.opposite_face_handle(h));
 	}
-
-private:
 
 	// everythign related to the voronoi partition
 	using QElem = std::pair<double, FH>;
@@ -281,7 +336,7 @@ private:
 
 	BezierTMesh &m_mesh, &m_ctrl;
 
-	bool m_useColors, m_copy, m_debugCancel;
+	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh;
 	size_t m_nvertices, m_nedges, m_vertexIdx;
 	ACG::HaltonColors m_colGen;
 

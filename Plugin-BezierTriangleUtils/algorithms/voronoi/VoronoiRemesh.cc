@@ -815,6 +815,28 @@ void VoronoiRemesh::partition()
 	}
 }
 
+void betri::VoronoiRemesh::prepareFromBaseMesh()
+{
+	assert(m_useBaseMesh);
+
+	m_colors.reserve(m_mesh.n_faces());
+	m_colGen.generateNextNColors(m_mesh.n_faces(), std::back_inserter(m_colors));
+
+	copyMesh(m_mesh, m_ctrl);
+
+	for (FH face : m_mesh.faces()) {
+		id(face) = face.idx();
+		dist(face) = 0.0;
+		pred(face) = FH();
+
+		m_mesh.set_color(face, m_colors[face.idx()]);
+	}
+
+	for (EH edge : m_mesh.edges()) {
+		crossed(edge) = -1;
+	}
+}
+
 //////////////////////////////////////////////////////////
 // create base mesh
 //////////////////////////////////////////////////////////
@@ -896,7 +918,6 @@ bool VoronoiRemesh::dualize(bool steps)
 
 			// make sure there are no impassable edges
 			// (i.e. edge connected to 2 vertices adj to border edges)
-			// TODO: does not work well
 			splitClosedPaths();
 
 			for (FH f : m_mesh.faces()) {
@@ -925,28 +946,83 @@ bool VoronoiRemesh::dualize(bool steps)
 	return m_vertexIdx == m_mesh.n_vertices();
 }
 
+void betri::VoronoiRemesh::makeShortestPaths()
+{
+	assert(m_useBaseMesh);
+
+	// create a path for each edge, ids are given by the vertices
+	for (EH edge : m_mesh.edges()) {
+		HH he = m_mesh.halfedge_handle(edge, 0);
+		VH v0 = m_mesh.from_vertex_handle(he), v1 = m_mesh.to_vertex_handle(he);
+
+		ShortestPath path(v0.idx(), v1.idx());
+		path.push(v0); path.push(v1);
+
+		if (!vtt(v0).isBorder()) {
+			vtt(v0).setBorder(path.first(), path.second());
+		}
+		if (!vtt(v1).isBorder()) {
+			vtt(v1).setBorder(path.first(), path.second());
+		}
+		ShortestPath::path(path);
+	}
+
+	// split faces so we end up with 1 extra vertex per face (and 3 extra faces)
+	for (FH face : m_ctrl.faces()) {
+		size_t i = 0;
+		for (auto vb = m_mesh.cfv_begin(face), ve = m_mesh.cfv_end(face); vb != ve; ++vb) {
+			ttv(face)[i++] = vb->idx();
+		}
+
+		VH vh = m_mesh.splitFaceBarycentric(face, true);
+		vtt(vh).setFace(m_ctrl.face_handle(face.idx()), face.idx());
+		ttv(face).inner.push_back(vh);
+
+		/*size_t end = m_mesh.n_faces();
+		for (size_t i = end - 3; i < end; ++i) {
+			ttv(face).inner.push_back(m_mesh.splitFaceBarycentric(m_mesh.face_handle(i), true));
+		}*/
+	}
+}
+
 //////////////////////////////////////////////////////////
 // parameterization (harmonic map) + surface fitting
 //////////////////////////////////////////////////////////
 void VoronoiRemesh::fitting()
 {
 	Parametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
-
-	param.solve();
-
 	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
-	fit.solve();
+	param.calcWeights();
+	fit.degree(m_mesh.degree());
+
+	for (FH face : m_ctrl.faces()) {
+		if (!param.solveLocal(face)) {
+			std::cerr << "parametrization for face " << face << " failed\n";
+			m_debugCancel = true;
+			return;
+		}
+		if (!fit.solveLocal(face)) {
+			std::cerr << "fitting for face " << face << " failed\n";
+			m_debugCancel = true;
+			return;
+		}
+	}
+
 }
 
 void VoronoiRemesh::remesh()
 {
-	partition();
+	if (!m_useBaseMesh) partition();
+	else prepareFromBaseMesh();
 
+	// stop if cancel was requested
 	if (m_debugCancel) return;
 
-	dualize();
+	if (!m_useBaseMesh) dualize();
+	else makeShortestPaths();
 
+	// stop if cancel was requested
 	if (m_debugCancel) return;
 
 	fitting();

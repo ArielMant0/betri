@@ -13,6 +13,8 @@ bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
 
 void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
+void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
+
 bool decimation(BaseObjectData *object, size_t complexity, bool steps);
 
 }

@@ -28,7 +28,7 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 	// get feature lines object
 	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
 		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
-		);
+	);
 
 	return remesher;
 }
@@ -96,12 +96,41 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 #ifndef DRAW_CURVED
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED
+			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 		ctrl->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED
+			ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 	}
+#endif
+}
+
+void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
+	BezierTMesh *ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
+
+	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
+	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
+		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
+	);
+	remesher->useBaseMesh(true);
+	remesher->remesh();
+
+	mesh->garbage_collection();
+	ctrlMesh->garbage_collection();
+
+#ifndef DRAW_CURVED
+	object->setObjectDrawMode(
+		ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED |
+		ACG::SceneGraph::DrawModes::WIREFRAME
+	);
+	ctrl->setObjectDrawMode(
+		ACG::SceneGraph::DrawModes::SOLID_SMOOTH_SHADED |
+		ACG::SceneGraph::DrawModes::WIREFRAME
+	);
 #endif
 }
 
