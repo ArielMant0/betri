@@ -22,11 +22,20 @@ void VoronoiRemesh::prepare()
 	if (!m_mesh.get_property_handle(m_region, Props::REGION))
 		m_mesh.add_property(m_region, Props::REGION);
 
+	if (!m_mesh.get_property_handle(m_vid, "vseedid"))
+		m_mesh.add_property(m_vid, "vseedid");
+
 	if (!m_mesh.get_property_handle(m_pred, Props::PREDECESSOR))
 		m_mesh.add_property(m_pred, Props::PREDECESSOR);
 
+	if (!m_mesh.get_property_handle(m_vpred, "vseedpred"))
+		m_mesh.add_property(m_vpred, "vseedpred");
+
 	if (!m_mesh.get_property_handle(m_distance, Props::DISTANCE))
 		m_mesh.add_property(m_distance, Props::DISTANCE);
+
+	if (!m_mesh.get_property_handle(m_vdist, "vseeddist"))
+		m_mesh.add_property(m_vdist, "vseeddist");
 
 	if (!m_mesh.get_property_handle(m_crossed, Props::CROSSED))
 		m_mesh.add_property(m_crossed, Props::CROSSED);
@@ -34,9 +43,9 @@ void VoronoiRemesh::prepare()
 	if (!m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
 		m_mesh.add_property(m_vtt, Props::VERTEXTOTRI);
 
-	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX)) {
+	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX))
 		m_ctrl.add_property(m_ttv, Props::TRITOVERTEX);
-	}
+
 
 	ShortestPath::clear();
 
@@ -62,11 +71,20 @@ void VoronoiRemesh::cleanup()
 	if (m_mesh.get_property_handle(m_region, Props::REGION))
 		m_mesh.remove_property(m_region);
 
+	if (m_mesh.get_property_handle(m_vid, "vseedid"))
+		m_mesh.remove_property(m_vid);
+
 	if (m_mesh.get_property_handle(m_pred, Props::PREDECESSOR))
 		m_mesh.remove_property(m_pred);
 
+	if (m_mesh.get_property_handle(m_vpred, "vseedpred"))
+		m_mesh.remove_property(m_vpred);
+
 	if (m_mesh.get_property_handle(m_distance, Props::DISTANCE))
 		m_mesh.remove_property(m_distance);
+
+	if (m_mesh.get_property_handle(m_vdist, "vseeddist"))
+		m_mesh.remove_property(m_vdist);
 
 	if (m_mesh.get_property_handle(m_crossed, Props::CROSSED))
 		m_mesh.remove_property(m_crossed);
@@ -704,7 +722,7 @@ void VoronoiRemesh::connectPaths(const ShortestPath & p0, const ShortestPath & p
 void VoronoiRemesh::partition()
 {
 	// special "priority-queue" for dijkstra
-	Dijkstra q;
+	FaceDijkstra q;
 
 	const double INF = std::numeric_limits<double>::max();
 	// initialize face properties
@@ -808,6 +826,63 @@ void VoronoiRemesh::partition()
 			assert(pred(fh) != pred(pred(fh)));
 		}
 	}
+}
+
+void betri::VoronoiRemesh::vertexDijkstra(const VH start)
+{
+	VertexDijkstra q;
+
+	const Scalar INF = std::numeric_limits<Scalar>::max();
+
+	if (start.is_valid()) {
+		// called after having found a path (avoid crossing paths)
+		for (VH vh : m_mesh.vertices()) {
+			if (id(vh) == id(start) && !isCrossed(vh)) {
+				dist(vh) = INF;
+				pred(vh) = VH();
+			}
+		}
+		q.insert({ 0.0, start });
+	} else {
+		m_seedVerts.reserve(m_seeds.size());
+		// first time calling this
+		for (VH vh : m_mesh.vertices()) {
+			id(vh) = -1;
+			dist(vh) = INF;
+			pred(vh) = VH();
+		}
+
+		for (FH face : m_seeds) {
+			const VH vh = *m_mesh.cfv_begin(face);
+			id(vh) = m_seedVerts.size();
+			dist(vh) = 0.0;
+			m_seedVerts.push_back(vh);
+			q.insert({ 0.0, vh });
+		}
+	}
+
+	do {
+
+		const VH vh = q.begin()->second;
+		q.erase(q.begin());
+
+		Point p0 = m_mesh.point(vh);
+
+		auto end = m_mesh.cvoh_end(vh);
+		for (auto he = m_mesh.cvoh_begin(vh); he != end; ++he) {
+			const VH vv = m_mesh.to_vertex_handle(*he);
+
+			Scalar updateDist = dist(vh) + (p0 - m_mesh.point(vv)).norm();
+			if (!isCrossed(he) && updateDist < dist(vv)) {
+				dist(vv) = updateDist;
+				id(vv) = id(vh);
+				pred(vv) = vh;
+
+				q.insert({ updateDist, vv });
+			}
+		}
+
+	} while (!q.empty());
 }
 
 void betri::VoronoiRemesh::prepareFromBaseMesh()
@@ -1028,7 +1103,7 @@ void VoronoiRemesh::remesh()
 	std::cerr << "----------- DONE -----------" << std::endl;
 }
 
-void VoronoiRemesh::resetPath(Dijkstra &q, const FH face)
+void VoronoiRemesh::resetPath(FaceDijkstra &q, const FH face)
 {
 	const FH prevPred = pred(face);
 	pred(face) = FH();
@@ -1047,7 +1122,7 @@ void VoronoiRemesh::resetPath(Dijkstra &q, const FH face)
 void VoronoiRemesh::repartition(const ID id1)
 {
 	// special "priority-queue" for dijkstra
-	Dijkstra q;
+	FaceDijkstra q;
 
 	size_t before = m_seeds.size();
 
@@ -1178,7 +1253,7 @@ void VoronoiRemesh::repartition(const ID id1)
 	std::cerr << __FUNCTION__ << " DONE!\n";
 }
 
-void VoronoiRemesh::reduceCuts(Dijkstra &q)
+void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 {
 	std::vector<std::vector<short>> cuts;
 	cuts.reserve(m_seeds.size());
@@ -1257,7 +1332,7 @@ void VoronoiRemesh::reduceCuts(Dijkstra &q)
 	});
 }
 
-void VoronoiRemesh::reduceAdjRegions(Dijkstra & q)
+void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 {
 	const auto adjTiles = [&](const VH v) {
 		std::set<ID> tiles;

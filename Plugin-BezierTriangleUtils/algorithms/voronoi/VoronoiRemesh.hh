@@ -80,27 +80,18 @@ private:
 	void prepare();
 	void cleanup();
 
-	ID& id(FH fh)
-	{
-		return m_mesh.property(m_region, fh);
-	}
-	ID id(const FH fh) const
-	{
-		return m_mesh.property(m_region, fh);
-	}
+	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
+	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
+	ID& id(VH vh) { return m_mesh.property(m_vid, vh); }
+	ID id(const VH vh) const { return m_mesh.property(m_vid, vh); }
 
-	FH& pred(FH fh)
-	{
-		return m_mesh.property(m_pred, fh);
-	}
-	FH pred(const FH fh) const
-	{
-		return m_mesh.property(m_pred, fh);
-	}
-	double& dist(FH fh)
-	{
-		return m_mesh.property(m_distance, fh);
-	}
+	FH& pred(FH fh) { return m_mesh.property(m_pred, fh); }
+	FH pred(const FH fh) const { return m_mesh.property(m_pred, fh); }
+	VH& pred(VH vh) { return m_mesh.property(m_vpred, vh); }
+	VH pred(const VH vh) const { return m_mesh.property(m_vpred, vh); }
+
+	Scalar& dist(FH fh) { return m_mesh.property(m_distance, fh); }
+	Scalar& dist(VH vh) { return m_mesh.property(m_vdist, vh); }
 
 	TriToVertex& ttv(FH fh)
 	{
@@ -136,6 +127,13 @@ private:
 	bool isCrossed(const HH he) const
 	{
 		return he.is_valid() && isCrossed(m_mesh.edge_handle(he));
+	}
+	bool isCrossed(const VH vh) const
+	{
+		for (auto e_it = m_mesh.cve_begin(vh); e_it != m_mesh.cve_end(vh); ++e_it) {
+			if (isCrossed(*e_it)) return true;
+		}
+		return false;
 	}
 
 	std::pair<ID, ID>& faceBorder(FH fh)
@@ -176,12 +174,17 @@ private:
 	}
 
 	// everythign related to the voronoi partition
-	using QElem = std::pair<double, FH>;
-	using Dijkstra = std::set<QElem>;
+	using FQElem = std::pair<Scalar, FH>;
+	using FaceDijkstra = std::set<FQElem>;
 
-	void resetPath(Dijkstra &q, const FH face);
+	void resetPath(FaceDijkstra &q, const FH face);
 
 	void repartition(const ID id1);
+
+	using VQElem = std::pair<Scalar, VH>;
+	using VertexDijkstra = std::set<VQElem>;
+
+	void vertexDijkstra(const VH start=VH());
 
 	EH commonEdge(const FH f0, const FH f1)
 	{
@@ -193,7 +196,7 @@ private:
 		return EH();
 	}
 
-	void grow(Dijkstra &q, const FH face, const FH predFace=FH(), double distance=0.0)
+	void grow(FaceDijkstra &q, const FH face, const FH predFace=FH(), Scalar distance=0.0)
 	{
 		id(face) = !predFace.is_valid() ? m_seeds.size() - 1 : id(predFace);
 		if (m_useColors) {
@@ -202,7 +205,7 @@ private:
 		pred(face) = predFace;
 		if (predFace.is_valid()) assert(face != pred(pred(face)));
 
-		auto pair = QElem(dist(face), face);
+		auto pair = FQElem(dist(face), face);
 		auto it = q.find(pair);
 		if (it != q.end()) q.erase(it);
 
@@ -227,9 +230,9 @@ private:
 		return !(isAdjTo(v, tile) && countEdge == 2);
 	}
 
-	void reduceCuts(Dijkstra &q);
+	void reduceCuts(FaceDijkstra &q);
 
-	void reduceAdjRegions(Dijkstra &q);
+	void reduceAdjRegions(FaceDijkstra &q);
 
 	bool isSeed(const FH f) const
 	{
@@ -240,7 +243,7 @@ private:
 		}
 	}
 
-	void addSeed(Dijkstra &q, const FH f)
+	void addSeed(FaceDijkstra &q, const FH f)
 	{
 		assert(!isSeed(f));
 		m_seeds.push_back(f);
@@ -343,14 +346,17 @@ private:
 	std::vector<Color> m_colors;
 	std::vector<FH> m_seeds;
 	std::vector<VH> m_ctrlVerts;
+	std::vector<VH> m_seedVerts;
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;
 	OpenMesh::FPropHandleT<FH>			  m_pred;
-	OpenMesh::FPropHandleT<double>		  m_distance;
+	OpenMesh::FPropHandleT<Scalar>		  m_distance;
 	// must be something other than bool because vector<bool> is handled uniquely in C++
 	OpenMesh::EPropHandleT<ID>			  m_crossed;
-	//OpenMesh::FPropHandleT<FaceSplit>	  m_split;
+	OpenMesh::VPropHandleT<ID>			  m_vid;
+	OpenMesh::VPropHandleT<Scalar>		  m_vdist;
+	OpenMesh::VPropHandleT<VH>			  m_vpred;
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;
