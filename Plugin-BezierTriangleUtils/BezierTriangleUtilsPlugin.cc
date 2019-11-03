@@ -289,7 +289,13 @@ void BezierTriangleUtilsPlugin::callDualStep()
 			emit log(LOGINFO, "Finished Dualizing!");
 			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-			ctrlMeshObj->mesh()->setRenderable();
+			BezierTMesh *m = ctrlMeshObj->mesh();
+
+			for (BezierTMesh::FaceHandle face : m->faces()) {
+				m->recalculateCPs(face);
+			}
+			m->setRenderable();
+
 			ctrlMeshObj->show();
 
 			//m_voronoiSteps[1]->setDisabled(true);

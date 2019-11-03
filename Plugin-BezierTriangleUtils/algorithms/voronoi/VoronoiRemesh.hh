@@ -136,23 +136,8 @@ private:
 		return false;
 	}
 
-	std::pair<ID, ID>& faceBorder(FH fh)
-	{
-		return m_mesh.property(m_fborder, fh);
-	}
-
-	bool isBorder(const FH fh)
-	{
-		auto b = faceBorder(fh);
-		return b.first != -1 && b.second != -1;
-	}
-
-	void setFaceBorder(const FH fh, ID id1 = -1, ID id2 = -1)
-	{
-		auto b = faceBorder(fh);
-		b.first = id1;
-		b.second = id2;
-	}
+	bool isBorder(const VH vh) const { return m_mesh.property(m_vborder, vh); }
+	void setBorder(const VH vh, bool val) { m_mesh.property(m_vborder, vh) = val; }
 
 	bool commonEdgeCrossed(const FH fh, const FH next) const
 	{
@@ -313,14 +298,10 @@ private:
 		const ShortestPath &path
 	);
 
-	void connectPaths(const ShortestPath & p0, const ShortestPath & p1, const FH f);
-
-	ID seedVertex(const VH vh) const
+	bool isSeedVertex(const VH vh) const
 	{
-		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
-			if (!pred(*f_it).is_valid()) return id(*f_it);
-		}
-		return -1;
+		assert(id(vh) >= 0);
+		return m_seedVerts[id(vh)] == vh;
 	}
 
 	FH findDelaunayFace(ID r0, ID r1, ID r2)
@@ -357,11 +338,11 @@ private:
 	OpenMesh::VPropHandleT<ID>			  m_vid;
 	OpenMesh::VPropHandleT<Scalar>		  m_vdist;
 	OpenMesh::VPropHandleT<VH>			  m_vpred;
+	OpenMesh::VPropHandleT<bool>		  m_vborder;
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;
 
-	OpenMesh::FPropHandleT<std::pair<ID,ID>>   m_fborder;
 };
 
 }
