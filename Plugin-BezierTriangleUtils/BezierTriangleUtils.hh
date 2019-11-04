@@ -3,6 +3,12 @@
 namespace betri
 {
 
+enum class TestOptions
+{
+	fitting,
+	parameterization
+};
+
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors);
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -16,5 +22,7 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
 
 bool decimation(BaseObjectData *object, size_t complexity, bool steps);
+
+bool test(TestOptions which, BezierTMesh *mesh=nullptr);
 
 }

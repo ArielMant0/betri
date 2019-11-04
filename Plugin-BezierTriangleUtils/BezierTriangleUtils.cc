@@ -2,6 +2,8 @@
 #include "algorithms/voronoi/VoronoiRemeshPerObjectData.hh"
 #include "algorithms/decimation/DecimationPerObjectData.hh"
 
+#include "algorithms/common/Fitting.hh"
+
 using VOD = VoronoiRemeshPerObjectData;
 using DEC = DecimationPerObjectData;
 
@@ -161,6 +163,14 @@ Decimation* getDecimationObject(BaseObjectData *object)
 bool decimation(BaseObjectData *object, size_t complexity, bool steps)
 {
 	return getDecimationObject(object)->decimate(complexity, steps);
+}
+
+bool test(TestOptions which, BezierTMesh *mesh)
+{
+	switch (which) {
+		case TestOptions::fitting: return Fitting::test(mesh);
+		default: return true;
+	}
 }
 
 }

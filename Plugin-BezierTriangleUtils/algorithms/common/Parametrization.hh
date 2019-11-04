@@ -68,6 +68,8 @@ public:
 	void calcWeights();
 	void calcWeights(const VertexHandle vh);
 
+	bool test();
+
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";
 	static constexpr char *sysidName = "sysidProp";

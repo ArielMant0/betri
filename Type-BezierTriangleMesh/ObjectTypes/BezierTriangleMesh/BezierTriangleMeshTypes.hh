@@ -31,7 +31,7 @@ struct BezierTriangleTraits : public TriTraits
 			m_cps.resize(size);
 		}
 
-		void controlPoint(int index, Point &point)
+		void controlPoint(int index, Point point)
 		{
 			if (m_cps.size() <= index) {
 				m_cps.push_back(point);

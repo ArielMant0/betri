@@ -169,7 +169,7 @@ private:
 	using VQElem = std::pair<Scalar, VH>;
 	using VertexDijkstra = std::set<VQElem>;
 
-	void vertexDijkstra(const VH start=VH());
+	void vertexDijkstra(const ID id0=-1, const ID id1=-1);
 
 	EH commonEdge(const FH f0, const FH f1)
 	{

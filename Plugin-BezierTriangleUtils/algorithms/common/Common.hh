@@ -106,4 +106,9 @@ inline Scalar eval(int i, int j, double u, double v, unsigned int degree)
 		* std::pow(u, i) * std::pow(v, j) * std::pow(w, k);
 }
 
+inline size_t pointsFromDegree(const size_t degree)
+{
+	return (degree + 1)*(degree + 2) / 2;
+}
+
 }

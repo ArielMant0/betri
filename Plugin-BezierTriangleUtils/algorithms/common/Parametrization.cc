@@ -169,6 +169,15 @@ void Parametrization::calcWeights(const VertexHandle vh)
 
 }
 
+bool Parametrization::test()
+{
+	bool result = true;
+
+	// TODO: add test cases
+
+	return result;
+}
+
 //-----------------------------------------------------------------------------
 
 void Parametrization::initCoords(const VertexHandle vh)

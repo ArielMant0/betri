@@ -24,7 +24,7 @@
 namespace ACG {
 namespace SceneGraph {
 
-static const int GRAD = 3; // 1 = linear, 2 = quadratisch
+static const int GRAD = 2; // 1 = linear, 2 = quadratisch
 //static const int ITERATIONS = 0;
 
 // Additional Control Points per edge
@@ -310,6 +310,11 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 		auto vh1 = *(vertexHandle++);
 		auto vh2 = *(vertexHandle);
 
+
+		Point p0 = bezierTriangleMesh_.point(vh0);
+		Point p1 = bezierTriangleMesh_.point(vh1);
+		Point p2 = bezierTriangleMesh_.point(vh2);
+
 		std::vector<Point> cp_vec = std::vector<Point>();
 
 		//const float STEPSIZE = round((1.0 / GRAD) * 100) / 100;
@@ -319,7 +324,7 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 		for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
 				double w = 1 - u - v;
-				Point p = bezierTriangleMesh_.point(vh0) * u + bezierTriangleMesh_.point(vh1) * v + bezierTriangleMesh_.point(vh2) * w;
+				Point p = p0 * u + p1 * v + p2 * w;
 				// If it isnt an cornerpoint
 				if (i != 0 && i != GRAD && i != betri::gaussSum(GRAD + 1) - 1) {
 					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;

@@ -287,15 +287,11 @@ void BezierTriangleUtilsPlugin::callDualStep()
 		// only show control mesh obj if its complete
 		if (done) {
 			emit log(LOGINFO, "Finished Dualizing!");
+
 			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-			BezierTMesh *m = ctrlMeshObj->mesh();
-
-			for (BezierTMesh::FaceHandle face : m->faces()) {
-				m->recalculateCPs(face);
-			}
-			m->setRenderable();
-
+			// TODO: does not work for some reason
+			ctrlMeshObj->mesh()->setRenderable();
 			ctrlMeshObj->show();
 
 			//m_voronoiSteps[1]->setDisabled(true);
@@ -323,6 +319,7 @@ void BezierTriangleUtilsPlugin::callDual()
 		emit updatedObject(meshObj->id(), UPDATE_COLOR);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
+		// TODO: does not work for some reason
 		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
 
@@ -350,6 +347,8 @@ void BezierTriangleUtilsPlugin::callFitting()
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
+		ctrlMeshObj->mesh()->setRenderable();
+		ctrlMeshObj->show();
 	}
 	for (auto button : m_voronoiSteps) {
 		button->setDisabled(false);
@@ -390,6 +389,24 @@ void BezierTriangleUtilsPlugin::callPartition()
 
 void BezierTriangleUtilsPlugin::testFitting()
 {
+	int ctrl_id;
+
+	emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+	PluginFunctions::getObject(ctrl_id, ctrl_obj);
+	BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+	ctrlMeshObj->setName("fitting-test");
+	ctrlMeshObj->target(true);
+
+	betri::test(betri::TestOptions::fitting, ctrlMeshObj->mesh());
+
+	emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+
+	ctrlMeshObj->mesh()->setRenderable();
+	ctrlMeshObj->show();
+
+	return;
+
 	// init object iterator
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::TARGET_OBJECTS,

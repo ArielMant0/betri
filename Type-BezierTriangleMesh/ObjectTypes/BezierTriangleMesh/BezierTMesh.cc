@@ -44,6 +44,7 @@ void BezierTMesh::recalculateCPs(const FaceHandle f)
 	auto p2 = point(vh2);
 
 	auto bezier = data(f);
+	bezier.prepare(m_degree);
 
 	int i = 0;
 	const float CP_STEPSIZE = 1.0 / m_degree;

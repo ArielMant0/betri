@@ -690,26 +690,36 @@ void VoronoiRemesh::partition()
 	vertexDijkstra();
 }
 
-void VoronoiRemesh::vertexDijkstra(const VH start)
+void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 {
 	VertexDijkstra q;
 
 	const Scalar INF = std::numeric_limits<Scalar>::max();
 
-	if (start.is_valid()) {
+	if (id0 >= 0 && id1 >= 0) {
+		const VH start0 = m_seedVerts[id0], start1 = m_seedVerts[id1];
 		// called after having found a path (avoid crossing paths)
 		for (VH vh : m_mesh.vertices()) {
-			if (vh != start && id(vh) == id(start)) {
+			if (vh != start0 && vh != start1 && (id(vh) == id0 || id(vh) == id1)) {
 				dist(vh) = INF;
 				pred(vh) = vtt(vh).isBorder() ? pred(vh) : VH();
 			}
 		}
-		Point p0 = m_mesh.point(start);
+		Point p = m_mesh.point(start0);
 		// add all neighbors of the start vertex to the queue (if they are not on a border)
-		for (auto vv = m_mesh.cvv_begin(start); vv != m_mesh.cvv_end(start); ++vv) {
-			if (id(*vv) == id(start) && !vtt(*vv).isBorder()) {
-				dist(*vv) = (p0 - m_mesh.point(*vv)).norm();
-				pred(*vv) = start;
+		for (auto vv = m_mesh.cvv_begin(start0); vv != m_mesh.cvv_end(start0); ++vv) {
+			if (id(*vv) == id0 && !vtt(*vv).isBorder()) {
+				dist(*vv) = (p - m_mesh.point(*vv)).norm();
+				pred(*vv) = start0;
+				q.insert({ dist(*vv), *vv });
+			}
+		}
+		p = m_mesh.point(start1);
+		// add all neighbors of the start vertex to the queue (if they are not on a border)
+		for (auto vv = m_mesh.cvv_begin(start1); vv != m_mesh.cvv_end(start1); ++vv) {
+			if (id(*vv) == id1 && !vtt(*vv).isBorder()) {
+				dist(*vv) = (p - m_mesh.point(*vv)).norm();
+				pred(*vv) = start1;
 				q.insert({ dist(*vv), *vv });
 			}
 		}
@@ -840,7 +850,7 @@ bool VoronoiRemesh::dualize(bool steps)
 			assert(seedIDs.size() == 3);
 
 			// add the face
-			const auto fh = m_ctrl.add_face(points);
+			const auto fh = m_ctrl.add_face(points, true);
 
 			for (size_t j = 0; j < seedIDs.size(); ++j) {
 				const ID id1 = seedIDs[j];
@@ -865,11 +875,7 @@ bool VoronoiRemesh::dualize(bool steps)
 					if (m_debugCancel) return false;
 
 					// recalculate shortest paths for these two regions
-					vertexDijkstra(m_seedVerts[id1]);
-
-					if (m_debugCancel) return false;
-
-					vertexDijkstra(m_seedVerts[id2]);
+					vertexDijkstra(id1, id2);
 
 					if (m_debugCancel) return false;
 				}
