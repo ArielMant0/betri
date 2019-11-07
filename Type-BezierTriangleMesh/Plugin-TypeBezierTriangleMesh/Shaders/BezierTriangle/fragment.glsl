@@ -70,23 +70,25 @@ struct hitinfo {
 	vec4 color;
 };
 
+vec3 g_color = vec3(0.0);
+
 vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
 //vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
 
 void reorder(vec3 ray_origin, vec3 ray_direction)
 {
 	float dist = 0.0;
-	
+
 	// TODO why is the order like this
-	float tmp[POSITIONS] = float[] ( 
+	float tmp[POSITIONS] = float[] (
 		dot(bt.cps[0], ray_direction),
 		dot(bt.cps[CPSUM-1], ray_direction),
 		dot(bt.cps[GRAD], ray_direction),
 		dot((bt.cps[1] + bt.cps[3] + bt.cps[4]) / 3.0, ray_direction)
 	);
-	
+
 	/*
-	float tmp[POSITIONS] = float[] ( 
+	float tmp[POSITIONS] = float[] (
 		length(bt.cp0 - ray_origin),
 		length(bt.cp5 - ray_origin),
 		length(bt.cp2 - ray_origin),
@@ -125,7 +127,7 @@ void reorder(vec3 ray_origin, vec3 ray_direction)
  * @return A three component vector with the nearest intersection lambda (t) and u, v
  */
 vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
-{	
+{
 	// TODO heavy on performance maybe not ordering but rather search for i min
 	reorder(ray_origin, ray_direction);
 
@@ -151,7 +153,7 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 	// 120 021
     // 210 111 012
 	// 300 201 102 003
-	vec3 q_30 = bt.cps[0] - bt.cps[3] - 3 * bt.cps[1] + 3 * bt.cps[2]; 
+	vec3 q_30 = bt.cps[0] - bt.cps[3] - 3 * bt.cps[1] + 3 * bt.cps[2];
 	vec3 q_03 = bt.cps[9] - bt.cps[3] - 3 * bt.cps[8] + 3 * bt.cps[6];
 	vec3 q_21 = 3 * bt.cps[4] - 3 * bt.cps[3] - 3 * bt.cps[1] + 6 * bt.cps[2] + 3 * bt.cps[6] - 6 * bt.cps[5];
 	vec3 q_12 = 3 * bt.cps[7] - 3 * bt.cps[3] + 3 * bt.cps[2] - 3 * bt.cps[8] + 6 * bt.cps[6] - 6 * bt.cps[5];
@@ -216,16 +218,16 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 			// Partial derivate by s
 			dBs = 3 * q_30 * s * s +
 				2 * q_21 * s * t +
-				q_12 * t * t + 
+				q_12 * t * t +
 				2 * q_20 * s +
-				q_11 * t + 
+				q_11 * t +
 				q_10;
 
 			// Partial derivate by t
 			dBt = 3 * q_03 * t * t +
 				q_21 * s * s +
 				2 * q_12 * s * t +
-				2 * q_02 * t + 
+				2 * q_02 * t +
 				q_11 * s +
 				q_01;
 
@@ -266,22 +268,28 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 		if (result.x >= -b_error && result.x <= 1.0 + b_error &&
 			result.y >= -b_error && result.y <= 1.0 + b_error &&
 			z >= -b_error &&
-			abs(dot(normal_1, B_uv) + d_1) < d_error && 
+			abs(dot(normal_1, B_uv) + d_1) < d_error &&
 		    abs(dot(normal_2, B_uv) + d_2) < d_error
-		) 
+		)
 		{
 			//outFragment = vec4(vec3(float(j)/4.0), 1.0);
+			g_color = B_uv;
+			// TODO hier soll der Depth BUffer aktualisiert werden
+			// Funktioniert noch nicht ganz
+			vec4 n_pos = g_mWVP * vec4(B_uv, 1.0);
+			gl_FragDepth = n_pos.z / n_pos.w; 
+
 		    return vec3(result, z);
 			/*
-			if (!found) 
+			if (!found)
 			{
 				result_2 = vec3(result, z);
 				found = true;
 			}
-			else if (dot(ray_direction, result.x * bt.cp0 + result.y * bt.cp2 + z * bt.cp5) < 
+			else if (dot(ray_direction, result.x * bt.cp0 + result.y * bt.cp2 + z * bt.cp5) <
 				dot(ray_direction, result_2.x * bt.cp0 + result_2.y * bt.cp2 + result_2.z * bt.cp5)
 			)
-			{ 
+			{
 				//result_2 = vec3(result, z);
 				result_2 = vec3(-1.0);
 			}
@@ -317,10 +325,11 @@ bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
 	}
 
 	vec3 lambda = intersectBTriangle(origin, dir);
-	if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
+	/*if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
 		lambda.y >= 0.0 && lambda.y <= 1.0 &&
 		lambda.z >= 0.0 && lambda.z <= 1.0
-	)
+	)*/
+	if (lambda.x > -0.5)
 	{
 		// TODO this are the barycentric coord (used for normal) but this should be the distance on the ray
 		info.lambda = lambda.xy;
@@ -350,7 +359,8 @@ hitinfo trace(vec3 origin, vec3 dir)
 	{
 		// TODO
 		//hit.color.rgb = texture(btriangles, vec2(0.0, hit.id)).rgb;
-		hit.color.rgb = vec3(1.0, 0.0, 0.0);
+		//hit.color.rgb = vec3(1.0, 0.0, 0.0);
+		hit.color.rgb = vec3(g_color);
 		hit.type = TYPE_BTRIANGLE;
 	}
 
@@ -361,7 +371,7 @@ hitinfo trace(vec3 origin, vec3 dir)
 // Normals
 ///////////////////////////////////////////////////////////////////////////////
 
-vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit) 
+vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 {
 	// TODO refactor everything, this is a stupid doublication
 
@@ -376,7 +386,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
 	vec3 q_6 = bt.cps[2];
 
-	
+
 	float s = hit.lambda.x;
 	float t = hit.lambda.y;
 
@@ -398,7 +408,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 ///////////////////////////////////////////////////////////////////////////////
 
 // http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
-vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal) 
+vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal)
 {
 	// TODO refactor everything, this is a stupid doublication
 
@@ -411,7 +421,7 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal
 	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
 	vec3 q_6 = bt.cps[2];
 
-	
+
 	float s = hit.lambda.x;
 	float t = hit.lambda.y;
 
@@ -468,15 +478,16 @@ void main(void)
 		oColor.rgb = calcCurvature(ray_origin, ray_direction, hit, normal);
 #endif
 #ifdef SG_OUTPUT_COLOR
-		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
+		//oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
 #endif
 	}
-	
+
 	//gl_FragColor = vec4(ray_direction, 1.0);
 	outFragment = vec4(oColor.rgb, 1.0);
 
 	if (hit.id == -1)
-		discard;
+		outFragment = vec4(1.0,0.0,0.0,1.0);
+//		discard;
 
 	//outFragment = vec4(normalize(ray_direction), 1.0);
 	//outFragment.xyz = normalize(abs(campos));
