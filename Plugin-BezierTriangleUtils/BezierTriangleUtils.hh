@@ -6,7 +6,7 @@ namespace betri
 enum class TestOptions
 {
 	fitting,
-	parameterization
+	parametrization
 };
 
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors);

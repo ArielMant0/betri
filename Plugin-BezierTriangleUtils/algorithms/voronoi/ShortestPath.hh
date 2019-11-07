@@ -55,8 +55,34 @@ public:
 	void pop() const { m_border.pop_back(); }
 
 	Container& list() const { return m_border; }
+	Container& list(ID start) const
+	{
+		if (m_start != start) {
+			std::reverse(m_border.begin(), m_border.end());
+			m_start = start;
+		}
 
-	Container list() { return m_border; }
+		return m_border;
+	}
+	Container& list(const ShortestPath &path) const
+	{
+		if (path.start() == start()) {
+			reverse();
+		} else if (path.end() == end()) {
+			path.reverse();
+		} else if (path.end() == start()) {
+			reverse();
+			path.reverse();
+		}
+
+		return m_border;
+	}
+
+	void reverse() const
+	{
+		std::reverse(m_border.begin(), m_border.end());
+		m_start = m_start == m_small ? m_big : m_small;
+	}
 
 	bool contains(VH e) const
 	{
@@ -75,7 +101,13 @@ public:
 
 	ID first() const { return m_small; }
 	ID second() const { return m_big; }
+
 	ID start() const { return m_start;  }
+	void start(ID newStart)
+	{
+		assert(newStart == m_small || newStart == m_big);
+		m_start = newStart;
+	}
 	ID end() const { return m_small == m_start ? m_big : m_small;  }
 
 	VH front() const { return m_border[0]; }
@@ -100,7 +132,9 @@ public:
 
 private:
 
-	ID m_small, m_big, m_start;
+	ID m_small, m_big;
+
+	mutable ID m_start; // with which id the list starts
 	mutable Container m_border; // the halfedges that make up the border
 };
 

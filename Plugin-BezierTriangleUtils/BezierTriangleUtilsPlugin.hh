@@ -92,6 +92,7 @@ private slots:
 	void callFitting();
 
 	void testFitting();
+	void testParametrization();
 
 	// decimation meshing functions
 	void callDecimation();

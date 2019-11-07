@@ -20,10 +20,6 @@ private:
 
 	void mapTriangle(std::vector<Path*> &paths);
 
-	bool checkReverse(bool last, ID f0, ID b0, ID f1, ID b1)
-	{
-		return (b0 == f1) ? last : !last;
-	}
 };
 
 }

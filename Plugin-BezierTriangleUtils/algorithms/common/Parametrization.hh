@@ -6,7 +6,6 @@
 
 #include <ACG/Math/VectorT.hh>
 #include <OpenMesh/Core/Utils/Property.hh>
-//#include <string>
 
 #include <Eigen/Sparse>
 #include <Eigen/SparseCore>
@@ -65,10 +64,17 @@ public:
 	bool solveLocal(const VertexHandle vh);
 
 	// computes weights (for complete mesh)
-	void calcWeights();
-	void calcWeights(const VertexHandle vh);
+	static void calcWeights(
+		BezierTMesh &mesh,
+		WeightType weightType,
+		OpenMesh::VPropHandleT<Scalar> &vweight,
+		OpenMesh::EPropHandleT<Scalar> &eweight
+	);
 
-	bool test();
+	void calcWeights(const VertexHandle vh);
+	void calcWeights();
+
+	static bool test(BezierTMesh *mesh=nullptr);
 
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";

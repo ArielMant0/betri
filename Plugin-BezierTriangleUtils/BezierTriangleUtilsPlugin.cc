@@ -39,17 +39,19 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *voronoiButton = new QPushButton(tr("Voronoi Meshing"));
 	connect(voronoiButton, SIGNAL(clicked()), this, SLOT(callVoronoi()));
 
-	QPushButton *patitionButton = new QPushButton(tr("Partition"));
+	QPushButton *patitionButton = new QPushButton(tr("Part."));
 	connect(patitionButton, SIGNAL(clicked()), this, SLOT(callPartition()));
 	QPushButton *dualStepButton = new QPushButton(tr("Dual Step"));
 	connect(dualStepButton, SIGNAL(clicked()), this, SLOT(callDualStep()));
 	QPushButton *dualButton = new QPushButton(tr("Dual"));
 	connect(dualButton, SIGNAL(clicked()), this, SLOT(callDual()));
-	QPushButton *fittingButton = new QPushButton(tr("Fitting"));
+	QPushButton *fittingButton = new QPushButton(tr("Fit"));
 	connect(fittingButton, SIGNAL(clicked()), this, SLOT(callFitting()));
 
 	QPushButton *testFitButton = new QPushButton(tr("Test Fitting"));
 	connect(testFitButton, SIGNAL(clicked()), this, SLOT(testFitting()));
+	QPushButton *testParamButton = new QPushButton(tr("Test Parametrization"));
+	connect(testParamButton, SIGNAL(clicked()), this, SLOT(testParametrization()));
 
 	m_voronoiSteps.push_back(patitionButton);
 	m_voronoiSteps.push_back(dualStepButton);
@@ -63,6 +65,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualButton, 1, 2);
 	voronoiLayout->addWidget(fittingButton, 1, 3);
 	voronoiLayout->addWidget(testFitButton, 2, 0, 1, 4);
+	voronoiLayout->addWidget(testParamButton, 3, 0, 1, 4);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -404,39 +407,25 @@ void BezierTriangleUtilsPlugin::testFitting()
 
 	ctrlMeshObj->mesh()->setRenderable();
 	ctrlMeshObj->show();
+}
 
-	return;
+void BezierTriangleUtilsPlugin::testParametrization()
+{
+	int ctrl_id;
 
-	// init object iterator
-	PluginFunctions::ObjectIterator o_it(
-		PluginFunctions::TARGET_OBJECTS,
-		DATA_BEZIER_TRIANGLE_MESH
-	);
+	emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+	PluginFunctions::getObject(ctrl_id, ctrl_obj);
+	BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-	if (o_it != PluginFunctions::objectsEnd()) {
+	ctrlMeshObj->setName("parametrization-test");
+	ctrlMeshObj->target(true);
 
-		int ctrl_id;
-		BaseObjectData *ctrl;
+	betri::test(betri::TestOptions::parametrization, ctrlMeshObj->mesh());
 
-		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+	emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-		PluginFunctions::getObject(ctrl_id, ctrl);
-		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl);
-
-		ctrlMeshObj->setName(meshObj->name() + "_ctrl");
-		ctrlMeshObj->hide();
-		ctrlMeshObj->target(false);
-
-		betri::voronoiFittingTest(*o_it, ctrl);
-
-		emit log(LOGINFO, "Performed Fitting Test!");
-
-		ctrlMeshObj->mesh()->setRenderable();
-
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
-	}
+	ctrlMeshObj->mesh()->setRenderable();
+	ctrlMeshObj->show();
 }
 
 void BezierTriangleUtilsPlugin::callDecimation()

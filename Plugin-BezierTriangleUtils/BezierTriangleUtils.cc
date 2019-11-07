@@ -3,6 +3,7 @@
 #include "algorithms/decimation/DecimationPerObjectData.hh"
 
 #include "algorithms/common/Fitting.hh"
+#include "algorithms/common/Parametrization.hh"
 
 using VOD = VoronoiRemeshPerObjectData;
 using DEC = DecimationPerObjectData;
@@ -169,6 +170,7 @@ bool test(TestOptions which, BezierTMesh *mesh)
 {
 	switch (which) {
 		case TestOptions::fitting: return Fitting::test(mesh);
+		case TestOptions::parametrization: return Parametrization::test(mesh);
 		default: return true;
 	}
 }

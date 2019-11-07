@@ -295,7 +295,7 @@ private:
 		const ID id_1,
 		const ID id_2,
 		const FH ctrlFace,
-		const ShortestPath &path
+		ShortestPath &path
 	);
 
 	bool isSeedVertex(const VH vh) const
