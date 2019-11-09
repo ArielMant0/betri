@@ -46,6 +46,10 @@ public:
 
 	// typedefs for easy access
 	typedef typename MeshT::Point Point;
+	typedef typename MeshT::VertexHandle VertexHandle;
+	typedef typename MeshT::EdgeHandle EdgeHandle;
+	typedef typename MeshT::HalfedgeHandle HalfedgeHandle;
+	typedef typename MeshT::FaceHandle FaceHandle;
 
 	/// Constructor
 	BezierTriangleMeshNode(MeshT& _bss,
@@ -54,6 +58,7 @@ public:
 		MeshNodeBase(_parent, _name), // TODO
 		//BaseNode(_parent, _name),
 		bezierTriangleMesh_(_bss),
+		m_cpSum(-1),
 		bspline_draw_mode_(NORMAL),
 		bspline_selection_draw_mode_(NONE),
 		pick_radius_(1.0),
@@ -297,6 +302,21 @@ private:
 	/// update texture resources for gpu-based spline evaluation
 	void updateTexBuffers();
 
+	int grad() const
+	{
+		return bezierTriangleMesh_.degree();
+	}
+
+	int cpCount() const
+	{
+		return grad() - 1;
+	}
+
+	// TODO: must be reset/recalculated when degree changes -> updateGeometry
+	int cpSum()
+	{
+		return m_cpSum < 0 ? m_cpSum = betri::gaussSum(cpCount() + 2) : m_cpSum;
+	}
 
 private:
 
@@ -344,10 +364,12 @@ private:
 
 	MeshT& bezierTriangleMesh_;
 
+	int m_cpSum;
+
 //===========================================================================
 /** @name Draw-mesh handling
 * @{ */
-//===========================================================================  
+//===========================================================================
 	DrawBTMesh* drawBTMesh_;
 
 /** @} */

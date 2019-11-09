@@ -904,7 +904,7 @@ bool VoronoiRemesh::dualize(bool steps)
 			assert(seedIDs.size() == 3);
 
 			// add the face
-			const auto fh = m_ctrl.add_face(points, true);
+			const auto fh = m_ctrl.add_face(points[2], points[1], points[0], true);
 
 			for (size_t j = 0; j < seedIDs.size(); ++j) {
 				const ID id1 = seedIDs[j];
@@ -949,6 +949,10 @@ bool VoronoiRemesh::dualize(bool steps)
 
 		// perform assignment
 		assignInnerVertices();
+
+		for (FH face : m_ctrl.faces()) {
+			m_ctrl.recalculateCPs(face);
+		}
 	}
 
 	return m_vertexIdx == m_mesh.n_vertices();

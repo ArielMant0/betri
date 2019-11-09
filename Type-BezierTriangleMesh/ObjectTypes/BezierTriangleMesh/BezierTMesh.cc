@@ -7,25 +7,36 @@
 void BezierTMesh::addCPsToFace(const FaceHandle f)
 {
 	auto vertexHandle = fv_begin(f);
-	auto vh0 = *(vertexHandle++);
-	auto vh1 = *(vertexHandle++);
-	auto vh2 = *(vertexHandle);
+	VertexHandle vh0 = *(vertexHandle++);
+	VertexHandle vh1 = *(vertexHandle++);
+	VertexHandle vh2 = *(vertexHandle);
 
 	std::vector<Point> cp_vec;
 
-	auto p0 = point(vh0);
-	auto p1 = point(vh1);
-	auto p2 = point(vh2);
+	Point p0 = point(vh0);
+	Point p1 = point(vh1);
+	Point p2 = point(vh2);
+
+	update_normal(f);
+	Point n0 = calc_vertex_normal(vh0);
+	Point n1 = calc_vertex_normal(vh1);
+	Point n2 = calc_vertex_normal(vh2);
+
+	const int stuff = betri::gaussSum(m_degree + 1) - 1;
+	cp_vec.reserve(stuff);
 
 	//const float STEPSIZE = round((1.0 / GRAD) * 100) / 100;
 	// TODO 1.01 ...
 	const float CP_STEPSIZE = 1.0 / m_degree;
 	int i = 0;
 	for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
-		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
+		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE, ++i) {
 			double w = 1 - u - v;
-			i++;
-			cp_vec.push_back(p0 * u + p1 * v + p2 * w);
+			Point p = p0 * u + p1 * v + p2 * w;
+			if (i != 0 && i != m_degree && i != stuff) {
+				p += (n0 * u + n1 * v + n2 * w) / 2.5;
+			}
+			cp_vec.push_back(p);
 		}
 	}
 
@@ -34,27 +45,7 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 
 void BezierTMesh::recalculateCPs(const FaceHandle f)
 {
-	auto vertexHandle = fv_begin(f);
-	auto vh0 = *(vertexHandle++);
-	auto vh1 = *(vertexHandle++);
-	auto vh2 = *(vertexHandle);
-
-	auto p0 = point(vh0);
-	auto p1 = point(vh1);
-	auto p2 = point(vh2);
-
-	auto bezier = data(f);
-	bezier.prepare(m_degree);
-
-	int i = 0;
-	const float CP_STEPSIZE = 1.0 / m_degree;
-
-	for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
-		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
-			double w = 1 - u - v;
-			bezier.controlPoint(i++, p0 * u + p1 * v + p2 * w);
-		}
-	}
+	addCPsToFace(f);
 }
 
 void BezierTMesh::splitFaceDyadical(

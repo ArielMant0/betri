@@ -40,7 +40,7 @@ static const int controlPointsPerFace = CPSUM;
 ///////////////////////////////////////////////////////////////////////////////
 
 void DrawBTMesh::addTriRenderObjects(
-	IRenderer* _renderer, const RenderObject* _baseObj, 
+	IRenderer* _renderer, const RenderObject* _baseObj,
 	std::map<int, GLuint>* _textureMap, bool _nonindexed
 )
 {
@@ -62,7 +62,7 @@ void DrawBTMesh::addTriRenderObjects(
 		if (_baseObj->shaderDesc.textured()) {
 
 			// TODO
-			std::cerr << "In addTriRenderObjects: This should not happen! " << std::endl; 
+			std::cerr << "In addTriRenderObjects: This should not happen! " << std::endl;
 
 			for (int i = 0; i < meshComp_->getNumSubsets(); ++i) {
 				const MeshCompiler::Subset* sub = meshComp_->getSubset(i);
@@ -163,8 +163,8 @@ void DrawBTMesh::bindBuffersToRenderObject(RenderObject* _obj)
 void DrawBTMesh::updateGPUBuffers()
 {
 	// rebuild if necessary
-	if ((!numTris_ && bezierTriangleMesh_.n_faces()) || 
-		!numVerts_ || 
+	if ((!numTris_ && bezierTriangleMesh_.n_faces()) ||
+		!numVerts_ ||
 		(!meshComp_ && bezierTriangleMesh_.n_faces())
 	) {
 		rebuild_ = REBUILD_FULL;
@@ -172,10 +172,10 @@ void DrawBTMesh::updateGPUBuffers()
 
 	//rebuild_ = REBUILD_FULL;
 	// TODO
-	//if (bVBOinHalfedgeNormalMode_ != halfedgeNormalMode_) 
+	//if (bVBOinHalfedgeNormalMode_ != halfedgeNormalMode_)
 	//	rebuild_ = REBUILD_FULL;
 
-	// if no rebuild necessary, check for smooth / flat shading switch 
+	// if no rebuild necessary, check for smooth / flat shading switch
 	// to update normals
 	if (rebuild_ == REBUILD_NONE) {
 		/*
@@ -193,7 +193,7 @@ void DrawBTMesh::updateGPUBuffers()
 
 void DrawBTMesh::rebuild()
 {
-	if (rebuild_ == REBUILD_NONE) 
+	if (rebuild_ == REBUILD_NONE)
 		return;
 
 	if (!bezierTriangleMesh_.n_vertices()) {
@@ -451,7 +451,7 @@ void DrawBTMesh::rebuild()
 			if (storedColor != fcolor) {
 				std::cout << "warning: possibly found provoking vertex shared by more than one face, writing report to ../../meshcomp_provoking.txt" << std::endl;
 
-				// could also be caused by multi-threading, where one thread calls rebuild() 
+				// could also be caused by multi-threading, where one thread calls rebuild()
 				// and the other thread updates face colors between previous for-loop and debug-check
 
 				// check for errors
@@ -1143,7 +1143,7 @@ BezierTMesh::Point DrawBTMesh::getCP(
 	int cpIndex = pointsBefore(i) + j;
 
 	auto faceControlP = bezierTriangleMesh_.data(fh);
-	return faceControlP.getCPoint(cpIndex);
+	return faceControlP.controlPoint(cpIndex);
 }
 
 BezierTMesh::Point DrawBTMesh::oneEntry(
@@ -1430,7 +1430,7 @@ void DrawBTMesh::VBOfromBoundingMesh()
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		std::vector<Point> cpArray = std::vector<Point>();
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cpArray.push_back(faceControlP.getCPoint(i));
+			cpArray.push_back(faceControlP.controlPoint(i));
 		}
 
 		switch (bVolume) {

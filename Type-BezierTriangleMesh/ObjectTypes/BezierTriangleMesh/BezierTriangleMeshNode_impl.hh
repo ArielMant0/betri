@@ -24,15 +24,8 @@
 namespace ACG {
 namespace SceneGraph {
 
-static const int GRAD = 3; // 1 = linear, 2 = quadratisch
 //static const int ITERATIONS = 0;
 
-// Additional Control Points per edge
-static const int CPCOUNT = GRAD - 1;
-// Sum of all Control Polygon Vertices per Face
-static const int CPSUM = betri::gaussSum(CPCOUNT + 2);
-
-static const int controlPointsPerFace = CPSUM;
 
 //== IMPLEMENTATION ===========================================================
 
@@ -42,9 +35,10 @@ void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 {
 	if (!bezierTriangleMesh_.isRenderable()) return;
 	// TODO
-	setControlPointsColumnwise();
+	//setControlPointsColumnwise();
 
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	const int controlPointsPerFace = cpSum();
+	for (auto face : bezierTriangleMesh_.faces()) {
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
@@ -149,7 +143,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	std::clock_t start = std::clock();
 
 	// only render mesh if that is possible (e.g. has control points)
-	if (!bezierTriangleMesh_.isRenderable()) 
+	if (!bezierTriangleMesh_.isRenderable())
 		return;
 
 	//std::cerr << bezierTriangleMesh_.has_face_normals() << " " << bezierTriangleMesh_.has_vertex_normals() << std::endl;
@@ -495,7 +489,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					if (!ro.shaderDesc.vertexTemplateFile.isEmpty())
 						drawBTMesh_->scanVertexShaderForInput(ro.shaderDesc.vertexTemplateFile.toStdString());
 
-					bool useNonIndexed = (props->colorSource() == DrawModes::COLOR_PER_FACE) && 
+					bool useNonIndexed = (props->colorSource() == DrawModes::COLOR_PER_FACE) &&
 						(props->lightStage() == DrawModes::LIGHTSTAGE_SMOOTH) && !props->flatShaded();
 					if (!useNonIndexed && props->colorSource() == DrawModes::COLOR_PER_FACE)
 						ro.shaderDesc.vertexColorsInterpolator = "flat";
@@ -516,7 +510,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 #ifdef old
 
 		///////////////////////////////////////////////////////////////////////
-		// 
+		//
 		///////////////////////////////////////////////////////////////////////
 		// generated texcoords for environment mapping should be computed in fragment shader,
 		// because normals aren't available in the vertex shader
@@ -577,10 +571,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
-				shaderMacro.sprintf("#define CPSUM %i", controlPointsPerFace);
+				shaderMacro.sprintf("#define CPSUM %i", cpSum());
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
-				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				shaderMacro.sprintf("#define GRAD %i", grad());
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
 				// vertex shader uniforms
@@ -611,7 +605,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//QString shaderMacro;
 				//shaderMacro.sprintf("#define BSPLINE_DEGREE_U %i", bezierTriangleMesh_.degree_m());
 				//ro.shaderDesc.macros.push_back(shaderMacro);
-				
+
 
 				ro.setUniform("controlPointTex", int(1));
 
@@ -626,7 +620,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				// TODO warum geht das, aber uniform geht nicht?
 				// Liegt das an der for-schleife
 				QString shaderMacro;
-				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				shaderMacro.sprintf("#define GRAD %i", grad());
 				ro.shaderDesc.macros.push_back(shaderMacro);
 				//ro.setUniform("GRAD", int(2));
 
@@ -649,13 +643,13 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		}
 #endif
 	}
-	
+
 
 	///////////////////////////////////////////////////////////////////////////
 	// draw the control net (includes selection on the net)
 	///////////////////////////////////////////////////////////////////////////
 	// TODO
-	if (render_control_net_ || true)
+	if (render_control_net_)
 	{
 		// update if necessary
 		updateControlNetMesh();
@@ -696,7 +690,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			ro.emissive = Vec3f(controlpoints_color_[0], controlpoints_color_[1], controlpoints_color_[2]);
 
-			GLsizei numControlPoints = CPSUM * bezierTriangleMesh_.n_faces();
+			GLsizei numControlPoints = cpSum() * bezierTriangleMesh_.n_faces();
 			ro.glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 			_renderer->addRenderObject(&ro);
@@ -718,7 +712,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	}
 
 	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-	
+
 	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
@@ -770,7 +764,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	//return;
+	return;
 
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
@@ -788,14 +782,14 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 
 		//const float STEPSIZE = round((1.0 / GRAD) * 100) / 100;
 		// TODO 1.01 ...
-		const float CP_STEPSIZE = 1.0 / GRAD;
+		const float CP_STEPSIZE = 1.0 / grad();
 		int i = 0;
 		for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
 				double w = 1 - u - v;
 				Point p = p0 * u + p1 * v + p2 * w;
 				// If it isnt an cornerpoint
-				if (i != 0 && i != GRAD && i != betri::gaussSum(GRAD + 1) - 1) {
+				if (i != 0 && i != grad() && i != betri::gaussSum(grad() + 1) - 1) {
 					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
 					p += n / 2.5;
 					//p += Point(0.3, 0.0, 0.0);
@@ -1151,7 +1145,7 @@ void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 	glPointSize(point_size_old + 4);
 
 	//GLsizei numControlPoints = 6 * oldFaceCount_; // TODO get the total number of control Points for the whole mesh - multiply by the number of original faces - how to get the controlpoints after one iteration?
-	GLsizei numControlPoints = CPSUM * bezierTriangleMesh_.n_faces();
+	GLsizei numControlPoints = cpSum() * bezierTriangleMesh_.n_faces();
 	glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 	glPointSize((int)point_size_old);
@@ -1264,7 +1258,7 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 	// draw all points
 	glColor(controlpoints_color_);
 
-	const int controlPointsPerFace = CPSUM;
+	const int controlPointsPerFace = cpSum();
 
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto faceControlP = bezierTriangleMesh_.data(face);
@@ -1281,17 +1275,18 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 
 	glColor(controlnet_color_);
 
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 
 		int pos1 = 0;
 		int pos2 = 1;
-		int pos3 = CPCOUNT + 2;
-		int border = CPCOUNT + 2;
-		int boderAdd = CPCOUNT + 2 - 1;
+		int pos3 = cpCount() + 2;
+		int border = cpCount() + 2;
+		int boderAdd = cpCount() + 2 - 1;
 
-		for (; pos3 < CPSUM; ) {
+		const int controlPointsPerFace = cpSum();
+		for (; pos3 < controlPointsPerFace; ) {
 			Point p1 = faceControlP.controlPoint(pos1);
 			Point p2 = faceControlP.controlPoint(pos2);
 			Point p3 = faceControlP.controlPoint(pos3);
@@ -1414,7 +1409,7 @@ void BezierTriangleMeshNode<MeshT>::pick_vertices(GLState& _state)
 	_state.pick_set_name(0);
 
 	int face_id = 0;
-	int controlPointsPerFace = CPSUM;
+	const int controlPointsPerFace = cpSum();
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
@@ -2177,6 +2172,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
 	else if (meshOption == betri::TESSELLATION_TYPE::CPU) {
+		std::cerr << bezierTriangleMesh_.n_faces() << '\n';
 		VBOtesselatedFromMesh();
 	}
 	else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
@@ -2191,7 +2187,7 @@ int BezierTriangleMeshNode<MeshT>::pointsBefore(int level)
 	int sum = 0;
 	for (int i = 0; i < level; i++)
 	{
-		sum += GRAD + 1 - i;
+		sum += grad() + 1 - i;
 	}
 	return sum;
 }
@@ -2220,7 +2216,7 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::oneEntry(
 		39916800, 479001600
 	};
 
-	Point entry = FACTORIALS[GRAD] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
+	Point entry = FACTORIALS[grad()] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
 		* pow(baryCoords[0], i) * pow(baryCoords[1], j) * pow(baryCoords[2], k)
 		* getCP(i, j, k, fh);
 	return entry;
@@ -2238,11 +2234,11 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::newPosition(
 	// 1 1 0
 	// 2 0 0
 	Point sum = Point(0.0);
-	for (int i = 0; i <= GRAD; i++)
+	for (int i = 0; i <= grad(); i++)
 	{
-		for (int j = 0; j + i <= GRAD; j++)
+		for (int j = 0; j + i <= grad(); j++)
 		{
-			for (int k = GRAD - i - j; k + j + i == GRAD && k >= 0; k++)
+			for (int k = grad() - i - j; k + j + i == grad() && k >= 0; k++)
 			{
 				sum += oneEntry(i, j, k, baryCoords, fh);
 			}
@@ -2272,15 +2268,22 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 
 	int i = 0;
 	Point pos;
-	Point normal; //TODO BezierTMesh::Normal
+	Point n0, n1, n2, normal; //TODO BezierTMesh::Normal
 	//Vec4uc vecCol(0, 0, 0, 1);
 	Point vecCol(0, 0, 1);
 	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	for (auto face : bezierTriangleMesh_.faces()) {
 		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
 		auto vh0 = *(vertexHandle++);
 		auto vh1 = *(vertexHandle++);
 		auto vh2 = *(vertexHandle++);
+
+		//auto points = bezierTriangleMesh_.data(face).points();
+		//std::cerr << "punkte:\n";
+		//for (Point p : points) {
+		//	std::cerr << p << '\n';
+		//}
+		//std::cerr << "VS " << VERTEXSUM << ", vboSize " << vboSize << ", VC " << vertexCount << '\n';
 
 		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
@@ -2298,7 +2301,11 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				// TODO ist das so richtig? welcher PUnkt ist der der mit u multipliziert werden muss?
 				// TODO kreuzprodukt für normale?
 				// store normal
-				normal = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * (1-u-v);
+				n0 = bezierTriangleMesh_.calc_vertex_normal(vh0);
+				n1 = bezierTriangleMesh_.calc_vertex_normal(vh1);
+				n2 = bezierTriangleMesh_.calc_vertex_normal(vh2);
+				normal = n0 * u + n1 * v + n2 * (1-u-v);
+
 				for (int m = 0; m < 3; ++m)
 					vboData[elementOffset++] = float(normal[m]);
 
@@ -2417,7 +2424,8 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 				vboData[elementOffset++] = float(pos[m]);
 
 			// store normal
-			normal = bezierTriangleMesh_.normal(v);
+			//normal = bezierTriangleMesh_.normal(v);
+			normal = bezierTriangleMesh_.calc_vertex_normal(v);
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = float(normal[m]);
 
@@ -2592,12 +2600,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	//for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
 	int face_index = 0;
 
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	const int controlPointsPerFace = cpSum();
+	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		std::vector<Point> cpArray = std::vector<Point>();
 		for (int i = 0; i < controlPointsPerFace; i++) {
-			cpArray.push_back(faceControlP.getCPoint(i));
+			cpArray.push_back(faceControlP.controlPoint(i));
 		}
 
 		switch (bVolume) {
@@ -2612,7 +2621,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 					vboData,
 					iboData,
 					cpArray
-				); 
+				);
 				break;
 			}
 			case betri::boundingVolumeType::PrismVolume:
@@ -2620,22 +2629,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
 					controlPointsPerFace,
-					GRAD,
-					vboIndex,
-					iboIndex,
-					face_index,
-					vboData,
-					iboData,
-					cpArray
-				); 
-				break;
-			}
-			case betri::boundingVolumeType::ConvexHull:
-			{
-				// TODO is this the correct way to call this?
-				betri::addConvexHullFromPoints(
-					controlPointsPerFace,
-					GRAD,
+					grad(),
 					vboIndex,
 					iboIndex,
 					face_index,
@@ -2645,7 +2639,22 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 				);
 				break;
 			}
-			default: 
+			case betri::boundingVolumeType::ConvexHull:
+			{
+				// TODO is this the correct way to call this?
+				betri::addConvexHullFromPoints(
+					controlPointsPerFace,
+					grad(),
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+				break;
+			}
+			default:
 			{
 				// TODO is this the correct way to call this?
 				betri::addBoundingBoxFromPoints(
@@ -2700,6 +2709,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
+	const int controlPointsPerFace = cpSum();
 	int controlPointCountSum = bezierTriangleMesh_.n_faces() * controlPointsPerFace; // TODO * facecount - doppelte - hier oldFaceCount_ oder nicht ?
 
 	// create vertex buffer
@@ -2729,7 +2739,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
-	int bottomTriangles = betri::gaussSum(GRAD);
+	int bottomTriangles = betri::gaussSum(grad());
 	// TODO unterschiedliche Faces kï¿½nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
@@ -2739,14 +2749,15 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	int faceindex = 0, idxOffset = 0;
 	for (auto &face : bezierTriangleMesh_.faces()) {
 
-		int offset = faceindex * CPSUM;
+		const int controlPointsPerFace = cpSum();
+		int offset = faceindex * controlPointsPerFace;
 		int pos1 = offset + 0;
 		int pos2 = offset + 1;
-		int pos3 = offset + CPCOUNT + 2;
-		int border = offset + CPCOUNT + 2;
-		int boderAdd = CPCOUNT + 2 - 1;
+		int pos3 = offset + cpCount() + 2;
+		int border = offset + cpCount() + 2;
+		int boderAdd = cpCount() + 2 - 1;
 
-		for (; pos3 < (faceindex + 1) * CPSUM; ) {
+		for (; pos3 < (faceindex + 1) * controlPointsPerFace; ) {
 			iboData[idxOffset++] = pos1;
 			iboData[idxOffset++] = pos2;
 			iboData[idxOffset++] = pos2;
@@ -2905,6 +2916,7 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 	*/
 #ifdef GL_VERSION_3_0
 
+	const int controlPointsPerFace = cpSum();
 	const size_t controlPointBufSize = controlPointsPerFace * bezierTriangleMesh_.n_faces();
 
 	if (controlPointBufSize)
