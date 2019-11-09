@@ -17,7 +17,7 @@
 
 // Raytracer
 
-/*
+/* TODO
 setupTextures()
 {
 	// loop all Render Objects and create a texture for them
@@ -47,22 +47,25 @@ setupComputeShader()
 }
 */
 
-class CelShadingModifier : public ACG::ShaderModifier
+class RaytracingModifier : public ACG::ShaderModifier
 {
 public:
 
 	void modifyVertexIO(ACG::ShaderGenerator* _shader)
 	{
+		/*
 		// include cel lighting functions defined in CELSHADING_INCLUDE_FILE
 		QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
 		_shader->addIncludeFile(includeCelShading);
 
 		// add shader constant that defines the number of different intensity levels used in lighting
 		_shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
+		*/
 	}
 
 	void modifyFragmentIO(ACG::ShaderGenerator* _shader)
 	{
+		/*
 		// include cel lighting functions defined in CELSHADING_INCLUDE_FILE
 		QString includeCelShading = ACG::ShaderProgGenerator::getShaderDir() + QDir::separator() + QString(CELSHADING_INCLUDE_FILE);
 		_shader->addIncludeFile(includeCelShading);
@@ -76,24 +79,38 @@ public:
 		// This depth texture is used in a post-processing outlining step.
 		_shader->addOutput("float outDepth");
 		_shader->addUniform("float g_celPaletteSize", "//number of palettes/intensity levels for cel shading");
+		*/
+	}
+
+
+	void modifyFragmentBeginCode(QStringList* _code)
+	{
+		std::cerr << " bla " << std::endl;
+		std::cerr << _code << std::endl;
 	}
 
 
 	void modifyFragmentEndCode(QStringList* _code)
 	{
-		_code->push_back("outDepth = gl_FragCoord.z;"); // write depth to secondary render texture
+		std::cerr << " bla " << std::endl;
+		std::cerr << _code << std::endl;
+
+		//_code->push_back("outDepth = gl_FragCoord.z;"); // write depth to secondary render texture
 	}
 
 	// modifier replaces default lighting with cel lighting
 	bool replaceDefaultLightingCode()
 	{
-		return true;
+		return false;
 	}
 
 	void modifyLightingCode(QStringList* _code, int _lightId, ACG::ShaderGenLightType _lightType)
 	{
+		std::cerr << " bla " << std::endl;
+		std::cerr << _code << std::endl;
+		//std::cerr << _code << std::endl;
 		// use cel shading functions instead of default lighting:
-
+		/*
 		QString buf;
 
 		switch (_lightType) {
@@ -113,19 +130,20 @@ public:
 		}
 
 		_code->push_back(buf);
+		*/
 	}
 
-	static CelShadingModifier instance;
+	static RaytracingModifier instance;
 };
 
-CelShadingModifier CelShadingModifier::instance;
+RaytracingModifier RaytracingModifier::instance;
 
 // =================================================
 
 RaytracingRenderer::RaytracingRenderer()
 	: progOutline_(0), paletteSize_(2.0f), outlineCol_(0.0f, 0.0f, 0.0f)
 {
-	ACG::ShaderProgGenerator::registerModifier(&CelShadingModifier::instance);
+	ACG::ShaderProgGenerator::registerModifier(&RaytracingModifier::instance);
 	objectTex_ = std::vector<ACG::Texture2D>();
 	objectTex_.reserve(OBJECT_TYPE_COUNT);
 }
@@ -171,18 +189,12 @@ void RaytracingRenderer::exit()
 QString RaytracingRenderer::renderObjectsInfo(bool _outputShaderInfo)
 {
 	std::vector<ACG::ShaderModifier*> modifiers;
-	modifiers.push_back(&CelShadingModifier::instance);
+	modifiers.push_back(&RaytracingModifier::instance);
 	return dumpCurrentRenderObjectsToString(&sortedObjects_[0], _outputShaderInfo, &modifiers);
 }
 
 void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties& _properties)
 {
-
-	// Cel shading: 
-	// - Restriction of the number of lighting intensity levels
-	// - in shader: l dot n is quantized based on the number of allowed shading tones.
-	// currently a constant sized step function is used to quantize the intensity
-
 	// collect renderobjects + prepare OpenGL state
 	prepareRenderingPipeline(_glState, _properties.drawMode(), PluginFunctions::getSceneGraphRootNode());
 
@@ -209,8 +221,15 @@ void RaytracingRenderer::render(ACG::GLState* _glState, Viewer::ViewerProperties
 		// ----------------------------------------------------------
 		// Invoke raytracing fragmentshader
 
-		if (!progOutline_)
+		if (!progOutline_) {
+			// TODO new but does not work
+			//ACG::ShaderGenDesc sgd = ACG::ShaderGenDesc();
+			//sgd.vertexTemplateFile = OUTLINE_VERTEXSHADER_FILE;
+			//sgd.fragmentTemplateFile = OUTLINE_FRAGMENTSHADER_FILE;
+			//progOutline_ = ACG::ShaderCache::getInstance()->getProgram(&sgd, RaytracingModifier::instance);
+			// old but does work correctly
 			progOutline_ = GLSL::loadProgram(OUTLINE_VERTEXSHADER_FILE, OUTLINE_FRAGMENTSHADER_FILE);
+		}
 
 		// restore previous fbo
 		restoreInputFbo();
@@ -410,8 +429,8 @@ void RaytracingRenderer::setupObjectTextures()
 	const std::array<std::array<int, bt_floats * bt_points>, bt_count> btArray = { {
 			// Color 3f, Vertex1 3f, CP1 3f, Vertex2 3f, CP3 3f, CP2 3f, Vertex3 3f
 			{0.0, 0.0, 1.0, 
-				5.0, 0.0, -2.0, 5.0, 0.0, 0.0, 5.0, 0.0, 2.0,
-				5.0, 1.0, -2.0, 5.0, 1.0, 0.0, 5.0, 2.0, -2.0}
+				5.0, 0.0, -2.0, 7.0, 0.0, 0.0, 5.0, 0.0, 2.0,
+				7.0, 1.0, -2.0, 7.0, 1.0, 0.0, 5.0, 2.0, -2.0}
 		} };
 
 	counter = 0;

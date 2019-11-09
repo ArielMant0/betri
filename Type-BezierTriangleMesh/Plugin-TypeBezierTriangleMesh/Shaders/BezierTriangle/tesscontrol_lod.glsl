@@ -1,61 +1,41 @@
 #version 400
 
 #define SG_REQUEST_POSVS
-
+#define SG_REQUEST_TEXCOORD
+#define SG_REQUEST_NORMALVS
+  
 uniform int tessAmount;
+uniform vec3 campos; // TODO take a deeper look if this camera position is correct for the calculations
 
 layout(vertices = 3) out;
+
+//out vec3 position[];
 
 // sq, lin, const
 const vec3 atten = vec3(0.001, 0.08, 0.3);
 //const vec3 atten = vec3(0.001, 0.1, 0.5);
 
-// id between 0-2
-float getTessLevel(vec3 pos)
+// TODO rename
+// http://ogldev.org/www/tutorial30/tutorial30.html
+float GetTessLevel(float Distance0, float Distance1)
 {
-	// squared distance
-	float d2 = dot(pos, pos);
-	float d = sqrt(d2);
-
-	//float lod = 1.0 / (dot(atten, vec3(d2, d, 1.0)));
-
-	//return 1.0 / (dot(atten, vec3(d2, d, 1.0)));
-	return tessAmount / max(d, 1);
+    float AvgDistance = (Distance0 + Distance1) / 2.0;
+	return tessAmount / max(AvgDistance, 1);
 }
 
 void main()
 {
 	sg_MapIO(gl_InvocationID);
 
-  	// lod based on distance to viewer
-	vec3 edgePos_1 = (SG_INPUT_POSVS[0].xyz
-		+ SG_INPUT_POSVS[0 + 1].xyz) / 2.0;
-	vec3 edgePos_2 = (SG_INPUT_POSVS[0 + 1].xyz
-		+ SG_INPUT_POSVS[0 + 2].xyz) / 2.0;
-	vec3 edgePos_3 = (SG_INPUT_POSVS[0 + 2].xyz
-		+ SG_INPUT_POSVS[0].xyz) / 2.0;
-	vec3 center = (edgePos_1 + edgePos_2 + edgePos_3) / 3.0;
+	// Calculate the distance from the camera to the three control points
+    float EyeToVertexDistance0 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[0]);
+    float EyeToVertexDistance1 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[1]);
+    float EyeToVertexDistance2 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[2]);
 
-	vec3 edgePos = (SG_INPUT_POSVS[gl_InvocationID].xyz
-		+ SG_INPUT_POSVS[(gl_InvocationID + 1) % 3].xyz) / 2.0;
-
-	float p = getTessLevel(SG_INPUT_POSVS[gl_InvocationID].xyz);
-
-	// Write only for the first call
-	if (gl_InvocationID == 0)
-	{
-
-		//gl_TessLevelInner[0] = 3;
-		//gl_TessLevelOuter[gl_InvocationID] = getTessLevel(edgePos);
-		//gl_TessLevelOuter[0] = gl_PrimitiveID % 2 == 0 ? getTessLevel(edgePos_3) : getTessLevel(edgePos_2);
-		//gl_TessLevelOuter[1] = 3;
-		//gl_TessLevelOuter[2] = 3;
-
-
-		gl_TessLevelInner[0] = p;
-		gl_TessLevelOuter[0] = p;
-		gl_TessLevelOuter[1] = p;
-		gl_TessLevelOuter[2] = p;
-
-	}
+    // Calculate the tessellation levels
+    gl_TessLevelOuter[0] = GetTessLevel(EyeToVertexDistance1, EyeToVertexDistance2);
+    gl_TessLevelOuter[1] = GetTessLevel(EyeToVertexDistance2, EyeToVertexDistance0);
+    gl_TessLevelOuter[2] = GetTessLevel(EyeToVertexDistance0, EyeToVertexDistance1);
+	// TODO this could be changed
+    gl_TessLevelInner[0] = gl_TessLevelOuter[2];
 }

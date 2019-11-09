@@ -1,4 +1,4 @@
-#define ACG_BSPLINESURFACENODET_C
+#define ACG_BEZIERTRIANGLEMESHNODE_C
 
 //== INCLUDES =================================================================
 
@@ -24,7 +24,7 @@
 namespace ACG {
 namespace SceneGraph {
 
-static const int GRAD = 2; // 1 = linear, 2 = quadratisch
+static const int GRAD = 3; // 1 = linear, 2 = quadratisch
 //static const int ITERATIONS = 0;
 
 // Additional Control Points per edge
@@ -36,7 +36,7 @@ static const int controlPointsPerFace = CPSUM;
 
 //== IMPLEMENTATION ===========================================================
 
-
+// TODO look if the order should be changed - see MeshNode2T_impl.hh for that
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 {
@@ -60,17 +60,79 @@ void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 template <class MeshT>
 DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 {
-	DrawModes::DrawMode drawModes(0);
+	DrawModes::DrawMode drawModes(DrawModes::NONE);
 
+	// We can always render points and a wireframe.
 	drawModes |= DrawModes::POINTS;
-	drawModes |= DrawModes::WIREFRAME;
 	drawModes |= DrawModes::HIDDENLINE;
-	drawModes |= DrawModes::SOLID_SMOOTH_SHADED;
-	drawModes |= DrawModes::SOLID_FLAT_SHADED;
-	drawModes |= DrawModes::SOLID_PHONG_SHADED;
+	drawModes |= DrawModes::WIREFRAME;
+	drawModes |= DrawModes::HALFEDGES;
+
+	// TODO was das?
 	drawModes |= DrawModes::SOLID_SHADER;
-	drawModes |= DrawModes::SOLID_TEXTURED;
-	drawModes |= DrawModes::SOLID_1DTEXTURED;
+
+	if (bezierTriangleMesh_.has_vertex_normals()) {
+		drawModes |= DrawModes::POINTS_SHADED;
+		drawModes |= DrawModes::SOLID_SMOOTH_SHADED;
+		drawModes |= DrawModes::SOLID_PHONG_SHADED;
+	}
+
+	if (bezierTriangleMesh_.has_face_normals()) {
+		drawModes |= DrawModes::SOLID_FLAT_SHADED;
+	}
+
+	if (bezierTriangleMesh_.has_halfedge_normals()) {
+		drawModes |= DrawModes::SOLID_SMOOTH_SHADED_FEATURES;
+	}
+
+	if (bezierTriangleMesh_.has_vertex_colors()) {
+		drawModes |= DrawModes::POINTS_COLORED;
+		drawModes |= DrawModes::SOLID_POINTS_COLORED;
+
+		if (bezierTriangleMesh_.has_vertex_normals())
+			drawModes |= DrawModes::SOLID_POINTS_COLORED_SHADED;
+	}
+
+	if (bezierTriangleMesh_.has_edge_colors()) {
+		drawModes |= DrawModes::EDGES_COLORED;
+	}
+
+	if (bezierTriangleMesh_.has_halfedge_colors()) {
+		drawModes |= DrawModes::HALFEDGES_COLORED;
+	}
+
+	// TODO
+	//bool enableTexturedFaces = drawMesh_->perFaceTextureCoordinateAvailable() != 0;
+
+	if (bezierTriangleMesh_.has_face_colors()) {
+		drawModes |= DrawModes::SOLID_FACES_COLORED;
+
+		if (bezierTriangleMesh_.has_face_normals())
+			drawModes |= DrawModes::SOLID_FACES_COLORED_FLAT_SHADED;
+
+		if (bezierTriangleMesh_.has_vertex_normals()) {
+			drawModes |= DrawModes::SOLID_FACES_COLORED_SMOOTH_SHADED;
+
+			//if (enableTexturedFaces)
+			//	drawModes |= DrawModes::SOLID_FACES_COLORED_2DTEXTURED_FACE_SMOOTH_SHADED;
+		}
+	}
+
+	if (bezierTriangleMesh_.has_vertex_texcoords2D()) {
+		drawModes |= DrawModes::SOLID_TEXTURED;
+
+		if (bezierTriangleMesh_.has_vertex_normals())
+			drawModes |= DrawModes::SOLID_TEXTURED_SHADED;
+	}
+
+	/*
+	if (enableTexturedFaces) {
+		drawModes |= DrawModes::SOLID_2DTEXTURED_FACE;
+
+		if (bezierTriangleMesh_.has_face_normals())
+			drawModes |= DrawModes::SOLID_2DTEXTURED_FACE_SHADED;
+	}
+	*/
 
 	return drawModes;
 }
@@ -84,16 +146,23 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
-#ifdef RENDER_DEBUG
-	std::ofstream out("04getRenderObjects-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo" << "\n";
-#endif
+	std::clock_t start = std::clock();
+
 	// only render mesh if that is possible (e.g. has control points)
-	if (!bezierTriangleMesh_.isRenderable()) return;
+	if (!bezierTriangleMesh_.isRenderable()) 
+		return;
+
+	//std::cerr << bezierTriangleMesh_.has_face_normals() << " " << bezierTriangleMesh_.has_vertex_normals() << std::endl;
+	// bezierTriangleMesh_.request_face_normals();
+
+#define old
+#ifndef old
+	// TODO call otherwise or atleast only when needed
+	drawBTMesh_->getVBO(); // TODO this should be done differently, in a status node or smthg look into that further
+#endif
 
 	// TODO
 	if (controlPointsChangedR_) {
-
 		setControlPointsColumnwise();
 		controlPointsChangedR_ = false;
 		controlPointsChangedC_ = true;
@@ -107,17 +176,348 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		&& knotVectorSelectionTexture_valid_ == false)
 		updateKnotVectorSelectionTexture(_state);
 
+	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	int showBVolume = betri::option(betri::BezierOption::SHOW_BOUNDING_VOLUME);
 
-	for (size_t i = 0; i < _drawMode.getNumLayers(); ++i)
-	{
+	// TODO
+	//updateSurfaceMesh(renderOption);
+
+
+	RenderObject ro;
+	ro.debugName = "BTMeshNode"; // TODO geht das so?
+
+	for (size_t i = 0; i < _drawMode.getNumLayers(); ++i) {
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
+		// TODO this can propably be done differently
+		// TODO make this toggle
+		//ACG::GLState::enable(GL_CULL_FACE);
+		//ACG::GLState::cullFace(GL_FRONT);
 
-		RenderObject ro;
+		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
+
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
 		ro.depthTest = true;
+#ifndef old
+		///////////////////////////////////////////////////////////////////////
+		// Setup drawMesh based on property source
+		///////////////////////////////////////////////////////////////////////
 
+		ro.shaderDesc.vertexColors = true;
+
+		switch (props->colorSource()) {
+			case DrawModes::COLOR_PER_VERTEX:
+				drawBTMesh_->usePerVertexColors();
+				break;
+			case DrawModes::COLOR_PER_FACE:
+				drawBTMesh_->usePerFaceColors();
+				break;
+			default:
+			{
+				drawBTMesh_->disableColors();
+				ro.shaderDesc.vertexColors = false;
+			} break;
+		}
+
+		// only the polygon primitives can set the normal source
+		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON) {
+			switch (props->normalSource()) {
+				case DrawModes::NORMAL_PER_VERTEX:
+					drawBTMesh_->usePerVertexNormals();
+					break;
+				case DrawModes::NORMAL_PER_HALFEDGE:
+					drawBTMesh_->usePerHalfedgeNormals();
+					break;
+				default: break;
+			}
+
+			if (props->flatShaded())
+				drawBTMesh_->setFlatShading();
+			else
+				drawBTMesh_->setSmoothShading();
+		}
+
+		ro.shaderDesc.addTextureType(GL_TEXTURE_2D, false, 0);
+
+		switch (props->texcoordSource()) {
+			case DrawModes::TEXCOORD_PER_VERTEX:
+				drawBTMesh_->usePerVertexTexcoords();
+				break;
+			case DrawModes::TEXCOORD_PER_HALFEDGE:
+				drawBTMesh_->usePerHalfedgeTexcoords();
+				break;
+			default:
+			{
+				ro.shaderDesc.clearTextures();
+			} break;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		// Prepare renderobject
+		///////////////////////////////////////////////////////////////////////
+
+		// enable / disable lighting
+		ro.shaderDesc.numLights = props->lighting() ? 0 : -1;
+
+		// Enable/Disable twoSided Lighting
+		ro.shaderDesc.twoSidedLighting = _state.twosided_lighting();
+
+		// TODO: better handling of attribute sources in shader gen
+		switch (props->lightStage()) {
+			case DrawModes::LIGHTSTAGE_SMOOTH:
+				ro.shaderDesc.shadeMode = SG_SHADE_GOURAUD;
+				break;
+			case DrawModes::LIGHTSTAGE_PHONG:
+				ro.shaderDesc.shadeMode = SG_SHADE_PHONG;
+				break;
+			case DrawModes::LIGHTSTAGE_UNLIT:
+				ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+				break;
+		}
+
+		if (props->flatShaded())
+			ro.shaderDesc.shadeMode = SG_SHADE_FLAT;
+
+		if (props->normalSource() == DrawModes::NORMAL_PER_FACE)
+			ro.shaderDesc.vertexNormalInterpolator = "flat";
+		else
+			ro.shaderDesc.vertexNormalInterpolator.clear();
+
+		///////////////////////////////////////////////////////////////////////
+		// handle 'special' primitives (wireframe, hiddenline, primitives in sysmem buffers)..
+		///////////////////////////////////////////////////////////////////////
+
+		if (props->primitive() == DrawModes::PRIMITIVE_WIREFRAME) {
+			ro.debugName = "BTMeshNode.Wireframe";
+
+			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+			drawBTMesh_->disableColors();
+
+			// use specular color for lines
+			if (_drawMode.isAtomic())
+				ro.emissive = ro.specular;
+			else
+				ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
+
+			// allow wireframe + solid mode
+			ro.depthFunc = GL_LEQUAL;
+			ro.priority = -1; // render before polygon
+
+			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+
+			applyRenderObjectSettings(props->primitive(), &ro);
+			add_line_RenderObjects(_renderer, &ro); // TODO
+		}
+
+		if (props->primitive() == DrawModes::PRIMITIVE_HIDDENLINE) {
+			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+			drawBTMesh_->disableColors();
+
+			// use specular color for lines
+			if (_drawMode.isAtomic())
+				ro.emissive = ro.specular;
+			else
+				ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
+
+			// eventually prepare depthbuffer first
+			int polyLayer = _drawMode.getLayerIndexByPrimitive(DrawModes::PRIMITIVE_POLYGON);
+			if ((polyLayer > int(i) || polyLayer < 0) && (bezierTriangleMesh_.n_faces() != 0)) {
+				ro.priority = 0;
+
+				applyRenderObjectSettings(DrawModes::PRIMITIVE_POLYGON, &ro);
+
+				// disable color write
+				ro.glColorMask(0, 0, 0, 0);
+
+				ro.debugName = "BTMeshNode.HiddenLine.faces";
+				// add_face_RenderObjects(_renderer, &ro); // TODO
+			}
+
+
+			// draw lines after depth image
+			ro.priority = 1;
+			ro.glColorMask(1, 1, 1, 1);
+			ro.depthFunc = GL_LEQUAL;
+
+			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+
+			applyRenderObjectSettings(DrawModes::PRIMITIVE_HIDDENLINE, &ro);
+
+			ro.debugName = "BTMeshNode.HiddenLine.lines";
+			//add_line_RenderObjects(_renderer, &ro); // TODO
+		}
+
+		if (props->colored() && props->primitive() == DrawModes::PRIMITIVE_EDGE) {
+			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+			ro.shaderDesc.vertexColors = true;
+
+			// note: colored edges are in sysmem, so they are directly bound to the VertexDeclaration
+			drawBTMesh_->updateEdgeHalfedgeVertexDeclarations();
+			ro.vertexDecl = drawBTMesh_->getEdgeColoredVertexDeclaration();
+			ro.glDrawArrays(GL_LINES, 0, int(bezierTriangleMesh_.n_edges() * 2));
+
+			// use specular color for lines
+			ro.emissive = ro.specular;
+
+			// line thickness
+			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+
+			applyRenderObjectSettings(props->primitive(), &ro);
+			ro.debugName = "BTMeshNode.Edges";
+			_renderer->addRenderObject(&ro);
+
+			// skip other edge primitives for this drawmode layer
+			continue;
+		}
+
+		if (props->primitive() == DrawModes::PRIMITIVE_HALFEDGE) {
+			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+
+			// buffers in system memory
+			drawBTMesh_->updateEdgeHalfedgeVertexDeclarations();
+			halfedgeDecl.clear();
+			halfedgeDecl.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION, (void *)0);
+
+			ro.vertexDecl = &halfedgeDecl;
+			// use specular color for lines
+			ro.emissive = ro.specular;
+			ro.vertexBuffer = drawBTMesh_->getHEVBO();
+			ro.indexBuffer = 0;
+			ro.glDrawArrays(GL_LINES, 0, int(bezierTriangleMesh_.n_halfedges() * 2));
+
+			ro.debugName = "BTMeshNode.HalfEdges";
+			_renderer->addRenderObject(&ro);
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		// take care of all the other primitives
+		///////////////////////////////////////////////////////////////////////
+
+		ro.depthRange = Vec2f(0.01f, 1.0f);
+
+		switch (props->primitive()) {
+			case DrawModes::PRIMITIVE_POINT:
+			{
+				if (ro.shaderDesc.shadeMode == SG_SHADE_UNLIT) {
+					// use specular color for points
+					if (_drawMode.isAtomic())
+						ro.emissive = ro.specular;
+					else
+						ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
+				}
+
+				// use shaders to simulate point size
+				ro.setupPointRendering(_mat->pointSize(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+
+				applyRenderObjectSettings(props->primitive(), &ro);
+				ro.debugName = "BTMeshNode.Points";
+				//add_point_RenderObjects(_renderer, &ro); // TODO
+			} break;
+			case DrawModes::PRIMITIVE_EDGE:
+			{
+				// use specular color for lines
+				ro.emissive = ro.specular;
+
+				// use shaders to simulate line width
+				ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+
+				applyRenderObjectSettings(props->primitive(), &ro);
+				ro.debugName = "BTMeshNode.Edges";
+				//add_line_RenderObjects(_renderer, &ro); // TODO
+			} break;
+			case DrawModes::PRIMITIVE_POLYGON:
+			{
+				applyRenderObjectSettings(props->primitive(), &ro);
+
+				///////////////////////////////////////////////////////////////
+				// Raytracing
+				///////////////////////////////////////////////////////////////
+				if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING && !showBVolume) {
+
+					// TODO this is a doublication
+					if (!controlPointTex_.is_valid())
+						updateTexBuffers();
+
+					ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
+					ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+
+					//std::cerr << _state.eye() << std::endl;
+					//std::cerr << _renderer->camPosWS_ << std::endl;
+					//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
+
+					//ro.setUniform("campos", _renderer->camPosWS_);
+					//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
+					ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+
+					// vertex shader uniforms
+					//ro.setUniform("cameraPos", );
+
+					// fragment shader uniforms
+					static float iteration = 0.0f;
+					iteration += 0.04f;
+					ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
+
+					ro.setUniform("btriangles", int(1));
+					ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
+				}
+
+#ifdef GL_ARB_tessellation_shader
+				bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
+
+				///////////////////////////////////////////////////////////////
+				// Tessellation
+				///////////////////////////////////////////////////////////////
+				if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU) {
+					if (!controlPointTex_.is_valid())
+						updateTexBuffers();
+
+					ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
+					ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
+
+					// Tesselation Control Shader Uniforms
+					ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
+					ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+
+					// Fragment Shader Uniforms
+					ro.setUniform("controlPointTex", int(1));
+
+					ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
+					//roPrimitives = GL_PATCHES;
+
+					ro.patchVertices = 3;
+
+					drawBTMesh_->addPatchRenderObjects(_renderer, &ro, textureMap_, false);
+
+				} else {
+#endif
+
+					if (!ro.shaderDesc.vertexTemplateFile.isEmpty())
+						drawBTMesh_->scanVertexShaderForInput(ro.shaderDesc.vertexTemplateFile.toStdString());
+
+					bool useNonIndexed = (props->colorSource() == DrawModes::COLOR_PER_FACE) && 
+						(props->lightStage() == DrawModes::LIGHTSTAGE_SMOOTH) && !props->flatShaded();
+					if (!useNonIndexed && props->colorSource() == DrawModes::COLOR_PER_FACE)
+						ro.shaderDesc.vertexColorsInterpolator = "flat";
+
+					ro.debugName = "BTMeshNode.Faces";
+					add_face_RenderObjects(_renderer, &ro, useNonIndexed); // TODO
+
+					ro.shaderDesc.vertexColorsInterpolator.clear();
+
+#ifdef GL_ARB_tessellation_shader
+				}
+#endif
+
+			} break;
+			default: break;
+		}
+#endif
+#ifdef old
+
+		///////////////////////////////////////////////////////////////////////
+		// 
+		///////////////////////////////////////////////////////////////////////
 		// generated texcoords for environment mapping should be computed in fragment shader,
 		// because normals aren't available in the vertex shader
 		ro.shaderDesc.texGenPerFragment = true;
@@ -128,7 +528,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
 			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME)
 		{
-			updateSurfaceMesh();
+			int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+			int showBVolume = betri::option(betri::BezierOption::SHOW_BOUNDING_VOLUME);
+
+			updateSurfaceMesh(renderOption);
 
 			ro.vertexBuffer = surfaceVBO_.id();
 			ro.indexBuffer = surfaceIBO_.id();
@@ -141,10 +544,61 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
-#ifdef GL_ARB_tessellation_shader
-			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer();
+			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING && !showBVolume) {
 
-			if (tessellationMode)
+				// TODO this is a doublication
+				if (!controlPointTex_.is_valid())
+					updateTexBuffers();
+
+				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
+				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+
+				//std::cerr << _state.eye() << std::endl;
+				//std::cerr << _renderer->camPosWS_ << std::endl;
+				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
+
+				//ro.setUniform("campos", _renderer->camPosWS_);
+				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+
+				ro.setUniform("b_error", (1.0f / betri::option(betri::BezierOption::B_ERROR)));
+				ro.setUniform("d_error", (1.0f / betri::option(betri::BezierOption::D_ERROR)));
+
+				// TODO is the shader recompiled every frame?
+				QString shaderMacro;
+				shaderMacro.sprintf("#define NEWTON_IT_COUNT %i", betri::option(betri::BezierOption::NEWTON_IT_COUNT));
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 0)
+					shaderMacro.sprintf("#define SG_OUTPUT_COLOR");
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 1)
+					shaderMacro.sprintf("#define SG_OUTPUT_NORMALOS");
+				else
+					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				shaderMacro.sprintf("#define CPSUM %i", controlPointsPerFace);
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				ro.shaderDesc.macros.push_back(shaderMacro);
+
+				// vertex shader uniforms
+				//ro.setUniform("cameraPos", );
+
+				// fragment shader uniforms
+				static float iteration = 0.0f;
+				iteration += 0.04f;
+				ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
+
+				ro.setUniform("btriangles", int(1));
+				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
+			}
+
+#ifdef GL_ARB_tessellation_shader
+			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
+
+			if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU)
 			{
 				// dynamic lod tessellation and spline evaluation on gpu
 
@@ -154,40 +608,26 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
 				ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
 
-				// TODO
-				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
-
-
 				//QString shaderMacro;
-
-				/*
-				shaderMacro.sprintf("#define BSPLINE_DEGREE_U %i", bezierTriangleMesh_.degree_m());
-				ro.shaderDesc.macros.push_back(shaderMacro);
-
-				shaderMacro.sprintf("#define BSPLINE_DEGREE_V %i", bezierTriangleMesh_.degree_n());
-				ro.shaderDesc.macros.push_back(shaderMacro);
-
-				shaderMacro.sprintf("#define BSPLINE_KNOTVEC_U %i", bezierTriangleMesh_.degree_m() * 2 + 1);
-				ro.shaderDesc.macros.push_back(shaderMacro);
-
-				shaderMacro.sprintf("#define BSPLINE_KNOTVEC_V %i", bezierTriangleMesh_.degree_n() * 2 + 1);
-				ro.shaderDesc.macros.push_back(shaderMacro);
-				*/
+				//shaderMacro.sprintf("#define BSPLINE_DEGREE_U %i", bezierTriangleMesh_.degree_m());
+				//ro.shaderDesc.macros.push_back(shaderMacro);
+				
 
 				ro.setUniform("controlPointTex", int(1));
-				//ro.setUniform("knotBufferU", int(2));
-				//ro.setUniform("knotBufferV", int(3));
+
+				// Tesselation Control Shader Uniforms
 
 				//ro.setUniform("uvRange", Vec4f(bezierTriangleMesh_.loweru(), bezierTriangleMesh_.upperu(),
 				//	bezierTriangleMesh_.lowerv(), bezierTriangleMesh_.upperv()));
 
 				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// TODO warum geht das, aber uniform geht nicht?
 				// Liegt das an der for-schleife
-				//QString shaderMacro;
-				//shaderMacro.sprintf("#define GRAD %i", GRAD);
-				//ro.shaderDesc.macros.push_back(shaderMacro);
+				QString shaderMacro;
+				shaderMacro.sprintf("#define GRAD %i", GRAD);
+				ro.shaderDesc.macros.push_back(shaderMacro);
 				//ro.setUniform("GRAD", int(2));
 
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
@@ -207,10 +647,15 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 
 		}
+#endif
 	}
+	
 
+	///////////////////////////////////////////////////////////////////////////
 	// draw the control net (includes selection on the net)
-	if (render_control_net_)
+	///////////////////////////////////////////////////////////////////////////
+	// TODO
+	if (render_control_net_ || true)
 	{
 		// update if necessary
 		updateControlNetMesh();
@@ -271,8 +716,32 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			_renderer->addRenderObject(&ro);
 		}
 	}
+
+	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+	
+	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
+
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::add_face_RenderObjects(
+	IRenderer* _renderer, const RenderObject* _baseObj, bool _nonindexed
+)
+{
+	drawBTMesh_->addTriRenderObjects(_renderer, _baseObj, textureMap_, _nonindexed);
+}
+
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::add_line_RenderObjects(
+	IRenderer* _renderer, const RenderObject* _baseObj
+)
+{
+//	if ((enabled_arrays_ & PER_EDGE_COLOR_ARRAY) && (enabled_arrays_ & PER_EDGE_VERTEX_ARRAY)) {
+		// colored edges still slow
+//		glDrawArrays(GL_LINES, 0, int(drawBTMesh_.n_edges() * 2));
+//	} else
+		drawBTMesh_->addLineRenderObjects(_renderer, _baseObj);
+}
 
 //----------------------------------------------------------------------------
 
@@ -301,7 +770,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
@@ -328,7 +797,8 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 				// If it isnt an cornerpoint
 				if (i != 0 && i != GRAD && i != betri::gaussSum(GRAD + 1) - 1) {
 					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
-					p += n/2.5;
+					p += n / 2.5;
+					//p += Point(0.3, 0.0, 0.0);
 				}
 				i++;
 				cp_vec.push_back(p);
@@ -459,7 +929,6 @@ void BezierTriangleMeshNode<MeshT>::draw(
 		ACG::GLState::depthRange(0.0, 1.0);
 	}
 
-
 	if ((_drawMode & DrawModes::SOLID_SMOOTH_SHADED))
 	{
 		ACG::GLState::enable(GL_AUTO_NORMAL);
@@ -522,6 +991,23 @@ void BezierTriangleMeshNode<MeshT>::draw(
 		//    ACG::GLState::disable(GL_BLEND);
 	}
 
+	/*
+	// BIG TODO here should be happening smth else, but i dont know how to color the faces
+	if ((_drawMode & DrawModes::SOLID_FACES_COLORED)) {
+		ACG::GLState::enable(GL_COLOR_MATERIAL);
+
+		ACG::GLState::enable(GL_AUTO_NORMAL);
+		ACG::GLState::enable(GL_NORMALIZE);
+
+		ACG::GLState::enable(GL_LIGHTING);
+		ACG::GLState::shadeModel(GL_SMOOTH);
+		ACG::GLState::depthRange(0.01, 1.0);
+
+		render(_state, true);
+
+		ACG::GLState::depthRange(0.0, 1.0);
+	}*/
+
 	glPopAttrib();
 }
 
@@ -563,12 +1049,8 @@ void BezierTriangleMeshNode<MeshT>::render(GLState& _state, bool _fill)
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
 {
-#ifdef RENDER_DEBUG
-	std::ofstream out("01render-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo" << "\n";
-#endif
-
-	updateSurfaceMesh();
+	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	updateSurfaceMesh(renderOption);
 
 	surfaceVBO_.bind();
 	surfaceIBO_.bind();
@@ -858,10 +1340,16 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	invalidateSurfaceMesh_ = true;
 	invalidateControlNetMesh_ = true;
 
+	drawBTMesh_->invalidateSurfaceMesh_ = true;
+
 	// TODO
 	NEWVERTICES = betri::mersennePrime(ITERATIONS);
 	VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
 	STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
+
+	drawBTMesh_->NEWVERTICES = betri::mersennePrime(ITERATIONS);
+	drawBTMesh_->VERTEXSUM = betri::gaussSum(drawBTMesh_->NEWVERTICES + 2);
+	drawBTMesh_->STEPSIZE = 1.0 / (double(drawBTMesh_->NEWVERTICES) + 1.0);
 }
 
 //----------------------------------------------------------------------------
@@ -880,7 +1368,7 @@ void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 		{
 			if (render_control_net_)
 			{
-				// TODO ist der Count hier richtig, was soll da überhaupt hin?
+				// TODO ist der Count hier richtig, was soll da ï¿½berhaupt hin?
 				_state.pick_set_maximum(bezierTriangleMesh_.n_vertices() * 2);
 				pick_vertices(_state); // TODO tut das jetzt was ?
 			}
@@ -1634,15 +2122,10 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int _vertexCountV) TODO
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	if (!invalidateSurfaceMesh_)
 		return;
-
-#ifdef RENDER_DEBUG
-	std::ofstream out("01updateSurfaceMesh-log.txt", std::ios::out | std::ofstream::app);
-	out << "Hallo2" << "\n";
-#endif
 
 	surfaceVBO_.del();
 	surfaceIBO_.del();
@@ -1662,6 +2145,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_NORMAL);
 		surfaceDecl_.addElement(GL_FLOAT, 2, VERTEX_USAGE_TEXCOORD);
+		//surfaceDecl_.addElement(GL_FLOAT, 4, VERTEX_USAGE_COLOR);
+		//surfaceDecl_.addElement(GL_UNSIGNED_BYTE, 4, VERTEX_USAGE_COLOR); TODO
 
 		if (provideDebugInfo)
 		{
@@ -1671,29 +2156,31 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh()//int _vertexCountU, int 
 		}
 	}
 
-	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
 	if (false) { // TODO if apply tesselation - should get a separate call
 		// TODO
 		// TODO should the mesh really be changed? we could simple apply the
 		// changes to the vbo and dont change the Mesh itself
-		// TODO Button für applyTesselation
+		// TODO Button fï¿½r applyTesselation
 		tesselateMeshCPU();
 	}
 
 	// TODO Performance verbessern indem in den vertex buffer alle vertices gepackt werden und dann
 	// beim index buffer die indices direkt genutzt werden
 
-	 // BIG TODO !!!
+	// BIG TODO !!!
 	// not really sure what happens - but the renderOption should
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
-	if (renderOption == 1) {
+	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
-	else {
+	else if (meshOption == betri::TESSELLATION_TYPE::CPU) {
 		VBOtesselatedFromMesh();
+	}
+	else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
+		VBOfromBoundingMesh();
 	}
 }
 
@@ -1786,6 +2273,8 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	int i = 0;
 	Point pos;
 	Point normal; //TODO BezierTMesh::Normal
+	//Vec4uc vecCol(0, 0, 0, 1);
+	Point vecCol(0, 0, 1);
 	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
 	for (auto &face : bezierTriangleMesh_.faces()) {
 		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
@@ -1807,6 +2296,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 					vboData[elementOffset++] = float(pos[m]);
 
 				// TODO ist das so richtig? welcher PUnkt ist der der mit u multipliziert werden muss?
+				// TODO kreuzprodukt für normale?
 				// store normal
 				normal = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * (1-u-v);
 				for (int m = 0; m < 3; ++m)
@@ -1818,6 +2308,28 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				//vboData[elementOffset++] = texCoord[1];
 				vboData[elementOffset++] = 1.0;
 				vboData[elementOffset++] = 0.0;
+
+				/*
+				// TODO use ints instead of floats
+				//color = std::vector<float>({ 1.0, 0.0, 0.0, 1.0 });
+				//color = bezierTriangleMesh_.texcoord2D(v);
+				for (int m = 0; m < 3; ++m) {
+					float y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+					vecCol[0] = y;
+					vecCol[1] = y;
+					vecCol[2] = y;
+					auto x = bezierTriangleMesh_.color(face);
+					std::cerr << x[0] << " " << x[1] << " " << x[2] << " " << y << " " << std::endl;
+					vboData[elementOffset++] = float(vecCol[m]);
+				}
+				vboData[elementOffset++] = float(1.0);*/
+
+				/* DrawMeshT<Mesh>::readVertex(
+				byteCol[col] = (unsigned char)(vecCol[0]);
+				byteCol[col] |= ((unsigned char)(vecCol[1])) << 8;
+				byteCol[col] |= ((unsigned char)(vecCol[2])) << 16;
+				byteCol[col] |= ((unsigned char)(vecCol[3])) << 24;
+				*/
 			}
 		}
 	}
@@ -1924,7 +2436,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	int numIndices = vboSize / 4;
+	int numIndices = vboSize / 4; // TODO warum hier durch 4
 
 	std::vector<int> iboData(numIndices);
 
@@ -2044,6 +2556,132 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	*/
 }
 
+/**
+ * Create a simple VBO from this Mesh.
+ */
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
+{
+	///////////////////////////////////////////////////////////////////////////
+	// Setup VBO and IBO
+	///////////////////////////////////////////////////////////////////////////
+
+	// TODO different bounding volumes
+	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
+
+	int numVerts;
+	int numIndices;
+	betri::getVertexIndexCounts(bVolume, numVerts, numIndices);
+
+	int vertexCount = bezierTriangleMesh_.n_faces() * numVerts;
+	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
+
+	int indexCount = bezierTriangleMesh_.n_faces() * numIndices;
+
+	// create index buffer
+	std::vector<int> iboData(indexCount);
+	// create vertex buffer
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
+
+	///////////////////////////////////////////////////////////////////////////
+	// Fill with boundingbox data
+	///////////////////////////////////////////////////////////////////////////
+
+	int vboIndex = 0;
+	int iboIndex = 0;
+	//for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
+	int face_index = 0;
+
+	for (auto &face : bezierTriangleMesh_.faces()) {
+
+		auto faceControlP = bezierTriangleMesh_.data(face);
+		std::vector<Point> cpArray = std::vector<Point>();
+		for (int i = 0; i < controlPointsPerFace; i++) {
+			cpArray.push_back(faceControlP.getCPoint(i));
+		}
+
+		switch (bVolume) {
+			case betri::boundingVolumeType::AABB:
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			case betri::boundingVolumeType::PrismVolume:
+			{
+				// TODO is this the correct way to call this?
+				betri::addPrismVolumeFromPoints(
+					controlPointsPerFace,
+					GRAD,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				); 
+				break;
+			}
+			case betri::boundingVolumeType::ConvexHull:
+			{
+				// TODO is this the correct way to call this?
+				betri::addConvexHullFromPoints(
+					controlPointsPerFace,
+					GRAD,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+				break;
+			}
+			default: 
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingBoxFromPoints(
+					controlPointsPerFace,
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+			}
+		}
+
+		face_index++;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	// Upload VBO and IBO and cleanup
+	///////////////////////////////////////////////////////////////////////////
+
+	if (vboSize)
+		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+
+	vboData.clear();
+
+	// TODO why is it here *4 is it because of size in bytes?!
+	if (indexCount)
+		surfaceIBO_.upload(indexCount * 4, &iboData[0], GL_STATIC_DRAW);
+
+	surfaceIndexCount_ = indexCount;
+
+	invalidateSurfaceMesh_ = false;
+
+}
+
 //----------------------------------------------------------------------------
 
 template <class MeshT>
@@ -2058,7 +2696,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// vertex layout:
 	//  float3 pos
 
-	// TODO HÄ?
+	// TODO Hï¿½?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
@@ -2092,7 +2730,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
 	int bottomTriangles = betri::gaussSum(GRAD);
-	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
+	// TODO unterschiedliche Faces kï¿½nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();

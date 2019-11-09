@@ -74,8 +74,6 @@ public slots:
 
 private slots:
 
-	void echoChanged(int);
-
 	void initializePlugin() override;
 
 	void tessellateMesh();
@@ -83,6 +81,15 @@ private slots:
 	// option setting function
 	void setTessAmount(int);
 	void setTessType(int);
+	void setBoundVType(int);
+	void setVisulisationType(int);
+
+	// TODO wirklich n�tig?
+	void setBError(int);
+	void setDError(int);
+	void setNewtonIt(int);
+
+	void setBoundVShow(bool);
 
 	// voronoi meshing functions
 	void callVoronoi();
