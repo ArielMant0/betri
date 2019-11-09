@@ -365,7 +365,7 @@ void Parametrization::initCoords(const FaceHandle face)
 	size_t innerIdx = 0;
 	// reset all (interior) coordinates to triangle midpoint (also circle midpoint)
 	for (auto vh : *m_inner) {
-		hmap(vh) = Vec2(0.5f, 0.5f);
+		hmap(vh) = m_mapper.middle();
 		sysid(vh) = innerIdx++;
 	}
 

@@ -347,10 +347,11 @@ void BezierTriangleUtilsPlugin::callFitting()
 		betri::voronoiFitting(*o_it, ctrl_obj);
 		emit log(LOGINFO, "Performed Fitting!");
 
+		ctrlMeshObj->mesh()->setRenderable();
+
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
 	}
 	for (auto button : m_voronoiSteps) {

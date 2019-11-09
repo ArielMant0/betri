@@ -16,6 +16,8 @@ public:
 
     void map(std::vector<Path*> &paths) override;
 
+	Vec2 middle() override { return Vec2(0.33f, 0.33f); }
+
 private:
 
 	void mapTriangle(std::vector<Path*> &paths);

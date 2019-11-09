@@ -90,8 +90,8 @@ void TypeBezierTriangleMeshPlugin::slotUpdateContextMenu(int _objectId)
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
 	if (surfaceObject != 0) {
-		/*renderControlNetAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_control_net());
-		renderSurfaceAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_bspline_surface());*/
+		renderControlNetAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_control_net());
+		renderSurfaceAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_bspline_surface());
 
 		/*
 		renderCPSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::CONTROLPOINT);
@@ -116,8 +116,8 @@ void TypeBezierTriangleMeshPlugin::slotRenderControlNet() {
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
 	if (surfaceObject != 0) {
-		/*surfaceObject->bezierTriangleMeshNode()->render_control_net(renderControlNetAction_->isChecked());
-		emit updatedObject(objectId, UPDATE_ALL);*/
+		surfaceObject->bezierTriangleMeshNode()->render_control_net(renderControlNetAction_->isChecked());
+		emit updatedObject(objectId, UPDATE_ALL);
 	}
 }
 
@@ -138,8 +138,8 @@ void TypeBezierTriangleMeshPlugin::slotRenderSurface() {
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
 	if (surfaceObject != 0) {
-		/*surfaceObject->bezierTriangleMeshNode()->render_bspline_surface(renderSurfaceAction_->isChecked());
-		emit updatedObject(objectId, UPDATE_ALL);*/
+		surfaceObject->bezierTriangleMeshNode()->render_bspline_surface(renderSurfaceAction_->isChecked());
+		emit updatedObject(objectId, UPDATE_ALL);
 	}
 }
 
