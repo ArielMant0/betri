@@ -1,5 +1,6 @@
 include (plugin)
 
-openflipper_plugin (INSTALLDATA Icons
-					INSTALLDATA Shaders
-                    TYPES BEZIERTRIANGLEMESH)
+openflipper_plugin (
+	INSTALLDATA Icons Shaders
+        TYPES BEZIERTRIANGLEMESH
+)

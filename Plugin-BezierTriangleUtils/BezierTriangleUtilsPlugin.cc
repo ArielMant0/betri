@@ -288,7 +288,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	int result;
 
 	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/classBaseInterface.html#ace0d6b943ce94f48c40e8c0e17a8413e
-	/*connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
+	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
 
 		std::clock_t start = std::clock();
@@ -299,14 +299,15 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		for (int i = 0; i < frames; i++) {
 			// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
-			BaseInterface::updateView();
-			BaseInterface::updatedObject(-1);
-			BaseInterface::nodeVisibilityChanged(-1);
+			//emit BaseInterface::updateView();
+			emit updateView();
+			//BaseInterface::updatedObject(-1);
+			//BaseInterface::nodeVisibilityChanged(-1);
 
 			// qtbaseviewer.cc frame_time_
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-1.1/classACG_1_1QtWidgets_1_1QtBaseViewer.html
-			auto bla = PluginFunctions::getRootNode();
-			bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
+			//auto bla = PluginFunctions::getRootNode();
+			//bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
 		}
 
 		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -314,7 +315,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		std::cerr << "duration: " << duration << " " << (frames/duration) << '\n';
 		result = int(frames / duration);
 	}
-	);*/
+	);
 
 	//std::cerr << "result: " << result << std::endl;
 

@@ -15,6 +15,9 @@
 #include "globals/BezierOptions.hh"
 #include "BezierMathUtil.hh"
 
+#include "quickhull/QuickHull.hpp"
+
+
 #define ITERATIONS betri::option(betri::BezierOption::TESSELLATION_AMOUNT)
 
 //#define RENDER_DEBUG
@@ -763,6 +766,25 @@ void BezierTriangleMeshNode<MeshT>::setControlPointsCircular()
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
+	/*
+	quickhull::QuickHull<float> qh;
+
+	auto data = bezierTriangleMesh_.data(bezierTriangleMesh_.face_handle(0)).points();
+	std::vector<float> points;
+	points.reserve(data.size() * 3);
+	for (Point p : data) {
+		points.push_back(p[0]);
+		points.push_back(p[1]);
+		points.push_back(p[2]);
+	}
+	auto hull = qh.getConvexHullAsMesh(points.data(), data.size(), true);
+	//qh.getConvexHullAsMesh2();
+	std::cerr << "convex hull:\n";
+	for (auto vec : hull.m_vertices) {
+		std::cerr << vec << '\n';
+	}
+	*/
+
 	// TODO: rene/franzis toggle !!!
 	return;
 
