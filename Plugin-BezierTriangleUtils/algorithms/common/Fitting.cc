@@ -38,7 +38,7 @@ bool Fitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result
 	auto solver = (A.transpose() * A).ldlt();
 	result = solver.solve(A.transpose() * rhs);
 	if (solver.info() != Eigen::Success) {
-		std::cerr << __FUNCTION__ << ": test failed for x! (" << solver.info() << ")\n";
+		std::cerr << __FUNCTION__ << ": solver failed! (" << solver.info() << ")\n";
 		return false;
 	}
 
@@ -52,7 +52,7 @@ bool Fitting::solveLocal(const FaceHandle face)
 	Vertices &inner = ttv(face).inner;
 	Vertices outVerts;
 
-	size_t inSize = std::min(inner.size(), m_samples);
+	size_t inSize = std::min(inner.size(), m_samples*2);
 	size_t outSize = 0;
 
 	if (inSize < m_samples) {

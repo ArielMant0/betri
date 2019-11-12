@@ -33,9 +33,9 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE, ++i) {
 			double w = 1 - u - v;
 			Point p = p0 * u + p1 * v + p2 * w;
-			if (i != 0 && i != m_degree && i != stuff) {
+			/*if (i != 0 && i != m_degree && i != stuff) {
 				p += (n0 * u + n1 * v + n2 * w) / 2.5;
-			}
+			}*/
 			cp_vec.push_back(p);
 		}
 	}

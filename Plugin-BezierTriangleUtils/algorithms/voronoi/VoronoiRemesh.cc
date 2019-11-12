@@ -139,7 +139,7 @@ void VoronoiRemesh::preventiveEdgeSplits()
 	for (int i = 0; i < counts.size(); ++i) {
 		for (int j = 0; j < counts[i].size(); ++j) {
 			if (i != j && counts[i][j].first == 1) {
-				auto e = counts[i][j].second;
+				EH e = counts[i][j].second;
 
 				assert(e.is_valid());
 
@@ -149,16 +149,16 @@ void VoronoiRemesh::preventiveEdgeSplits()
 				FH f1 = m_mesh.face_handle(h1);
 				FH f2 = m_mesh.face_handle(h2);
 
-				m_mesh.set_color(f1, { 1., 1., 1., 1. });
-				m_mesh.set_color(f2, { 1., 1., 1., 1. });
+				//m_mesh.set_color(f1, { 1., 1., 1., 1. });
+				//m_mesh.set_color(f2, { 1., 1., 1., 1. });
 
-				std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
+				//std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
 
-				FH f3 = m_mesh.face_handle(m_mesh.n_faces() - 2);
-				FH f4 = m_mesh.face_handle(m_mesh.n_faces() - 1);
-				m_mesh.set_color(f3, { 0., 0., 0., 1. });
-				m_mesh.set_color(f4, { 0., 0., 0., 1. });
+				//FH f3 = m_mesh.face_handle(m_mesh.n_faces() - 2);
+				//FH f4 = m_mesh.face_handle(m_mesh.n_faces() - 1);
+				//m_mesh.set_color(f3, { 0., 0., 0., 1. });
+				//m_mesh.set_color(f4, { 0., 0., 0., 1. });
 			}
 		}
 	}
@@ -264,7 +264,7 @@ void VoronoiRemesh::assignInnerVertices()
 				assert(ctrlFace.is_valid());
 
 				assigned[ctrlFace] = true;
-				auto color = m_colGen.generateNextColor();
+				Color color = m_colGen.generateNextColor();
 				// mark vertices
 				for (VH v : inner) {
 					vtt(v).setFace(ctrlFace);
@@ -272,16 +272,17 @@ void VoronoiRemesh::assignInnerVertices()
 				}
 				// connect to face
 				ttv(ctrlFace).inner.insert(
-					ttv(ctrlFace).inner.begin(),
+					ttv(ctrlFace).inner.end(),
 					inner.begin(),
 					inner.end()
 				);
+
+				assert(ttv(ctrlFace).inner.size() == inner.size());
 
 				inner.clear();
 				regions.clear();
 			}
 		}
-
 	}
 }
 
@@ -505,10 +506,12 @@ void VoronoiRemesh::shortestPath(
 			) {
 				next.first = vh;
 				VH p = minConnection(vh);
-				if (p.is_valid()) next.second = p;
+				if (p.is_valid()) {
+					next.second = p;
+					assert(next.first != next.second);
+					return next;
+				}
 				assert(next.first != next.second);
-
-				return next;
 			}
 		}
 		return next;
@@ -694,6 +697,24 @@ void VoronoiRemesh::partition()
 		// COND 3: if one vertex is adj to more than 3 regions, add one adj face as a new seed face
 		reduceAdjRegions(q);
 
+		// add a new seed if we still need for partitions
+		if (m_seeds.size() < m_minPartition) {
+			for (FH face : m_mesh.faces()) {
+
+				if (isSeed(face)) continue;
+
+				bool allSame = true;
+				for (auto ff_it = m_mesh.cff_begin(face); ff_it != m_mesh.cff_end(face); ++ff_it) {
+					if (isSeed(*ff_it) || id(*ff_it) != id(face)) allSame = false;
+				}
+
+				if (allSame) {
+					addSeed(q, face);
+					break;
+				}
+			}
+		}
+
 	} while (!q.empty());
 
 	if (m_useColors) {
@@ -831,11 +852,12 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		setBorder(vh, adj.size() > 1);
 
 		// check that its pred chain leads to the seed vertex
-		VH w = vh;
-		while (pred(w).is_valid()) w = pred(w);
-		if (!isSeedVertex(w))
-			m_mesh.set_color(vh, { 0.6, 1.f, 0.95f, 1.f });
-		//if (!(pred(vh).is_valid() || isSeedVertex(vh)))
+		//VH w = vh;
+		//while (pred(w).is_valid()) w = pred(w);
+		//if (!isSeedVertex(w)) m_mesh.set_color(vh, { 0.6, 1.f, 0.95f, 1.f });
+
+		if (!isSeedVertex(vh) && !vtt(vh).isBorder() && dist(vh) == INF)
+			m_mesh.set_color(vh, { .5f, 1.f, 1.f, 1.f });
 
 		if (!vtt(vh).isBorder()) m_mesh.set_color(vh, m_colors[id(vh)]);
 		if (isSeedVertex(vh)) m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
@@ -886,7 +908,7 @@ bool VoronoiRemesh::dualize(bool steps)
 		std::cerr << "checking vertex " << v << "\n";
 
 		// check how many different regions are around that vertex
-		for (auto vf = m_mesh.cvf_begin(v); vf != m_mesh.cvf_end(v); ++vf) {
+		for (auto vf = m_mesh.cvf_ccwbegin(v); vf != m_mesh.cvf_ccwend(v); ++vf) {
 			if (check.insert(id(*vf)).second) {
 				assert(id(*vf) >= 0 && "no id for face next to vertex");
 				seedIDs.push_back(id(*vf));
@@ -1005,7 +1027,6 @@ void VoronoiRemesh::fitting()
 	Parametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
 	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
-	param.calcWeights();
 	fit.degree(m_mesh.degree());
 
 	for (FH face : m_ctrl.faces()) {
@@ -1014,11 +1035,14 @@ void VoronoiRemesh::fitting()
 			m_debugCancel = true;
 			return;
 		}
+		std::cerr << "\nfinished parametrization for face " << face << "\n";
+
 		if (!fit.solveLocal(face)) {
 			std::cerr << "fitting for face " << face << " failed\n";
 			m_debugCancel = true;
 			return;
 		}
+		std::cerr << "\nfinished fitting for face " << face << "\n";
 	}
 
 }

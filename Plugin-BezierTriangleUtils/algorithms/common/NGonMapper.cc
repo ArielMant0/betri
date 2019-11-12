@@ -9,8 +9,8 @@ void betri::NGonMapper::mapTriangle(std::vector<Path*> &paths)
 {
 	const Point initial[3] = {
 		Point(0.0, 0.0, 0.0),
-		Point(0.0, 1.0, 0.0),
-		Point(1.0, 0.0, 0.0)
+		Point(1.0, 0.0, 0.0),
+		Point(0.0, 1.0, 0.0)
 	};
 
 	for (size_t i = 0; i < paths.size(); ++i) {
@@ -35,6 +35,8 @@ void betri::NGonMapper::mapTriangle(std::vector<Path*> &paths)
 
 			curLen += (p - m_mesh.point(vh)).norm();
 			t = j == 0 ? t : initialT + dir * curLen * norm;
+			clamp(t);
+
 			p = m_mesh.point(vh);
 
 			hmap(vh) = Vec2(t[0], t[1]);

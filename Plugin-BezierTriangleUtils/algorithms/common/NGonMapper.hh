@@ -17,6 +17,13 @@ public:
     void map(std::vector<Path*> &paths) override;
 
 	Vec2 middle() override { return Vec2(0.33f, 0.33f); }
+	Vec2 middle(size_t n)
+	{
+		switch (n) {
+			default:
+			case 3: return Vec2(0.33f, 0.33f);
+		}
+	}
 
 private:
 

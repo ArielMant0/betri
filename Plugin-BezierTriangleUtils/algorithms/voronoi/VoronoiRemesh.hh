@@ -29,7 +29,13 @@ public:
 		static constexpr char *BORDER = "border";
 	};
 
-	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl, bool colors = true, bool copy = false) :
+	VoronoiRemesh(
+		BezierTMesh &mesh,
+		BezierTMesh &ctrl,
+		bool colors = true,
+		bool copy = false,
+		size_t minPartition = 10u
+	) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
 		m_useColors(colors),
@@ -37,10 +43,12 @@ public:
 		m_debugCancel(false),
 		m_useBaseMesh(false),
 		m_vertexIdx(0u),
+		m_minPartition(minPartition),
 		m_colors(),
 		m_seeds(),
 		m_ctrlVerts()
 	{
+		m_minPartition = m_minPartition == 0 ? std::floor(0.01 * m_mesh.n_faces()) : m_minPartition;
 		prepare();
 	}
 
@@ -321,7 +329,7 @@ private:
 	BezierTMesh &m_mesh, &m_ctrl;
 
 	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh;
-	size_t m_nvertices, m_nedges, m_vertexIdx;
+	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
 	ACG::HaltonColors m_colGen;
 
 	std::vector<Color> m_colors;

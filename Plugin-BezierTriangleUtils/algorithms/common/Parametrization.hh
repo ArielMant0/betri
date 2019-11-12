@@ -6,6 +6,7 @@
 
 #include <ACG/Math/VectorT.hh>
 #include <OpenMesh/Core/Utils/Property.hh>
+#include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 #include <Eigen/Sparse>
 #include <Eigen/SparseCore>
@@ -28,11 +29,6 @@ public:
 
 	using Vertices = std::vector<VertexHandle>;
 
-	enum WeightType
-	{
-		Cotangent, Uniform
-	};
-
 	explicit Parametrization(
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
@@ -46,7 +42,6 @@ public:
 		m_vtt(vtt),
 		m_pred(pred),
 		m_inner(nullptr),
-		m_weightType(Uniform),
 		m_mapper(mesh, vtt)
 	{
 		prepare();
@@ -66,13 +61,12 @@ public:
 	// computes weights (for complete mesh)
 	static void calcWeights(
 		BezierTMesh &mesh,
-		WeightType weightType,
 		OpenMesh::VPropHandleT<Scalar> &vweight,
-		OpenMesh::EPropHandleT<Scalar> &eweight
+		OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
 	);
 
 	void calcWeights(const VertexHandle vh);
-	void calcWeights();
+	void calcWeights(const FaceHandle face);
 
 	static bool test(BezierTMesh *mesh=nullptr);
 
@@ -86,7 +80,6 @@ private:
 	void prepare();
 	void cleanup();
 
-	Scalar& weight (EdgeHandle _eh) { return m_mesh.property(m_eweight, _eh); }
 	Scalar& weight (VertexHandle _vh) { return m_mesh.property(m_vweight, _vh); }
 	Vec2& hmap (VertexHandle _vh) { return vtt(_vh).uv; }
 	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
@@ -119,14 +112,11 @@ private:
 
     // OpenMesh mesh properties holding the texture coordinates and weights
 	OpenMesh::VPropHandleT<Scalar>			m_vweight;
-	OpenMesh::EPropHandleT<Scalar>			m_eweight;
 	OpenMesh::VPropHandleT<int>				m_sysid;
 
 	OpenMesh::FPropHandleT<TriToVertex>		m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>		m_vtt;
 	OpenMesh::FPropHandleT<FaceHandle>		m_pred;
-
-	WeightType m_weightType;
 
 	/// maps boundary vertices (to some convex polygon dictated by the mapper class)
 	NGonMapper m_mapper;

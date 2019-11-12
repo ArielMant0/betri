@@ -27,7 +27,7 @@ using ID = int;
 struct TriToVertex
 {
 	std::vector<VertexHandle> inner; // inner vertices
-	ID ids[3] = { 0, 0, 0 };// boundary numbers (shortest paths)
+	std::array<ID, 3> ids{ { -1, -1, -1 } };// boundary numbers (shortest paths)
 
 	const size_t& operator[](size_t index) const
 	{
@@ -47,6 +47,7 @@ struct TriToVertex
 			(ids[0] == r1 || ids[1] == r1 || ids[2] == r1) &&
 			(ids[0] == r2 || ids[1] == r2 || ids[2] == r2);
 	}
+
 };
 
 struct VertexToTri
@@ -76,6 +77,27 @@ struct VertexToTri
 	bool isBorder() const
 	{
 		return id1 >= 0 && id2 >= 0;
+	}
+
+	bool isBorderOf(const TriToVertex &ttv) const
+	{
+		bool id1Found = false, id2Found = false;
+
+		for (size_t i = 0; i < 3; ++i) {
+			if (ttv[i] == id1) id1Found = true;
+			else if (ttv[i] == id2) id2Found = true;
+		}
+
+		return id1Found && id2Found;
+	}
+
+	bool isInnerOf(const TriToVertex &ttv) const
+	{
+		for (size_t i = 0; i < 3; ++i) {
+			if (ttv[i] == id1) return true;
+		}
+
+		return false;
 	}
 
 	const double& operator[](size_t index) const

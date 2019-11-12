@@ -33,6 +33,19 @@ public:
         return l;
     }
 
+	static void clamp(Vec2 &uv)
+	{
+		uv[0] = uv[0] <= 0. ? 0. : (uv[0] >= 1. ? 1. : uv[0]);
+		uv[1] = uv[1] <= 0. ? 0. : (uv[1] >= 1. ? 1. : uv[1]);
+	}
+
+	static void clamp(Point &p)
+	{
+		p[0] = p[0] <= 0. ? 0. : (p[0] >= 1. ? 1. : p[0]);
+		p[1] = p[1] <= 0. ? 0. : (p[1] >= 1. ? 1. : p[1]);
+		p[2] = p[2] <= 0. ? 0. : (p[2] >= 1. ? 1. : p[2]);
+	}
+
 protected:
 
     BezierTMesh &m_mesh;
