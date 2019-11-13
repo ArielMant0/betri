@@ -28,8 +28,9 @@ struct TriToVertex
 {
 	std::vector<VertexHandle> inner; // inner vertices
 	std::array<ID, 3> ids{ { -1, -1, -1 } };// boundary numbers (shortest paths)
+	size_t boundarySize = 0;
 
-	const size_t& operator[](size_t index) const
+	const ID& operator[](size_t index) const
 	{
 		assert(index <= 2);
 		return ids[index];
@@ -39,6 +40,11 @@ struct TriToVertex
 	{
 		assert(index <= 2);
 		return ids[index];
+	}
+
+	void addBoundarySize(size_t size)
+	{
+		boundarySize += size;
 	}
 
 	bool isRegion(ID r0, ID r1, ID r2) const

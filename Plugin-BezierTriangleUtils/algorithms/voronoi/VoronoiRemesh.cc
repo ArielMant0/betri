@@ -953,16 +953,16 @@ bool VoronoiRemesh::dualize(bool steps)
 				// tell face which regions it was generated from (to later find boundary)
 				ttv(fh)[j] = id1;
 
-				ShortestPath bp;
 				// collect border halfedges between these two regions
 				if (!ShortestPath::has(id1, id2)) {
-					bp = ShortestPath(id1, id2);
+					ShortestPath bp = ShortestPath(id1, id2);
 					shortestPath(v, id1, id2, fh, bp);
 					// add path to path collection
 					ShortestPath::path(bp);
 
 					if (debugCancel()) return false;
 
+					ttv(fh).addBoundarySize(bp.size());
 					// make sure there are no impassable edges
 					// (i.e. edge connected to 2 vertices adj to border edges)
 					splitClosedPaths();
@@ -973,6 +973,9 @@ bool VoronoiRemesh::dualize(bool steps)
 					vertexDijkstra(id1, id2);
 
 					if (debugCancel()) return false;
+				} else {
+					const ShortestPath &bp = ShortestPath::path(id1, id2);
+					ttv(fh).addBoundarySize(bp.size());
 				}
 			}
 

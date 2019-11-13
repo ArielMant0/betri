@@ -1,6 +1,7 @@
 //== INCLUDES =================================================================
 #include "BTMeshObject_tri.hh"
 
+#ifndef DRAW_CURVED
 // #include <OpenFlipper/common/Types.hh>
 // #include <ACG/Scenegraph/DrawModes.hh>
 // #include <OpenFlipper/common/GlobalOptions.hh>
@@ -98,3 +99,4 @@ ACG::Vec3d BTMeshObject::refinePick(
 
 	return _hitPoint;
 }
+#endif

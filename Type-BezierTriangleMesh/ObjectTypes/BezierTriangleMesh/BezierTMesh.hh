@@ -1,5 +1,7 @@
 #pragma once
 
+#define DRAW_CURVED
+
 #include "BezierTriangleMeshTypes.hh"
 
 #include <OpenFlipper/common/ObjectTypeDLLDefines.hh>

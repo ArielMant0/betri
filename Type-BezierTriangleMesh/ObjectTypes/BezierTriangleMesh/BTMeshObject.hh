@@ -1,7 +1,6 @@
 #pragma once
 
 //== INCLUDES =================================================================
-
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
@@ -27,6 +26,8 @@
 #include "BezierTMesh.hh"
 
 #include "BezierTriangleMeshNode.hh"
+
+#ifdef DRAW_CURVED
 
 //== TYPEDEFS =================================================================
 
@@ -349,5 +350,5 @@ public:
 
   /** @} */
 };
-
+#endif
 //=============================================================================

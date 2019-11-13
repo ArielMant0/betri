@@ -52,28 +52,30 @@ bool Fitting::solveLocal(const FaceHandle face)
 	Vertices &inner = ttv(face).inner;
 	Vertices outVerts;
 
-	size_t inSize = std::min(inner.size(), m_samples*2);
-	size_t outSize = 0;
+	// use corner vertices
+	size_t outSize = std::min(ttv(face).boundarySize, m_samples/3);
+	size_t inSize = std::min(inner.size(), m_samples-outSize);
 
-	if (inSize < m_samples) {
-		auto ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]).list();
-		auto bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]).list();
-		auto ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]).list();
+	if (outSize > 0) {
+		const ShortestPath &ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
+		const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
+		const ShortestPath &ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-		outSize = std::min(nv_inner_, ab.size() + bc.size() + ca.size());
+		auto &listA = ab.list(bc);
+		auto &listB = bc.list();
+		auto &listC = ca.list(bc.end());
+
 		size_t perPath = outSize / 3;
 
 		outVerts.reserve(outSize);
-		for (size_t i = 0; i < ab.size() && outVerts.size() < perPath; ++i) {
-			outVerts.push_back(ab[i]);
+		for (size_t i = 0; i < listA.size() && outVerts.size() < perPath; ++i) {
+			outVerts.push_back(listA[i]);
 		}
-		bool reverse = ab.back() == bc.back();
-		for (size_t i = 0; i < bc.size() && outVerts.size() < 2 * perPath; ++i) {
-			outVerts.push_back(bc[reverse ? bc.size() - i - 1 : i]);
+		for (size_t i = 0; i < listB.size() && outVerts.size() < 2 * perPath; ++i) {
+			outVerts.push_back(listB[i]);
 		}
-		reverse = reverse ? bc.front() == ca.back() : bc.back() == ca.back();
-		for (size_t i = 0; i < ca.size() && outVerts.size() < outSize; ++i) {
-			outVerts.push_back(ca[reverse ? ca.size() - i - 1 : i]);
+		for (size_t i = 0; i < listC.size() && outVerts.size() < outSize; ++i) {
+			outVerts.push_back(listC[i]);
 		}
 	}
 
