@@ -53,6 +53,8 @@ private:
 	void prepare();
 	void cleanup();
 
+	void sortInner(const FaceHandle face);
+
 	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
 	Vec2& hmap (VertexHandle vh) { return vtt(vh).uv; }

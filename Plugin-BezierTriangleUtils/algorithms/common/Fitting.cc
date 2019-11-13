@@ -33,6 +33,15 @@ void Fitting::cleanup()
 		m_mesh.remove_property(m_sysid);
 }
 
+void Fitting::sortInner(const FaceHandle face)
+{
+	std::sort(ttv(face).inner.begin(), ttv(face).inner.end(),
+		[&](const VertexHandle v0, const VertexHandle v1) {
+			return hmap(v0)[0] < hmap(v1)[0];
+		}
+	);
+}
+
 bool Fitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result)
 {
 	auto solver = (A.transpose() * A).ldlt();
@@ -49,14 +58,26 @@ bool Fitting::solveLocal(const FaceHandle face)
 {
 	size_t nv_inner_ = pointsFromDegree(m_degree);
 
-	Vertices &inner = ttv(face).inner;
-	Vertices outVerts;
+	Vertices inner, outVerts;
 
-	// use corner vertices
-	size_t outSize = std::min(ttv(face).boundarySize, m_samples/3);
-	size_t inSize = std::min(inner.size(), m_samples-outSize);
+	Vertices *orig = &ttv(face).inner;
+	// use corner vertices (minus 3 because we store corners mutliple times)
+	size_t outSize = std::min(ttv(face).boundarySize-3, m_samples/4);
+	size_t inSize = std::min(orig->size(), m_samples-outSize);
 
+	inner.reserve(inSize);
+	outVerts.reserve(outSize);
+
+	sortInner(face);
+	// samples that lie inside the face
+	size_t mod = orig->size() / inSize;
+	for (size_t i = 0; i < orig->size() && inner.size() < inSize; i += mod) {
+		inner.push_back(orig->at(i));
+	}
+
+	// samples that lie on the border
 	if (outSize > 0) {
+
 		const ShortestPath &ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
 		const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
 		const ShortestPath &ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
@@ -66,15 +87,17 @@ bool Fitting::solveLocal(const FaceHandle face)
 		auto &listC = ca.list(bc.end());
 
 		size_t perPath = outSize / 3;
-
-		outVerts.reserve(outSize);
-		for (size_t i = 0; i < listA.size() && outVerts.size() < perPath; ++i) {
+		// sample in regular intervals (easy here because vectors are already sorted after uv)
+		mod = std::max((size_t)1, listA.size() / perPath);
+		for (size_t i = 0; i < listA.size() && outVerts.size() < perPath; i+=mod) {
 			outVerts.push_back(listA[i]);
 		}
-		for (size_t i = 0; i < listB.size() && outVerts.size() < 2 * perPath; ++i) {
+		mod = std::max((size_t)1, listB.size() / perPath);
+		for (size_t i = 0; i < listB.size() && outVerts.size() < 2 * perPath; i+=mod) {
 			outVerts.push_back(listB[i]);
 		}
-		for (size_t i = 0; i < listC.size() && outVerts.size() < outSize; ++i) {
+		mod = std::max((size_t)1, listC.size() / perPath);
+		for (size_t i = 0; i < listC.size() && outVerts.size() < outSize; i+=mod) {
 			outVerts.push_back(listC[i]);
 		}
 	}
@@ -161,6 +184,10 @@ bool Fitting::solveLocal(const FaceHandle face)
 			}
 			mod = m_degree + 1;
 		}
+		/*Point corner = m_mesh.
+		m_ctrl.data(face).setCorners(
+			m_mesh.
+		);*/
 
 		std::cerr << "\nface " << face << " has control points:\n";
 		size_t i(0u);
