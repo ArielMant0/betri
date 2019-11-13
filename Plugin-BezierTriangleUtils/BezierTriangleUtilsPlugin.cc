@@ -456,16 +456,32 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 		ctrlMeshObj->hide();
 		ctrlMeshObj->target(false);
 
-		betri::voronoiInit(*o_it, ctrl_obj, true);
-		betri::voronoiRemesh(*o_it, ctrl_obj);
-		emit log(LOGINFO, "Performed Voronoi Remeshing!");
-
 		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-		emit updatedObject(ctrl_id, UPDATE_ALL);
 
-		ctrlMeshObj->mesh()->setRenderable();
-		ctrlMeshObj->show();
+		bool ok;
+		int minValue = meshObj->mesh()->n_faces()*0.01;
+		int seedCount = QInputDialog::getInt(
+			m_tool,
+			"Voronoi Meshing",
+			"Please enter the minimum number of seeds: ",
+			// value, min value
+			minValue, std::min(minValue,10),
+			// max value, steps
+			meshObj->mesh()->n_faces(), 1, &ok
+		);
+
+		if (ok) {
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
+			betri::voronoiRemesh(*o_it, ctrl_obj);
+			emit log(LOGINFO, "Performed Voronoi Remeshing!");
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+			emit updatedObject(ctrl_id, UPDATE_ALL);
+
+			meshObj->hide();
+			ctrlMeshObj->mesh()->setRenderable();
+			ctrlMeshObj->show();
+		}
 	}
 }
 
@@ -552,6 +568,7 @@ void BezierTriangleUtilsPlugin::callFitting()
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
+		meshObj->hide();
 		ctrlMeshObj->show();
 	}
 	for (auto button : m_voronoiSteps) {
@@ -581,11 +598,25 @@ void BezierTriangleUtilsPlugin::callPartition()
 		ctrlMeshObj->hide();
 		ctrlMeshObj->target(false);
 
-		betri::voronoiInit(*o_it, ctrl_obj, true);
-		betri::voronoiPartition(*o_it, ctrl_obj);
-		emit log(LOGINFO, "Performed Voronoi Partition!");
+		bool ok;
+		int minValue = meshObj->mesh()->n_faces()*0.01;
+		int seedCount = QInputDialog::getInt(
+			m_tool,
+			"Voronoi Meshing",
+			"Please enter the minimum number of seeds: ",
+			// value, min value
+			minValue, std::min(minValue, 10),
+			// max value, steps
+			meshObj->mesh()->n_faces(), 1, &ok
+		);
 
-		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+		if (ok) {
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
+			betri::voronoiPartition(*o_it, ctrl_obj);
+			emit log(LOGINFO, "Performed Voronoi Partition!");
+
+			emit updatedObject(meshObj->id(), UPDATE_COLOR);
+		}
 
 		//m_voronoiSteps[0]->setDisabled(true);
 	}

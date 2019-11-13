@@ -113,6 +113,8 @@ public:
 	VH front() const { return m_border[0]; }
 	VH back() const { return m_border.back(); }
 
+	size_t size() const { return m_border.size(); }
+
 	static const ShortestPath& path(ID id1, ID id2);
 	static void path(ShortestPath &s);
 

@@ -32,9 +32,9 @@ public:
 	VoronoiRemesh(
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
+		size_t minPartition = 10u,
 		bool colors = true,
-		bool copy = false,
-		size_t minPartition = 10u
+		bool copy = false
 	) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
@@ -88,6 +88,24 @@ private:
 	void prepare();
 	void cleanup();
 
+	bool debugCancel() const
+	{
+		if (m_debugCancel) std::cerr << m_errorMsg << std::endl;
+		return m_debugCancel;
+	}
+	void debugCancel(const char *msg)
+	{
+		m_debugCancel = true;
+		m_errorMsg += msg;
+		m_errorMsg += '\n';
+	}
+	void debugCancel(std::string msg)
+	{
+		m_debugCancel = true;
+		m_errorMsg += msg;
+		m_errorMsg += '\n';
+	}
+
 	ID& id(FH fh) { return m_mesh.property(m_region, fh); }
 	ID id(const FH fh) const { return m_mesh.property(m_region, fh); }
 	ID& id(VH vh) { return m_mesh.property(m_vid, vh); }
@@ -100,6 +118,9 @@ private:
 
 	Scalar& dist(FH fh) { return m_mesh.property(m_distance, fh); }
 	Scalar& dist(VH vh) { return m_mesh.property(m_vdist, vh); }
+
+	bool border(const VH vh) const { return m_mesh.property(m_vborder, vh); }
+	void border(VH vh, bool val) { m_mesh.property(m_vborder, vh) = val; }
 
 	TriToVertex& ttv(FH fh)
 	{
@@ -143,9 +164,6 @@ private:
 		}
 		return false;
 	}
-
-	bool isBorder(const VH vh) const { return m_mesh.property(m_vborder, vh); }
-	void setBorder(const VH vh, bool val) { m_mesh.property(m_vborder, vh) = val; }
 
 	bool commonEdgeCrossed(const FH fh, const FH next) const
 	{
@@ -274,11 +292,11 @@ private:
 	template <class Container>
 	void fixAllFaces(Container &q1, Container &q2)
 	{
-		std::cerr << "FIX INNER FACES\n";
+		//std::cerr << "FIX INNER FACES\n";
 		for (FH face : q1) {
 			if (!m_mesh.status(face).tagged()) fixPredecessor(face, true);
 		}
-		std::cerr << "FIX OUTER FACES\n";
+		//std::cerr << "FIX OUTER FACES\n";
 		for (FH face : q2) {
 			if (!m_mesh.status(face).tagged()) fixPredecessor(face);
 		}
@@ -308,7 +326,9 @@ private:
 
 	bool isSeedVertex(const VH vh) const
 	{
-		assert(id(vh) >= 0);
+		assert(id(vh) >= 0 || id(vh) == BORDER_ID);
+		if (id(vh) == BORDER_ID) return false;
+
 		return m_seedVerts[id(vh)] == vh;
 	}
 
@@ -326,7 +346,11 @@ private:
 	// member variables
 	// -------------------------------------------------------------- //
 
+	static constexpr ID BORDER_ID = -2;
+
 	BezierTMesh &m_mesh, &m_ctrl;
+
+	std::string m_errorMsg;
 
 	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;

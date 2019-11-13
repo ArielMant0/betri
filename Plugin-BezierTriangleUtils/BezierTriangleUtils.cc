@@ -16,7 +16,7 @@ const char * VODName()
 	return "VORONOIREMESH_PER_OBJECT_DATA";
 }
 
-VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
+VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl, size_t count=0)
 {
 	// initialize PerObjectData if not done yet
 	if (!object->hasObjectData(VODName())) {
@@ -25,7 +25,7 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 		BezierTMesh* ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
 
 		// initialize per object data
-		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
+		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh, count));
 	}
 
 	// get feature lines object
@@ -37,9 +37,9 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 }
 
 // should be called once to allow for stepwise execution
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors)
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors)
 {
-	auto remesher = getVoronoiObject(object, ctrl);
+	auto remesher = getVoronoiObject(object, ctrl, count);
 	remesher->useColors(useColors);
 }
 
@@ -115,7 +115,7 @@ void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
 	BezierTMesh *ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
 
-	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
+	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh, 0));
 	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
 		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
 	);

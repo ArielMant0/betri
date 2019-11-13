@@ -9,7 +9,7 @@ enum class TestOptions
 	parametrization
 };
 
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, bool useColors);
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors);
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
 
