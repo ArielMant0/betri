@@ -15,8 +15,6 @@
 #include "globals/BezierOptions.hh"
 #include "BezierMathUtil.hh"
 
-#include "quickhull/QuickHull.hpp"
-
 
 #define ITERATIONS betri::option(betri::BezierOption::TESSELLATION_AMOUNT)
 

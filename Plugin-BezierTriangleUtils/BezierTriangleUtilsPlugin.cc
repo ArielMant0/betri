@@ -170,6 +170,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	//boundVComboBox->addItem(tr("NONE"));
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
+	boundVComboBox->addItem(tr("CONVEX HULL"));
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;

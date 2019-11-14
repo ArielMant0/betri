@@ -3,6 +3,8 @@
 #include <cmath>
 #include <iostream> // TODO weg damit
 
+#include "quickhull/QuickHull.hpp"
+
 namespace betri
 {
 
@@ -56,6 +58,7 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 	constexpr int indicesPerTriangle = 3;
 	constexpr int AABBTriangles = 12;
 	constexpr int prismTriangles = 6 + 2;
+	constexpr int hullTriangles = 8;
 
 	switch (bVolume) {
 		case boundingVolumeType::AABB :
@@ -67,8 +70,8 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 			numIndices = prismTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::ConvexHull:
-			//numVerts = 6;
-			//numIndices = hullTriangles * indicesPerTriangle; // BIG TODO
+			numVerts = 6; // TODO 
+			numIndices = hullTriangles * indicesPerTriangle; // BIG TODO
 			break;
 		default:
 			numVerts = 0;
@@ -435,9 +438,53 @@ static void addConvexHullFromPoints(
 	std::vector<BezierTMesh::Point> &faceControlP
 )
 {
-	auto tmp = findConvexHull(faceControlP);
+	
+	quickhull::QuickHull<float> qh;
 
-	const int boundingVolumeVCount = tmp.size();
+	//auto data = bezierTriangleMesh_.data(bezierTriangleMesh_.face_handle(0)).points();
+	std::vector<float> points;
+	points.reserve(controlPointsPerFace * 3);
+	for (auto p : faceControlP) {
+		points.push_back(p[0]);
+		points.push_back(p[1]);
+		points.push_back(p[2]);
+	}
+	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
+	//qh.getConvexHullAsMesh2();
+	std::cerr << "convex hull:\n";
+	for (auto vec : hull.m_vertices) {
+		std::cerr << vec << '\n';
+	}
+
+	const int boundingVolumeVCount = hull.m_vertices.size();
+
+	for (auto v : hull.m_vertices) {
+		vboData[vboIndex++] = float(v.x);
+		vboData[vboIndex++] = float(v.y);
+		vboData[vboIndex++] = float(v.z);
+
+
+		vboData[vboIndex++] = float(face_index);
+		//vboData[vboIndex++] = float(1.0);
+		vboData[vboIndex++] = float(0.0);
+		vboData[vboIndex++] = float(0.0);
+
+		vboData[vboIndex++] = 1.0;
+		vboData[vboIndex++] = 0.0;
+	}
+
+	//int asd = 0;
+	//int adf2 = 0;
+	for (auto f : hull.m_faces) {
+		//asd++;
+		auto e = f.m_halfEdgeIndex;
+		do {
+			//adf2++;
+			//std::cerr << asd << " " << adf2 << std::endl;
+			iboData[iboIndex++] = face_index * boundingVolumeVCount + hull.m_halfEdges[e].m_endVertex;
+			e = hull.m_halfEdges[e].m_next;
+		} while (e != f.m_halfEdgeIndex);
+	}
 
 	/*
 	BezierTMesh::Point cp;
