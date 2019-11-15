@@ -438,7 +438,13 @@ static void addConvexHullFromPoints(
 	std::vector<BezierTMesh::Point> &faceControlP
 )
 {
-	
+	/*
+	std::cerr << "controlP:\n";
+	for (auto vec : faceControlP) {
+		std::cerr << vec << '\n';
+	}
+	std::cerr << std::endl;
+	*/
 	quickhull::QuickHull<float> qh;
 
 	//auto data = bezierTriangleMesh_.data(bezierTriangleMesh_.face_handle(0)).points();
@@ -450,162 +456,150 @@ static void addConvexHullFromPoints(
 		points.push_back(p[2]);
 	}
 	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
-	//qh.getConvexHullAsMesh2();
-	std::cerr << "convex hull:\n";
-	for (auto vec : hull.m_vertices) {
-		std::cerr << vec << '\n';
-	}
 
-	const int boundingVolumeVCount = hull.m_vertices.size();
-
+	//////////////////
+	// Convert Mesh //
+	//////////////////
+	TriMesh reducedMesh;
 	for (auto v : hull.m_vertices) {
-		vboData[vboIndex++] = float(v.x);
-		vboData[vboIndex++] = float(v.y);
-		vboData[vboIndex++] = float(v.z);
-
-
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-
-		vboData[vboIndex++] = 1.0;
-		vboData[vboIndex++] = 0.0;
+		reducedMesh.add_vertex({ v.x, v.y, v.z });
 	}
 
-	//int asd = 0;
-	//int adf2 = 0;
 	for (auto f : hull.m_faces) {
-		//asd++;
-		auto e = f.m_halfEdgeIndex;
-		do {
-			//adf2++;
-			//std::cerr << asd << " " << adf2 << std::endl;
-			iboData[iboIndex++] = face_index * boundingVolumeVCount + hull.m_halfEdges[e].m_endVertex;
-			e = hull.m_halfEdges[e].m_next;
-		} while (e != f.m_halfEdgeIndex);
+		auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
+		auto he2 = hull.m_halfEdges[he1.m_next];
+		auto he3 = hull.m_halfEdges[he2.m_next];
+		TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
+		TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
+		TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
+		reducedMesh.add_face(vh1, vh2, vh3);
 	}
 
-	/*
-	BezierTMesh::Point cp;
-	BezierTMesh::Point p1 = faceControlP[0];
-	BezierTMesh::Point p2 = faceControlP[grad];
-	BezierTMesh::Point p3 = faceControlP[controlPointsPerFace - 1];
-	BezierTMesh::Point l1 = p2 - p1;
-	BezierTMesh::Point l2 = p3 - p2;
-	BezierTMesh::Point l3 = p1 - p3;
-	BezierTMesh::Point normal = normalize(cross(p2 - p1, p3 - p1));
-	float l1_min = 0;
-	float l2_min = 0;
-	float l3_min = 0;
-	float n_min = 0;
-	float l1_max = 0;
-	float l2_max = 0;
-	float l3_max = 0;
-	float n_max = 0;
+	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/tutorial_05.html
+	reducedMesh.request_vertex_status();
+	reducedMesh.request_edge_status();
+	reducedMesh.request_halfedge_status();
+	reducedMesh.request_face_status();
 
-	for (int i = 0; i < controlPointsPerFace; i++) {
-		cp = faceControlP[i];
+	reducedMesh.request_face_normals();
+	reducedMesh.request_vertex_normals();
 
-		// TODO does not work for higher degrees but should not be nessessary in generell
-		if (i == 0 || i == grad || i == controlPointsPerFace - 1)
-			continue;
+	///////////////////
+	// Delete Vertex //
+	///////////////////
+	// TODO Select vertex 
+	TriMesh::VertexHandle vh = reducedMesh.vertex_handle(3);
 
-		// TODO is das gut so
-		BezierTMesh::Point intersection;
+	auto oldPos = reducedMesh.point(vh);
+	reducedMesh.delete_vertex(vh);
+	reducedMesh.garbage_collection();
 
-		// TODO boolean ins if
-		// Calculate intersection between p1-cp and p2-p3
-		bool intersect = linePlaneIntersect(p1, cp, p2, normalize(cross(normal, p3 - p2)), intersection);
+	// Search first border vertex
+	TriMesh::HalfedgeHandle borderStart;
+	for (auto h_it = reducedMesh.halfedges_begin(); h_it != reducedMesh.halfedges_end(); ++h_it) {
+		if (reducedMesh.is_boundary(h_it)) {
+			borderStart = h_it;
+			break;
+		}
+	}
 
-		if (intersect) {
-			// Calculate ratio between intersect-cp and p1-intersect
-			double ratio = length(cp - intersection) / length(intersection - p1);
+	TriMesh::HalfedgeHandle borderIt = borderStart;
+	TriMesh::HalfedgeHandle directionH;
+	std::vector<TriMesh::VertexHandle> border;
+	std::vector<TriMesh::Point> directions;
+	TriMesh::Point bla = TriMesh::Point({ 0.0,0.0,0.0 });
+	TriMesh::Scalar bla2 = 0.0;
+	do {
+		// Find next border-vertex
+		border.push_back(reducedMesh.to_vertex_handle(borderIt));
+		TriMesh::VertexHandle lala = reducedMesh.from_vertex_handle(borderIt);
+		// increment iterator
+		borderIt = reducedMesh.next_halfedge_handle(borderIt);
+		// calculate direction vector
+		for (auto vv_it = reducedMesh.vv_iter(lala); vv_it.is_valid(); ++vv_it) {
+			auto tmp = normalize(reducedMesh.point(lala) - reducedMesh.point(vv_it)) | (oldPos - reducedMesh.point(lala));
+			if (tmp > bla2) // TODO
+				bla = tmp * normalize(reducedMesh.point(lala) - reducedMesh.point(vv_it));
+		}
+		directions.push_back(bla);
+		/*
+		// TODO select the best candidate and dont simple use one of them
+		directionH = reducedMesh.opposite_halfedge_handle(borderIt);
+		directionH = reducedMesh.next_halfedge_handle(directionH);
+		directions.push_back(
+			normalize(
+				reducedMesh.point(reducedMesh.to_vertex_handle(directionH)) - 
+				reducedMesh.point(border.back())
+			)
+		);*/
+	} while (borderIt != borderStart);
 
-			if (ratio > l1_max) {
-				l1_max = ratio;
-				l3_min = -ratio;
-			}
+	reducedMesh.add_face(border);
+	// Move border vertices
+	for (auto i = 0; i < directions.size(); i++) {
+		//auto multiplier = (directions[i] | (oldPos - reducedMesh.point(border[i])));
+		std::cerr << directions[i] <<  std::endl;
+		//assert(multiplier >= 0.0);
+	    reducedMesh.point(border[i]) += directions[i];
+	}
+
+	//////////////////
+	// Setup Buffer //
+	//////////////////
+	if (false) {
+		const int boundingVolumeVCount = hull.m_vertices.size();
+
+		for (auto v : hull.m_vertices) {
+			vboData[vboIndex++] = float(v.x);
+			vboData[vboIndex++] = float(v.y);
+			vboData[vboIndex++] = float(v.z);
+
+
+			vboData[vboIndex++] = float(face_index);
+			//vboData[vboIndex++] = float(1.0);
+			vboData[vboIndex++] = float(0.0);
+			vboData[vboIndex++] = float(0.0);
+
+			vboData[vboIndex++] = 1.0;
+			vboData[vboIndex++] = 0.0;
 		}
 
-		// Calculate intersection between p2-cp and p1-p3
-		intersect = linePlaneIntersect(p2, cp, p1, normalize(cross(normal, p1 - p3)), intersection);
+		//int asd = 0;
+		//int adf2 = 0;
+		for (auto f : hull.m_faces) {
+			//asd++;
+			auto e = f.m_halfEdgeIndex;
+			do {
+				//adf2++;
+				//std::cerr << asd << " " << adf2 << std::endl;
+				iboData[iboIndex++] = face_index * boundingVolumeVCount + hull.m_halfEdges[e].m_endVertex;
+				e = hull.m_halfEdges[e].m_next;
+			} while (e != f.m_halfEdgeIndex);
+		}
+	} else {
+		const int boundingVolumeVCount = hull.m_vertices.size();
 
-		if (intersect) {
-			// Calculate ratio between intersect-cp and p2-intersect
-			double ratio = length(cp - intersection) / length(intersection - p2);
+		for (auto v : reducedMesh.vertices()) {
+			vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
+			vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
+			vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
 
-			if (ratio > l2_max) {
-				l2_max = ratio;
-				l1_min = -ratio;
-			}
+
+			vboData[vboIndex++] = float(face_index);
+			//vboData[vboIndex++] = float(1.0);
+			vboData[vboIndex++] = float(0.0);
+			vboData[vboIndex++] = float(0.0);
+
+			vboData[vboIndex++] = 1.0;
+			vboData[vboIndex++] = 0.0;
 		}
 
-		// Calculate intersection between p3-cp and p1-p2
-		intersect = linePlaneIntersect(p3, cp, p1, normalize(cross(normal, p2 - p1)), intersection);
-
-		if (intersect) {
-			// Calculate ratio between intersect-cp and p3-intersect
-			double ratio = length(cp - intersection) / length(intersection - p3);
-
-			if (ratio > l3_max) {
-				l3_max = ratio;
-				l2_min = -ratio;
+		for (auto f : reducedMesh.faces()) {
+			for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {		
+				iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
 			}
 		}
-
-		// Calculate ratio between p3-intersect and intersect-cp
-		// TODO double dotP = dot(cp - p1, normal) 
-		dot(cp - p1, normal) < n_min ? n_min = dot(cp - p1, normal) : -1;
-		dot(cp - p1, normal) > n_max ? n_max = dot(cp - p1, normal) : -1;
 	}
-
-	std::array<BezierTMesh::Point, boundingVolumeVCount> pointArray = {
-		// top triangle
-		p1 + normal * n_max + l1 * l1_min + l3 * l3_max,
-		p2 + normal * n_max + l1 * l1_max + l2 * l2_min,
-		p3 + normal * n_max + l2 * l2_max + l3 * l3_min,
-
-		// bot triangle
-		p1 + normal * n_min + l1 * l1_min + l3 * l3_max,
-		p2 + normal * n_min + l1 * l1_max + l2 * l2_min,
-		p3 + normal * n_min + l2 * l2_max + l3 * l3_min
-	};
-
-	for (auto p : pointArray) {
-		// store pos
-		for (int m = 0; m < 3; ++m)
-			vboData[vboIndex++] = float(p[m]);
-
-		// TODO not nessessary
-		// store normal
-		//for (int m = 0; m < 3; ++m)
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-
-		// store texcoord
-		//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
-		//vboData[vboIndex++] = texCoord[0];
-		//vboData[vboIndex++] = texCoord[1];
-		vboData[vboIndex++] = 1.0;
-		vboData[vboIndex++] = 0.0;
-	}
-
-	// TODO ask franziska if this is better
-	std::array<int, 24> indexArray = {
-		0, 1, 2,
-		3, 5, 4,
-		3, 4, 0, 4, 1, 0,
-		4, 5, 1, 5, 2, 1,
-		5, 3, 2, 3, 0, 2
-	};
-
-	for (int i : indexArray) {
-		iboData[iboIndex++] = face_index * boundingVolumeVCount + i;
-	}
-	*/
 }
 
 }

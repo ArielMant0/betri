@@ -276,8 +276,8 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 			g_color = B_uv;
 			// TODO hier soll der Depth BUffer aktualisiert werden
 			// Funktioniert noch nicht ganz
-			vec4 n_pos = g_mWVP * vec4(B_uv, 1.0);
-			gl_FragDepth = n_pos.z / n_pos.w; 
+			//vec4 n_pos = g_mWVP * vec4(B_uv, 1.0);
+			//gl_FragDepth = n_pos.z / n_pos.w; 
 
 		    return vec3(result, z);
 			/*

@@ -765,7 +765,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	// Columnwise
 	for (auto &face : bezierTriangleMesh_.faces()) {
