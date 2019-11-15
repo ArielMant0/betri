@@ -106,16 +106,29 @@ struct VertexToTri
 		return false;
 	}
 
-	const double& operator[](size_t index) const
+	const Vec2::value_type& operator[](size_t index) const
 	{
 		assert(index < 2);
 		return uv[index];
 	}
 
-	double& operator[](size_t index)
+	Vec2::value_type& operator[](size_t index)
 	{
 		assert(index < 2);
 		return uv[index];
+	}
+};
+
+struct FitCollection
+{
+	std::vector<Point> points;
+	std::vector<Vec2> uvs;
+
+	void add(Point &p, Vec2 &uv)
+	{
+		assert(points.size() == uvs.size());
+		points.push_back(p);
+		uvs.push_back(uv);
 	}
 };
 

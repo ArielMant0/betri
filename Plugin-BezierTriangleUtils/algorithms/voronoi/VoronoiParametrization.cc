@@ -1,4 +1,4 @@
-#include "Parametrization.hh"
+#include "VoronoiParametrization.hh"
 
 #include <cmath>
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
@@ -8,7 +8,7 @@
 namespace betri
 {
 
-void Parametrization::prepare()
+void VoronoiParametrization::prepare()
 {
 	if(!m_mesh.get_property_handle(m_vweight, vweightName))
 		m_mesh.add_property(m_vweight, vweightName);
@@ -19,7 +19,7 @@ void Parametrization::prepare()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::cleanup()
+void VoronoiParametrization::cleanup()
 {
 	if (m_mesh.get_property_handle(m_vweight,  vweightName))
 		m_mesh.remove_property(m_vweight);
@@ -30,7 +30,7 @@ void Parametrization::cleanup()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::calcWeights(
+void VoronoiParametrization::calcWeights(
 	BezierTMesh &mesh,
 	OpenMesh::VPropHandleT<Scalar> &vweight,
 	OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
@@ -60,20 +60,7 @@ void Parametrization::calcWeights(
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::calcWeights(const VertexHandle vh)
-{
-	auto inFace = OpenMesh::makeTemporaryProperty<VertexHandle, bool>(m_mesh);
-
-	int valence = 0;
-	for (auto vv = m_mesh.cvv_begin(vh); vv != m_mesh.cvv_end(vh); ++vv) {
-		if (inFace[*vv]) valence++;
-	}
-
-	// vertex weight
-	weight(vh) = 1.0 / valence;
-}
-
-void Parametrization::calcWeights(const FaceHandle face)
+void VoronoiParametrization::calcWeights(const FaceHandle face)
 {
 	auto inFace = OpenMesh::makeTemporaryProperty<VertexHandle, bool>(m_mesh);
 	// mark all inner vertices as belonging to this face
@@ -99,7 +86,7 @@ void Parametrization::calcWeights(const FaceHandle face)
 
 //-----------------------------------------------------------------------------
 
-bool Parametrization::test(BezierTMesh *mesh)
+bool VoronoiParametrization::test(BezierTMesh *mesh)
 {
 	assert(mesh != nullptr);
 	using Container = std::vector<VertexHandle>;
@@ -179,14 +166,14 @@ bool Parametrization::test(BezierTMesh *mesh)
 	// -----------------------------------------------------
 	// init coords
 	// -----------------------------------------------------
-	NGonMapper mapper(*mesh, vtt);
+	NGonMapper<VertexToTri> mapper(*mesh, vtt);
 	for (VertexHandle vh : inner) {
 		mesh->property(vtt, vh).uv = mapper.middle();
 		std::cerr << vh << " inner uv = " << mesh->property(vtt, vh).uv << '\n';
 	}
 
 	// map boundary
-	std::vector<BoundaryMapper::Path*> p;
+	std::vector<BoundaryMapper<VertexToTri>::Path*> p;
 	p.push_back(&ab);
 	p.push_back(&bc);
 	p.push_back(&ca);
@@ -264,26 +251,7 @@ bool Parametrization::test(BezierTMesh *mesh)
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::initCoords(const VertexHandle vh)
-{
-	// map boundary vertices onto n-gon in texture space
-	// (preserve edge length ratio)
-
-	size_t innerIdx = 0;
-	// reset all (interior) coordinates to ngon midpoint (also circle midpoint)
-	for (auto vh : *m_inner) {
-		hmap(vh) = Vec2(0.5f, 0.5f);
-		sysid(vh) = innerIdx++;
-	}
-
-	// TODO: map to boundary
-	std::vector<BoundaryMapper::Path*> p;
-
-	// map boundary
-	m_mapper.map(p);
-}
-
-void Parametrization::initCoords(const FaceHandle face)
+void VoronoiParametrization::initCoords(const FaceHandle face)
 {
 	// map boundary vertices onto triangle in texture space
 	// (preserve edge length ratio)
@@ -299,7 +267,7 @@ void Parametrization::initCoords(const FaceHandle face)
 	const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
 	const ShortestPath &ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-	std::vector<BoundaryMapper::Path*> p;
+	std::vector<BoundaryMapper<VertexToTri>::Path*> p;
 	// this makes sure every path is in the right order
 	// -> it always starts with the id the previous path ended with
 	p.push_back(&ab.list(bc));
@@ -326,60 +294,7 @@ void Parametrization::initCoords(const FaceHandle face)
 
 //-----------------------------------------------------------------------------
 
-bool Parametrization::solveLocal(const VertexHandle vh)
-{
-	nv_inner_ = m_mesh.valence(vh);
-	assert(nv_inner_ > 0);
-
-	// calculate coordinates
-	initCoords(vh);
-
-	// system matrix
-	EigenSpMatT A(nv_inner_, nv_inner_);
-
-	// right hand sides for u and v coordinates
-	EigenVectorT rhsu(nv_inner_);
-	rhsu.setZero();
-	EigenVectorT rhsv(nv_inner_);
-	rhsv.setZero();
-
-	// resulting texture coordinates for u and v
-	EigenVectorT resultU(nv_inner_);
-	resultU.setZero();
-	EigenVectorT resultV(nv_inner_);
-	resultV.setZero();
-
-	std::vector<EigenTripletT> triplets;
-
-	// TODO: add stuff for other
-
-	// now we have all triplets to setup the matrix A
-	A.setFromTriplets(triplets.begin(), triplets.end());
-
-	// now we can solve for u and v
-
-	/**
-	 * vertexweight the matrix is not symmetric!  Hence, we cannot use an ordinary conjugate
-	 * gradient or cholesky decomposition. For solving this non-symmetric system we use a
-	 * Biconjugate gradient stabilized method. You can experiment with different solvers
-	 * (see http://eigen.tuxfamily.org/dox/TutorialSparse.html#TutorialSparseDirectSolvers) but
-	 * first you need to make the system SPD (symmetric positive definite) try e.g. setting
-	 * the vertexweight in add_row_to_system to 1. (this should NOT change the result)
-	 */
-	Eigen::BiCGSTAB<EigenSpMatT> bicg(A); // performs a Biconjugate gradient stabilized method
-	resultU = bicg.solve(rhsu);
-	if (bicg.info() != Eigen::Success)
-		std::cerr << "solve failed!" << std::endl;
-
-	resultV = bicg.solve(rhsv);
-	if (bicg.info() != Eigen::Success)
-		std::cerr << "solve failed!" << std::endl;
-
-	// TODO: write back to hmap
-	return false;
-}
-
-bool Parametrization::solveLocal(const FaceHandle face)
+bool VoronoiParametrization::solveLocal(const FaceHandle face)
 {
 	m_inner = &ttv(face).inner;
 	nv_inner_ = m_inner->size();
@@ -454,10 +369,8 @@ bool Parametrization::solveLocal(const FaceHandle face)
 
 //-----------------------------------------------------------------------------
 
-bool Parametrization::solve()
+bool VoronoiParametrization::solve()
 {
-	// TODO: only needs to be done once?
-
 	for (FaceHandle face : m_ctrl.faces()) {
 		if (!solveLocal(face)) return false;
 	}
@@ -466,7 +379,7 @@ bool Parametrization::solve()
 
 //-----------------------------------------------------------------------------
 
-void Parametrization::addRow(
+void VoronoiParametrization::addRow(
 	std::vector<EigenTripletT>& _triplets,
 	EigenVectorT& _rhsu,
 	EigenVectorT& _rhsv,

@@ -1,7 +1,7 @@
 #include "VoronoiRemesh.hh"
 
-#include "../common/Parametrization.hh"
-#include "../common/Fitting.hh"
+#include "VoronoiParametrization.hh"
+#include "VoronoiFitting.hh"
 
 #include <queue>
 #include <unordered_set>
@@ -1041,8 +1041,8 @@ void VoronoiRemesh::makeShortestPaths()
 //////////////////////////////////////////////////////////
 void VoronoiRemesh::fitting()
 {
-	Parametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
-	Fitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
+	VoronoiParametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
+	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
 	fit.degree(m_mesh.degree());
 

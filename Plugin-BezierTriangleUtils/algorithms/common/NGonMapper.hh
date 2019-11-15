@@ -7,12 +7,13 @@
 namespace betri
 {
 
-class NGonMapper : public BoundaryMapper
+template <typename T>
+class NGonMapper : public BoundaryMapper<T>
 {
 public:
 
-	explicit NGonMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<VertexToTri> &vtt) :
-		BoundaryMapper(mesh, vtt) {}
+	explicit NGonMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<T> &uvProp) :
+		BoundaryMapper(mesh, uvProp) {}
 
     void map(std::vector<Path*> &paths) override;
 

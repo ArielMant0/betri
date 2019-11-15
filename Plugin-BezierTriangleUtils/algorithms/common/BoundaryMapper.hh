@@ -5,13 +5,14 @@
 namespace betri
 {
 
+template <typename T>
 class BoundaryMapper
 {
 public:
 
-	explicit BoundaryMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<VertexToTri> &vtt) :
+	explicit BoundaryMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<T> &uvProp) :
 		m_mesh(mesh),
-		m_vtt(vtt) {}
+		m_vtt(uvProp){}
 
     using Path = std::vector<VertexHandle>;
 
@@ -19,8 +20,7 @@ public:
 
 	virtual Vec2 middle() = 0;
 
-	Vec2& hmap(VertexHandle vh) { return m_mesh.property(m_vtt, vh).uv; }
-    ID& id(VertexHandle vh) { return m_mesh.property(m_vtt, vh).id1; }
+	T& hmap(VertexHandle vh) { return m_mesh.property(m_uv, vh); }
 
     Scalar pathLength(Path *path)
     {
@@ -50,7 +50,7 @@ protected:
 
     BezierTMesh &m_mesh;
 
-	OpenMesh::VPropHandleT<VertexToTri> m_vtt;
+	OpenMesh::VPropHandleT<T> m_uv;
 
 };
 

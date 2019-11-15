@@ -5,7 +5,8 @@
 namespace betri
 {
 
-void betri::NGonMapper::mapTriangle(std::vector<Path*> &paths)
+template <typename T>
+void NGonMapper<T>::mapTriangle(std::vector<Path*> &paths)
 {
 	const Point initial[3] = {
 		Point(0.0, 0.0, 0.0),
@@ -39,7 +40,8 @@ void betri::NGonMapper::mapTriangle(std::vector<Path*> &paths)
 
 			p = m_mesh.point(vh);
 
-			hmap(vh) = Vec2(t[0], t[1]);
+			hmap(vh)[0] = t[0];
+			hamp(vh)[1] = t[1];
 
 			std::cerr << "\tcalculated uv = " << hmap(vh) << " (len: " << curLen << ")\n";
 			assert(std::isgreaterequal(hmap(vh)[0], 0.));
@@ -50,7 +52,8 @@ void betri::NGonMapper::mapTriangle(std::vector<Path*> &paths)
 	}
 }
 
-void NGonMapper::map(std::vector<Path*> &paths)
+template <typename T>
+void NGonMapper<T>::map(std::vector<Path*> &paths)
 {
 	// make sure all paths overlap at the beginning/end
 	for (size_t i = 0; i < paths.size(); ++i) {
@@ -90,7 +93,8 @@ void NGonMapper::map(std::vector<Path*> &paths)
 
 			t = j == 0 ? t : initialT + dir * (first - m_mesh.point(vh)).norm() * norm;
 
-            hmap(vh) = Vec2(t[0], t[1]);
+			hmap(vh)[0] = t[0];
+			hamp(vh)[1] = t[1];
 
             std::cerr << "\tcalculated uv = " << hmap(vh) << "\n";
             assert(std::isgreaterequal(hmap(vh)[0], 0.));

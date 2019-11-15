@@ -5,59 +5,51 @@ namespace betri
 
 void Decimation::prepare()
 {
-	// vertex property holding the priorities of each vertex
-	if (!m_mesh.get_property_handle(m_prio, "vertexprioprop"))
-		m_mesh.add_property(m_prio, "vertexprioprop");
-
 	// quadric property of each vertex: normal equations of one-ring faces
-	if (!m_mesh.get_property_handle(m_quadric, "vertexquadricprop"))
-		m_mesh.add_property(m_quadric, "vertexquadricprop");
+	if (!m_mesh.get_property_handle(m_hprio, "halfedgeprioprop"))
+		m_mesh.add_property(m_hprio, "halfedgeprioprop");
 
 	// the best halfedge handle only is needed during decimation
 	if (!m_mesh.get_property_handle(m_target, "vertextargetprop"))
 		m_mesh.add_property(m_target, "vertextargetprop");
+
+	if (!m_mesh.get_property_handle(m_uv, "vuv"))
+		m_mesh.add_property(m_uv, "vuv");
 }
 
 void Decimation::cleanup()
 {
-	if (m_mesh.get_property_handle(m_prio, "vertexprioprop"))
-		m_mesh.remove_property(m_prio);
-
-	if (m_mesh.get_property_handle(m_quadric, "vertexquadricprop"))
-		m_mesh.remove_property(m_quadric);
+	if (m_mesh.get_property_handle(m_hprio, "vertexquadricprop"))
+		m_mesh.remove_property(m_hprio);
 
 	if (m_mesh.get_property_handle(m_target, "vertextargetprop"))
 		m_mesh.remove_property(m_target);
+
+	if (m_mesh.get_property_handle(m_uv, "vuv"))
+		m_mesh.remove_property(m_uv);
 }
 
-void Decimation::initQuadrics()
+void Decimation::calculateErrors()
 {
 	m_mesh.update_face_normals();
-	for (VertexHandle vh : m_mesh.vertices()) {
+	for (HalfedgeHandle hh : m_mesh.halfedges()) {
+		calculateError(hh);
+	}
+}
 
-		priority(vh) = -1.0;
-		vertexQuadric(vh).clear();
+void Decimation::calculateError(const HalfedgeHandle hh)
+{
+	// halfedges that result in an illegal collapse have a priority of -1
+	priority(hh) = -1.0;
 
-		// iterate over faces incident to vertex
-		for (auto vf_it = m_mesh.vf_begin(vh), vf_end = m_mesh.vf_end(vh);
-			vf_it != vf_end; ++vf_it) {
-
-			// plane equation
-			const BezierTMesh::Normal n = m_mesh.normal(*vf_it);
-			const double a = n[0];
-			const double b = n[1];
-			const double c = n[2];
-			const double d = -(n | m_mesh.point(vh));
-
-			// plane -> quadric
-			vertexQuadric(vh) += Quadricd(a, b, c, d);
-		}
+	if (isCollapseLegal(hh)) {
+		// TODO: perform the fitting step for this configuration
 	}
 }
 
 void Decimation::enqueueVertex(const VertexHandle vh)
 {
-	double prio, min_prio(FLT_MAX);
+	Scalar prio, min_prio(std::numeric_limits<Scalar>::max());
 	HalfedgeHandle min_hh;
 
 	// find best out-going halfedge
@@ -74,16 +66,15 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 		}
 	}
 
-	// update queue
-	if (priority(vh) != -1.0) {
+	// remove from queue
+	if (priority(vh) != -1.0)
 		m_q->erase(vh);
-		priority(vh) = -1.0;
-	}
 
+	// update queue
 	if (min_hh.is_valid()) {
-		priority(vh) = min_prio;
-		vertexTarget(vh) = min_hh;
-		m_q->insert(vh);
+		target(vh) = min_hh;
+		if (min_prio >= 0.0)
+			m_q->insert(vh);
 	}
 }
 
@@ -184,35 +175,60 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 void Decimation::step()
 {
 	// store one-ring
-	std::vector<VertexHandle> oneRing;
+	std::vector<HalfedgeHandle> oneRing;
 
 	VertexHandle vh = *m_q->begin();
 	m_q->erase(m_q->begin());
 
-	HalfedgeHandle hh = vertexTarget(vh);
-	VertexHandle to = m_mesh.to_vertex_handle(hh);
+	HalfedgeHandle hh = target(vh);
 	VertexHandle from = m_mesh.from_vertex_handle(hh);
 
 	// perform collapse
 	if (isCollapseLegal(hh)) {
 		// storing neighbors beforehand is easier and more efficient
-		for (auto vv_it = m_mesh.vv_begin(from), vv_end = m_mesh.vv_end(from);
-			vv_it != vv_end; ++vv_it) {
-			oneRing.push_back(*vv_it);
+		for (auto h_it = m_mesh.cvoh_begin(from), h_end = m_mesh.cvoh_end(from);
+			h_it != h_end; ++h_it) {
+			oneRing.push_back(*h_it);
 		}
 		m_mesh.collapse(hh);
-		// update quadric the vertex is collapsed into
-		vertexQuadric(to) += vertexQuadric(from);
+		fit(hh);
 		// now we have one less vertex
 		--m_nverts;
 	}
 
-	// update queue
-	for (auto or_it = oneRing.begin(), or_end = oneRing.end(); or_it != or_end; ++or_it) {
-		enqueueVertex(*or_it);
+	// update queue (recalculate the error, reinsert the vertex)
+	for (HalfedgeHandle he : oneRing) {
+		calculateError(he);
+		enqueueVertex(m_mesh.to_vertex_handle(he));
 	}
 }
 
+void Decimation::fit(const HalfedgeHandle hh)
+{
+	// source and target vertex
+	VertexHandle from = m_mesh.from_vertex_handle(hh), to = m_mesh.to_vertex_handle(hh);
+
+	// stores all 3D points and corresponding uv's per face
+	std::vector<FitCollection> fitColls;
+	std::vector<VertexHandle> vertices;
+	std::vector<FaceHandle> faces;
+
+	for (auto h_it = m_mesh.cvoh_begin(from); h_it != m_mesh.cvoh_end(from); ++h_it) {
+		vertices.push_back(m_mesh.to_vertex_handle(*h_it));
+		faces.push_back(m_mesh.face_handle(*h_it));
+	}
+	// parametrize to n-gon
+	//m_param.solveLocal(to, vertices);
+
+	//for (size_t i = 0; i < faces.size(); ++i) {
+
+	//}
+
+	for (size_t i = 0; i < fitColls.size(); ++i) {
+		// fit all surrounding faces
+		m_fit.solveLocal(faces[i], fitColls[i]);
+	}
+}
 
 }
 

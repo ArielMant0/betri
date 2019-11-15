@@ -1,13 +1,13 @@
-#include "Fitting.hh"
+#include "VoronoiFitting.hh"
 
-#include "../voronoi/ShortestPath.hh"
+#include "ShortestPath.hh"
 
 #include <algorithm>
 
 namespace betri
 {
 
-bool Fitting::solve()
+bool VoronoiFitting::solve()
 {
 	m_degree = m_mesh.degree();
 	assert(m_degree >= 2);
@@ -21,19 +21,19 @@ bool Fitting::solve()
 	return true;
 }
 
-void Fitting::prepare()
+void VoronoiFitting::prepare()
 {
 	if (!m_mesh.get_property_handle(m_sysid, "fit-sysid"))
 		m_mesh.add_property(m_sysid, "fit-sysid");
 }
 
-void Fitting::cleanup()
+void VoronoiFitting::cleanup()
 {
 	if (m_mesh.get_property_handle(m_sysid, "fit-sysid"))
 		m_mesh.remove_property(m_sysid);
 }
 
-void Fitting::sortInner(const FaceHandle face)
+void VoronoiFitting::sortInner(const FaceHandle face)
 {
 	std::sort(ttv(face).inner.begin(), ttv(face).inner.end(),
 		[&](const VertexHandle v0, const VertexHandle v1) {
@@ -42,7 +42,7 @@ void Fitting::sortInner(const FaceHandle face)
 	);
 }
 
-bool Fitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result)
+bool VoronoiFitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result)
 {
 	auto solver = (A.transpose() * A).ldlt();
 	result = solver.solve(A.transpose() * rhs);
@@ -54,7 +54,7 @@ bool Fitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result
 	return true;
 }
 
-bool Fitting::solveLocal(const FaceHandle face)
+bool VoronoiFitting::solveLocal(const FaceHandle face)
 {
 	size_t nv_inner_ = pointsFromDegree(m_degree);
 
@@ -198,7 +198,7 @@ bool Fitting::solveLocal(const FaceHandle face)
 	return success;
 }
 
-bool Fitting::test(BezierTMesh *mesh)
+bool VoronoiFitting::test(BezierTMesh *mesh)
 {
 	constexpr size_t degree = 2;
 	constexpr size_t matSize = 10;
