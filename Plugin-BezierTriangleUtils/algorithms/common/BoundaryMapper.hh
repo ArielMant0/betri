@@ -12,7 +12,7 @@ public:
 
 	explicit BoundaryMapper(BezierTMesh &mesh, OpenMesh::VPropHandleT<T> &uvProp) :
 		m_mesh(mesh),
-		m_vtt(uvProp){}
+		m_uv(uvProp){}
 
     using Path = std::vector<VertexHandle>;
 

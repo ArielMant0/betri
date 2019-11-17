@@ -2,8 +2,8 @@
 #include "algorithms/voronoi/VoronoiRemeshPerObjectData.hh"
 #include "algorithms/decimation/DecimationPerObjectData.hh"
 
-#include "algorithms/common/Fitting.hh"
-#include "algorithms/common/Parametrization.hh"
+#include "algorithms/voronoi/VoronoiFitting.hh"
+#include "algorithms/voronoi/VoronoiParametrization.hh"
 
 using VOD = VoronoiRemeshPerObjectData;
 using DEC = DecimationPerObjectData;
@@ -110,6 +110,12 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 #endif
 }
 
+void voronoiSmooth(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->smooth();
+}
+
 void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
@@ -169,8 +175,8 @@ bool decimation(BaseObjectData *object, size_t complexity, bool steps)
 bool test(TestOptions which, BezierTMesh *mesh)
 {
 	switch (which) {
-		case TestOptions::fitting: return Fitting::test(mesh);
-		case TestOptions::parametrization: return Parametrization::test(mesh);
+		case TestOptions::fitting: return VoronoiFitting::test(mesh);
+		case TestOptions::parametrization: return VoronoiParametrization::test(mesh);
 		default: return true;
 	}
 }

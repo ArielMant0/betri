@@ -73,6 +73,8 @@ public:
 	// parametrize and fit to surface
 	void fitting();
 
+	void smooth();
+
 	// -------------------------------------
 	// settings
 	// -------------------------------------

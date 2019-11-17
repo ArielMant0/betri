@@ -353,7 +353,7 @@ bool VoronoiParametrization::solveLocal(const FaceHandle face)
 	if (!error) {
 		std::cerr << "\tcalculated uv for " << m_inner->size() << " vertices\n";
 		// write back to hmap
-		for (const VertexHandle v : *m_inner) {
+		for (VertexHandle v : *m_inner) {
 			hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
 			m_mesh.set_color(v, { 0., hmap(v)[0], hmap(v)[1], 1. });
 			//std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;

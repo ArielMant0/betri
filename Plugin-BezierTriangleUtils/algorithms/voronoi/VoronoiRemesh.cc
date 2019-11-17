@@ -769,7 +769,8 @@ void VoronoiRemesh::partition()
 	m_ctrlVerts.resize(m_seeds.size());
 	// add vertices of seed faces
 	for (FH face : m_seeds) {
-		m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(face));
+		//m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(face));
+		m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.point(*m_mesh.cfv_begin(face)));
 	}
 
 	// calculate shortest distances for all vertices
@@ -1061,7 +1062,14 @@ void VoronoiRemesh::fitting()
 		}
 		std::cerr << "\nfinished fitting for face " << face << "\n";
 	}
+}
 
+void VoronoiRemesh::smooth()
+{
+	// average edge control points so we don't have any holes
+	for (EH edge : m_ctrl.edges()) {
+		m_ctrl.interpolateEdgeControlPoints(edge);
+	}
 }
 
 void VoronoiRemesh::remesh()
@@ -1219,7 +1227,7 @@ void VoronoiRemesh::repartition(const ID id1)
 		}
 
 		for (size_t i = beforeSeeds; i < m_seeds.size(); ++i) {
-			m_ctrlVerts.push_back(m_ctrl.add_vertex(m_mesh.calc_face_centroid(m_seeds[i])));
+			m_ctrlVerts.push_back(m_ctrl.add_vertex(m_mesh.point(*m_mesh.cfv_begin(m_seeds[i]))));
 		}
 
 	} while (!q.empty());

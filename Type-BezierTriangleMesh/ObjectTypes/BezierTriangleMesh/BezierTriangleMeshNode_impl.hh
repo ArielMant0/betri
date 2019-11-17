@@ -2170,12 +2170,12 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 	// decide if there is CPU or GPU tesselation (or both), the render mode needs to
 	// change based on that
 	// Generate a VBO from the Mesh without CPU tesselation
+
 	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
 		VBOfromMesh();
 	}
 	// Generate a VBO and apply CPU tesselation without changing the Mesh
 	else if (meshOption == betri::TESSELLATION_TYPE::CPU) {
-		std::cerr << bezierTriangleMesh_.n_faces() << '\n';
 		VBOtesselatedFromMesh();
 	}
 	else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
@@ -2256,7 +2256,8 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::newPosition(
  * (Only the VBO contains the additional vertex data)
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
+void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh()
+{
 	// TODO
 	oldFaceCount_ = bezierTriangleMesh_.n_faces();
 
@@ -2419,7 +2420,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	Point pos;
 	Point normal; //BezierTMesh::Normal
 	OpenMesh::VectorT<float, 2> texCoord; // TODO haben wir nicht brauchen wir noch
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 		for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
 			// store pos
 			pos = bezierTriangleMesh_.point(v);

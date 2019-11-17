@@ -27,7 +27,7 @@ public:
 		m_cpNum(0)
 	{
 		// make sure we sample at least as many points on the surface as there are control points
-		m_samples = std::max(sampleCount, 4*pointsFromDegree(m.degree()));
+		m_samples = std::max(sampleCount, (size_t)30);
 		prepare();
 	}
 

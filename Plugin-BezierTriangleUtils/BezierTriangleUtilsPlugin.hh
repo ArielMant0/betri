@@ -97,6 +97,7 @@ private slots:
 	void callDualStep();
 	void callDual();
 	void callFitting();
+	void callSmooth();
 
 	void testFitting();
 	void testParametrization();

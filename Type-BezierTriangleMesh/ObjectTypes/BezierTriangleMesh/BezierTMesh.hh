@@ -36,6 +36,8 @@ public:
 
 	void recalculateCPs(const FaceHandle f);
 
+	void interpolateEdgeControlPoints(const EdgeHandle eh);
+
 	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
 	{
 		FaceHandle fh = TriConnectivity::add_face(vhs);

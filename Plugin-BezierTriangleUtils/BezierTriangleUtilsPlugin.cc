@@ -48,6 +48,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(dualButton, SIGNAL(clicked()), this, SLOT(callDual()));
 	QPushButton *fittingButton = new QPushButton(tr("Fit"));
 	connect(fittingButton, SIGNAL(clicked()), this, SLOT(callFitting()));
+	QPushButton *smoothButton = new QPushButton(tr("Smooth"));
+	connect(smoothButton, SIGNAL(clicked()), this, SLOT(callSmooth()));
 
 	QPushButton *testFitButton = new QPushButton(tr("Test Fitting"));
 	connect(testFitButton, SIGNAL(clicked()), this, SLOT(testFitting()));
@@ -60,13 +62,14 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	m_voronoiSteps.push_back(fittingButton);
 
 	QGridLayout *voronoiLayout = new QGridLayout;
-	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 4);
-	voronoiLayout->addWidget(patitionButton, 1, 0);
-	voronoiLayout->addWidget(dualStepButton, 1, 1);
-	voronoiLayout->addWidget(dualButton, 1, 2);
-	voronoiLayout->addWidget(fittingButton, 1, 3);
-	voronoiLayout->addWidget(testFitButton, 2, 0, 1, 4);
-	voronoiLayout->addWidget(testParamButton, 3, 0, 1, 4);
+	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
+	voronoiLayout->addWidget(patitionButton, 1, 0, 2, 1);
+	voronoiLayout->addWidget(dualStepButton, 1, 1, 1, 1);
+	voronoiLayout->addWidget(dualButton, 2, 1, 1, 1);
+	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
+	voronoiLayout->addWidget(smoothButton, 3, 0, 1, 3);
+	voronoiLayout->addWidget(testFitButton, 4, 0, 1, 3);
+	voronoiLayout->addWidget(testParamButton, 5, 0, 1, 3);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -575,6 +578,26 @@ void BezierTriangleUtilsPlugin::callFitting()
 		button->setDisabled(false);
 	}
 
+}
+
+void BezierTriangleUtilsPlugin::callSmooth()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+		betri::voronoiSmooth(*o_it, ctrl_obj);
+		emit log(LOGINFO, "Performed Smoothing!");
+
+		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+	}
 }
 
 void BezierTriangleUtilsPlugin::callPartition()
