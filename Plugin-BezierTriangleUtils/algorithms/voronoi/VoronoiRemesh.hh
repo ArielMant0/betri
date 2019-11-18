@@ -180,12 +180,6 @@ private:
 		return false;
 	}
 
-	bool isRegionBorderEdge(EH e) const
-	{
-		HH h = m_mesh.halfedge_handle(e, 0);
-		return id(m_mesh.face_handle(h)) != id(m_mesh.opposite_face_handle(h));
-	}
-
 	// everythign related to the voronoi partition
 	using FQElem = std::pair<Scalar, FH>;
 	using FaceDijkstra = std::set<FQElem>;
@@ -343,6 +337,31 @@ private:
 		}
 		return FH();
 	}
+
+	bool adjToRegion(const VertexHandle vh, const ID id0) const
+	{
+		for (auto f_it = m_mesh.cvf_begin(vh), f_e = m_mesh.cvf_end(vh); f_it != f_e; ++f_it) {
+			if (id(*f_it) == id0) return true;
+		}
+		return false;
+	}
+
+	VH minPredecessor(const VertexHandle vh, const ID id0, bool noBorder=false)
+	{
+		Scalar minDist = std::numeric_limits<Scalar>::max();
+		VH minPred;
+		for (auto v_it = m_mesh.cvv_begin(vh); v_it != m_mesh.cvv_end(vh); ++v_it) {
+			if (id(*v_it) >= 0 && dist(*v_it) < minDist && adjToRegion(vh, id(*v_it)) &&
+				(noBorder || !vtt(*v_it).isBorder())) {
+				minPred = *v_it;
+				minDist = id(*v_it);
+			}
+
+		}
+		return minPred;
+	}
+
+	void findShortestPath(const VertexHandle vh, const ID id0);
 
 	// -------------------------------------------------------------- //
 	// member variables

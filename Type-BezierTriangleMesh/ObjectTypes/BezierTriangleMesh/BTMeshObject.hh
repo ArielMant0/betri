@@ -2,6 +2,10 @@
 
 //== INCLUDES =================================================================
 // -------------------- OpenMesh
+#include "BezierTMesh.hh"
+
+#ifdef DRAW_CURVED
+
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 #include <ACG/Scenegraph/SeparatorNode.hh>
@@ -23,11 +27,9 @@
 //#include <OpenFlipper/common/BaseObjectData.hh>
 #include <ACG/Scenegraph/MeshNode2T.hh>
 
-#include "BezierTMesh.hh"
-
 #include "BezierTriangleMeshNode.hh"
 
-#ifdef DRAW_CURVED
+
 
 //== TYPEDEFS =================================================================
 
