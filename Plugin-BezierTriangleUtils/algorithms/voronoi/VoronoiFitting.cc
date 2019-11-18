@@ -165,28 +165,12 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 		// resize control point vector
 		m_ctrl.data(face).prepare(nv_inner_);
 
-		// TODO: why am i doing this and what is happening here?
-		size_t mod = m_degree + 1;
-		// write control point positions back
-		for (size_t i = 0, count = 0; i <= m_degree; ++i) {
-			for (size_t j = 0; i + j < nv_inner_; count++) {
-				size_t index = i + j;
-
-				Point p(resultX[index], resultY[index], resultZ[index]);
-				//Point p(resultX[count], resultY[count], resultZ[count]);
-				m_ctrl.data(face).controlPoint(count, p);
-
-				if (i == m_degree) break;
-				j += mod;
-				mod--;
-			}
-			mod = m_degree + 1;
-		}
-
 		std::cerr << "\nface " << face << " has control points:\n";
-		size_t i(0u);
-		for (Point p : m_ctrl.data(face).points()) {
-			std::cerr << "\t(" << i++ << ") = " << p << "\n";
+		// write control point positions back
+		for (size_t i = 0; i < nv_inner_; ++i) {
+			Point p(resultX[i], resultY[i], resultZ[i]);
+			m_ctrl.data(face).controlPoint(i, p);
+			std::cerr << "\t(" << i << ") = " << p << "\n";
 		}
 	}
 	return success;
@@ -196,6 +180,8 @@ bool VoronoiFitting::test(BezierTMesh *mesh)
 {
 	constexpr size_t degree = 2;
 	constexpr size_t matSize = 10;
+
+	mesh->degree(degree);
 
 	size_t nv_inner_ = pointsFromDegree(degree);
 
@@ -306,20 +292,12 @@ bool VoronoiFitting::test(BezierTMesh *mesh)
 
 	size_t mod = degree + 1;
 	std::cerr << "control points:\n";
+	std::cerr.precision(2);
+	std::cerr.setf(std::ios::fixed, std::ios::floatfield);
 
-	for (size_t i = 0, count=0; i <= degree; ++i) {
-		for (size_t j = 0; i+j < nv_inner_; count++) {
-			size_t index = i + j;
-
-			Point p(resultX[index], resultY[index], resultZ[index]);
-			if (useMesh) mesh->data(face).controlPoint(count, p);
-			std::cerr << '\t' << index << " : " << p << '\n';
-
-			if (i == degree) break;
-			j += mod;
-			mod--;
-		}
-		mod = degree + 1;
+	for (size_t i = 0; i < nv_inner_; ++i) {
+		Point p(resultX[i], resultY[i], resultZ[i]);
+		if (useMesh) mesh->data(face).controlPoint(i, p);
 	}
 
 	if (useMesh) {

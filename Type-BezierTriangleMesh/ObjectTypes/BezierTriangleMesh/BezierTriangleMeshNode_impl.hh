@@ -1348,6 +1348,10 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	drawBTMesh_->NEWVERTICES = betri::mersennePrime(ITERATIONS);
 	drawBTMesh_->VERTEXSUM = betri::gaussSum(drawBTMesh_->NEWVERTICES + 2);
 	drawBTMesh_->STEPSIZE = 1.0 / (double(drawBTMesh_->NEWVERTICES) + 1.0);
+
+	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	if (renderOption == betri::TESSELLATION_TYPE::GPU)
+		updateTexBuffers();
 }
 
 //----------------------------------------------------------------------------
