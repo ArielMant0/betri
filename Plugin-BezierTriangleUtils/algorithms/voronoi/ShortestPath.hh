@@ -118,6 +118,8 @@ public:
 	static const ShortestPath& path(ID id1, ID id2);
 	static void path(ShortestPath &s);
 
+	static std::unordered_set<betri::ShortestPath>* pathList();
+
 	static bool has(const ID id1, const ID id2);
 
 	static void connect(BezierTMesh &mesh, const ID id1, const ID id2, const ID id3);

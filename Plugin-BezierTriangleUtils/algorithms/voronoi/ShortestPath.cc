@@ -43,6 +43,11 @@ void ShortestPath::path(ShortestPath &path)
 	s_paths.insert(path);
 }
 
+std::unordered_set<betri::ShortestPath>* ShortestPath::pathList()
+{
+	return &s_paths;
+}
+
 bool ShortestPath::has(const ID id1, const ID id2)
 {
 	return s_paths.find({ id1, id2 }) != s_paths.end();

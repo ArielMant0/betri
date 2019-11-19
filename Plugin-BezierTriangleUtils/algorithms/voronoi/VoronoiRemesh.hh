@@ -361,7 +361,38 @@ private:
 		return minPred;
 	}
 
-	void findShortestPath(const VertexHandle vh, const ID id0);
+	int countAdjRegions(const VH vh) const
+	{
+		std::set<ID> adj;
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			adj.insert(id(*f_it));
+		}
+		return adj.size();
+	};
+
+	bool onRegionBorder(const VH vh) const
+	{
+		return countAdjRegions(vh) > 1;
+	}
+
+	bool onRegionBorder(const VH vh, const ID id0, const ID id1) const
+	{
+		bool r0 = false, r1 = false;
+
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (id(*f_it) == id0) r0 = true;
+			else if (id(*f_it) == id1) r1 = true;
+		}
+		return r0 && r1;
+	}
+
+	void ensureReachable(const ID id0);
+
+	void vertexSP(VertexDijkstra &q);
+
+	void findShortestPath(const VH vh, const ID id0);
+
+	void setShortestPath(const VH vh);
 
 	// -------------------------------------------------------------- //
 	// member variables
