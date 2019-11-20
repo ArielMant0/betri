@@ -16,7 +16,7 @@ public:
 	void prepare() override;
 	void cleanup() override;
 
-	bool solveLocal(const FaceHandle face, const FitCollection &fitColl);
+	bool solveLocal(FitCollection &fitColl, Scalar &error, const bool apply);
 
 private:
 

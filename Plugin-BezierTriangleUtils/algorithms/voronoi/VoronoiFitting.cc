@@ -42,18 +42,6 @@ void VoronoiFitting::sortInner(const FaceHandle face)
 	);
 }
 
-bool VoronoiFitting::solveSystem(EigenMatT &A, EigenVectorT & rhs, EigenVectorT &result)
-{
-	auto solver = (A.transpose() * A).ldlt();
-	result = solver.solve(A.transpose() * rhs);
-	if (solver.info() != Eigen::Success) {
-		std::cerr << __FUNCTION__ << ": solver failed! (" << solver.info() << ")\n";
-		return false;
-	}
-
-	return true;
-}
-
 bool VoronoiFitting::solveLocal(const FaceHandle face)
 {
 	size_t nv_inner_ = pointsFromDegree(m_degree);

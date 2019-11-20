@@ -31,14 +31,26 @@ public:
 	virtual void prepare() = 0;
 	virtual void cleanup() = 0;
 
+protected:
+
 	static Scalar calcCoeffs(Vec2 uv, int i, int j, size_t degree)
 	{
 		assert(std::islessequal(uv[0], 1.0));
 		assert(std::islessequal(uv[1], 1.0));
-		return eval(i, j, uv[0], uv[1], degree);
+		return eval(i, j, uv, degree);
 	}
 
-protected:
+	static bool solveSystem(EigenMatT &A, EigenVectorT &rhs, EigenVectorT &result)
+	{
+		auto solver = (A.transpose() * A).ldlt();
+		result = solver.solve(A.transpose() * rhs);
+		if (solver.info() != Eigen::Success) {
+			std::cerr << __FUNCTION__ << ": solver failed! (" << solver.info() << ")\n";
+			return false;
+		}
+
+		return true;
+	}
 
 	///////////////////////////////////////////////////////////
 	// member variables

@@ -49,7 +49,6 @@ private:
 	Vec2& hmap (VertexHandle vh) { return vtt(vh).uv; }
 	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
-	static bool solveSystem(EigenMatT &A, EigenVectorT &rhs, EigenVectorT &result);
 
 	///////////////////////////////////////////////////////////
 	// member variables

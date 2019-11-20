@@ -121,35 +121,96 @@ struct VertexToTri
 
 struct FitCollection
 {
-	std::vector<Point> points;
-	std::vector<Vec2> uvs;
+	using FitPair = std::pair<Vec2, Point>;
+
+	std::vector<FitPair> uvs;
+	FaceHandle face;
 
 	void add(Point &p, Vec2 &uv)
 	{
-		assert(points.size() == uvs.size());
-		points.push_back(p);
-		uvs.push_back(uv);
+		uvs.push_back({ uv, p });
+	}
+
+	Point& point(size_t index)
+	{
+		return uvs[index].second;
+	}
+
+	Vec2& uv(size_t index)
+	{
+		return uvs[index].first;
+	}
+
+	void sort()
+	{
+		std::sort(uvs.begin(), uvs.end(), [](const FitPair &lhs, const FitPair &rhs) {
+			return lhs.first[0] < rhs.first[0];
+		});
 	}
 };
 
 static constexpr float FACTORIALS[13] = {
-	1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
-	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
-	39916800, 479001600
+	1.f, 1.f, 2.f, 6.f, 24.f, 120.f, // 0, 1, 2, 3, 4, 5
+	720.f, 5040.f, 40320.f, 362880.f, 3628800.f, // 6, 7, 8, 9, 10
+	39916800.f, 479001600.f // 11, 12
 };
-
-inline Scalar eval(int i, int j, double u, double v, unsigned int degree)
-{
-	int k = degree - i - j;
-	double w = 1.f - u - v;
-
-	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
-		* std::pow(u, i) * std::pow(v, j) * std::pow(w, k);
-}
 
 inline size_t pointsFromDegree(const size_t degree)
 {
 	return (degree + 1)*(degree + 2) / 2;
+}
+
+inline Scalar eval(int i, int j, Vec2 bary, unsigned int degree)
+{
+	int k = degree - i - j;
+	double w = 1.0 - bary[0] - bary[1];
+
+	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
+		* std::pow(bary[0], i) * std::pow(bary[1], j) * std::pow(w, k);
+}
+
+inline Scalar eval(int i, int j, int k, Point bary, unsigned int degree)
+{
+	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
+		* std::pow(bary[0], i) * std::pow(bary[1], j) * std::pow(bary[2], k);
+}
+
+inline int cpIndex(int i, int j, unsigned int degree)
+{
+	int sum = 0;
+	int grad = degree + 1;
+
+	for (int k = 0; k < i; ++k) {
+		sum += grad - k;
+	}
+
+	return sum + j;
+}
+
+inline Point evalSurface(std::vector<Point> &cps, Vec2 &bary, unsigned int degree)
+{
+	Point point(0.0);
+
+	for (int i = 0; i <= degree; i++) {
+		for (int j = 0; j + i <= degree; j++) {
+			point += cps[cpIndex(i, j, degree)] * eval(i, j, bary, degree);
+		}
+	}
+	return point;
+}
+
+
+// TODO: remove inline
+inline Point evalSurface(std::vector<Point> &cps, Point &bary, unsigned int degree)
+{
+	Point point(0.0);
+
+	for (int i = 0; i <= degree; i++) {
+		for (int j = 0; j + i <= degree; j++) {
+			point += cps[cpIndex(i, j, degree)] * eval(i, j, degree - i - j, bary, degree);
+		}
+	}
+	return point;
 }
 
 }

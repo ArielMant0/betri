@@ -696,20 +696,30 @@ void BezierTriangleUtilsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
-		int complexity = QInputDialog::getInt(
-			m_tool,
-			"Decimation Meshing",
-			"Please enter target complexity: ",
-			// value, min value
-			mesh->n_vertices(), 0,
-			// max value, steps
-			mesh->n_vertices(), 1
-		);
+		bool okay;
 
-		betri::decimation(meshObj, complexity, false);
-		emit log(LOGINFO, "Performed Decimation (DONE)!");
+		if (m_target == 0) {
+			m_target = QInputDialog::getInt(
+				m_tool,
+				"Decimation Meshing",
+				"Please enter target complexity: ",
+				// value, min value
+				mesh->n_vertices(), 10,
+				// max value, steps
+				mesh->n_vertices(), 1, &okay
+			);
+		} else {
+			okay = true;
+		}
 
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
+		if (okay) {
+			betri::decimation(meshObj, m_target, false);
+			emit log(LOGINFO, "Performed Decimation (DONE)!");
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+
+			m_target = 0;
+		}
 	}
 }
 
@@ -726,6 +736,8 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
+		bool okay = false;
+
 		if (m_target == 0) {
 			BezierTMesh *mesh = meshObj->mesh();
 
@@ -734,19 +746,25 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 				"Decimation Meshing",
 				"Please enter target complexity: ",
 				// value, min value
-				mesh->n_vertices(), 0,
+				mesh->n_vertices(), 10,
 				// max value, steps
-				mesh->n_vertices(), 1
+				mesh->n_vertices(), 1, &okay
 			);
 			m_target = complexity;
+		} else {
+			okay = true;
 		}
 
-		const bool done = betri::decimation(meshObj, m_target, true);
-		if (done) {
-			emit log(LOGINFO, "Performed Decimation Step (DONE)!");
-		} else {
-			emit log(LOGINFO, "Performed Decimation Step!");
+		if (okay) {
+			const bool done = betri::decimation(meshObj, m_target, true);
+			if (done) {
+				emit log(LOGINFO, "Performed Decimation Step (DONE)!");
+			} else {
+				emit log(LOGINFO, "Performed Decimation Step!");
+			}
 		}
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
 	}
 }
 

@@ -71,9 +71,19 @@ public:
 	Vec2 middle(size_t n)
 	{
 		switch (n) {
-			default:
-			case 3: return Vec2(0.33f, 0.33f);
+			default: return Vec2(0.5f, 0.5f);
+			case 3: return middle();
 		}
+	}
+
+	Vec2 corner(size_t index, size_t n)
+	{
+		const Scalar ru = 0.5; // outer radius
+		const Scalar angle = (2.0 * M_PI) / n;
+		const Scalar sideLength = 2.0 * ru * std::sin(M_PI / n);
+		const Vec2 trans(ru, ru);
+
+		return trans + Vec2(ru * sin(angle*index), ru * cos(angle*index));
 	}
 
 private:

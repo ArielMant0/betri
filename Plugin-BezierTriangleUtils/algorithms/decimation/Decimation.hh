@@ -78,7 +78,7 @@ private:
     void prepare();
     void cleanup();
 
-	void fit(const HalfedgeHandle hh);
+	Scalar fit(const HalfedgeHandle hh, const bool apply);
 
 	void calculateErrors();
 	void calculateError(const HalfedgeHandle he);
@@ -92,7 +92,8 @@ private:
 	Scalar& priority(const HalfedgeHandle hh) { return m_mesh.property(m_hprio, hh); }
 	Scalar priority(const VertexHandle vh)
 	{
-		return m_mesh.property(m_hprio, target(vh));
+		HalfedgeHandle h = target(vh);
+		return h.is_valid() ? m_mesh.property(m_hprio, h) : -1.0;
 	}
 
 	Scalar calcVertexPriority(const VertexHandle vh)

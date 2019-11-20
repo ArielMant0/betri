@@ -14,6 +14,8 @@ class DecimationParametrization : public Parametrization
 {
 public:
 
+	using NGonFace = std::array<Vec2, 3>;
+
 	explicit DecimationParametrization(BezierTMesh &mesh, OpenMesh::VPropHandleT<Vec2> &uvProp) :
 		Parametrization(mesh), m_mapper(mesh, uvProp)
 	{
@@ -32,39 +34,62 @@ public:
 	void prepare() override;
 	void cleanup() override;
 
-	bool solveLocal(const FaceHandle face);
-
-	// computes weights (for complete mesh)
-	static void calcWeights(
-		BezierTMesh &mesh,
-		OpenMesh::VPropHandleT<Scalar> &vweight,
-		OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
+	bool solveLocal(
+		const VertexHandle from,
+		const VertexHandle to,
+		std::vector<FitCollection> &fitColl,
+		const bool print
 	);
-
-	void calcWeights(const FaceHandle face);
 
 	static bool test(BezierTMesh *mesh=nullptr);
 
+	static std::vector<Vec2> getSampleUVs(size_t degree);
+
+	static Vec3 bary2D(Vec2 &uv, NGonFace &corners)
+	{
+		Vec2 v0 = corners[1] - corners[0];
+		Vec2 v1 = corners[2] - corners[0];
+		Vec2 v2 = uv - corners[0];
+
+		Vec2::value_type d00 = v0 | v0;
+		Vec2::value_type d01 = v0 | v1;
+		Vec2::value_type d11 = v1 | v1;
+		Vec2::value_type d20 = v2 | v0;
+		Vec2::value_type d21 = v2 | v1;
+		Vec2::value_type denom = d00 * d11 - d01 * d01;
+
+		// https://gamedev.stackexchange.com/a/23745
+		// TODO: bary 2d correct u,v,w ?
+		Vec2::value_type v = (d11 * d20 - d01 * d21) / denom;
+		Vec2::value_type w = (d00 * d21 - d01 * d20) / denom;
+		Vec2::value_type u = 1.0 - v - w;
+
+		return Vec3(u, v, w);
+	}
+
 private:
 
-	// initialize uv coordinates
-	void initCoords(const FaceHandle face);
+	Vec2 trianglePoint(Vec2 uv, NGonFace points)
+	{
+		Scalar w = 1. - uv[0] - uv[1];
 
-	// Function for adding the entries of one row in the equation system
-	void addRow(
-		std::vector<EigenTripletT>& _triplets,
-		EigenVectorT& _rhsu,
-		EigenVectorT& _rhsv,
-		VertexHandle _origvh,
-		FaceHandle face
+		//std::cerr << __FUNCTION__ << "\n\tuv " << uv << " " << w;
+		//std::cerr << "\n\t pos " << points[0] << " " << points[1] << " " << points[2] << "\n";
+
+		return points[0] * uv[0] + points[1] * uv[1] + points[2] * w;
+	}
+
+	FaceHandle findTargetFace(
+		Vec2 &uv,
+		Point &faceBary,
+		std::unordered_map<FaceHandle, NGonFace> &faces
 	);
 
 	///////////////////////////////////////////////////////////
 	// member variables
 	///////////////////////////////////////////////////////////
 
-    // helper variable
-    size_t nv_inner_;
+	std::vector<Vec2> m_sampleUVs;
 
 	/// maps boundary vertices (to some convex polygon dictated by the mapper class)
 	NGonMapper<Vec2> m_mapper;

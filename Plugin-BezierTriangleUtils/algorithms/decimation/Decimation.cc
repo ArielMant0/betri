@@ -19,7 +19,7 @@ void Decimation::prepare()
 
 void Decimation::cleanup()
 {
-	if (m_mesh.get_property_handle(m_hprio, "vertexquadricprop"))
+	if (m_mesh.get_property_handle(m_hprio, "halfedgeprioprop"))
 		m_mesh.remove_property(m_hprio);
 
 	if (m_mesh.get_property_handle(m_target, "vertextargetprop"))
@@ -31,9 +31,14 @@ void Decimation::cleanup()
 
 void Decimation::calculateErrors()
 {
+	//std::cerr << "calculating errors:\n";
+
 	m_mesh.update_face_normals();
 	for (HalfedgeHandle hh : m_mesh.halfedges()) {
 		calculateError(hh);
+
+		//std::cerr << hh << " has error " << priority(hh) << '\n';
+
 	}
 }
 
@@ -43,7 +48,10 @@ void Decimation::calculateError(const HalfedgeHandle hh)
 	priority(hh) = -1.0;
 
 	if (isCollapseLegal(hh)) {
-		// TODO: perform the fitting step for this configuration
+		// "simulate collapse" -> fit all 1-Ring faces -> use max error
+		Scalar error = fit(hh, false);
+		assert(std::isgreaterequal(error, 0.));
+		priority(hh) = error;
 	}
 }
 
@@ -185,49 +193,77 @@ void Decimation::step()
 
 	// perform collapse
 	if (isCollapseLegal(hh)) {
-		// storing neighbors beforehand is easier and more efficient
-		for (auto h_it = m_mesh.cvoh_begin(from), h_end = m_mesh.cvoh_end(from);
-			h_it != h_end; ++h_it) {
-			oneRing.push_back(*h_it);
+		FaceHandle f0 = m_mesh.face_handle(hh);
+		FaceHandle f1 = m_mesh.opposite_face_handle(hh);
+		// storing neighbors beforehand is easier
+		for (auto f_it = m_mesh.cvf_begin(from), f_end = m_mesh.cvf_end(from);
+			f_it != f_end; ++f_it
+		) {
+			// TODO: this is quite a lot of halfedges
+			if (*f_it != f0 && *f_it != f1) {
+				for (auto h_it = m_mesh.cfh_begin(*f_it); h_it != m_mesh.cfh_end(*f_it); ++h_it) {
+					oneRing.push_back(*h_it);
+				}
+			}
 		}
+		std::cerr << "collapsing halfedge " << hh << " with error " << priority(hh) << '\n';
+		// fit remaining faces (and apply update)
+		fit(hh, true);
+		// collapse halfedge
 		m_mesh.collapse(hh);
-		fit(hh);
 		// now we have one less vertex
 		--m_nverts;
 	}
 
-	// update queue (recalculate the error, reinsert the vertex)
+	// recalculate the error first, so we know all incident halfedges
+	// are updated before updating the queue
 	for (HalfedgeHandle he : oneRing) {
 		calculateError(he);
-		enqueueVertex(m_mesh.to_vertex_handle(he));
+	}
+	// update queue (reinsert the vertex)
+	for (HalfedgeHandle he : oneRing) {
+		enqueueVertex(m_mesh.from_vertex_handle(he));
 	}
 }
 
-void Decimation::fit(const HalfedgeHandle hh)
+Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 {
 	// source and target vertex
 	VertexHandle from = m_mesh.from_vertex_handle(hh), to = m_mesh.to_vertex_handle(hh);
+	size_t valence = m_mesh.valence(from);
 
 	// stores all 3D points and corresponding uv's per face
 	std::vector<FitCollection> fitColls;
-	std::vector<VertexHandle> vertices;
-	std::vector<FaceHandle> faces;
 
-	for (auto h_it = m_mesh.cvoh_begin(from); h_it != m_mesh.cvoh_end(from); ++h_it) {
-		vertices.push_back(m_mesh.to_vertex_handle(*h_it));
-		faces.push_back(m_mesh.face_handle(*h_it));
-	}
 	// parametrize to n-gon
-	//m_param.solveLocal(to, vertices);
+	m_param.solveLocal(from, to, fitColls, apply);
 
-	//for (size_t i = 0; i < faces.size(); ++i) {
+	Scalar maxError = 0., error = 0.;
 
-	//}
-
+	assert(fitColls.size() == valence - 2);
 	for (size_t i = 0; i < fitColls.size(); ++i) {
 		// fit all surrounding faces
-		m_fit.solveLocal(faces[i], fitColls[i]);
+		m_fit.solveLocal(fitColls[i], error, apply);
+		// store max error
+		maxError = std::max(error, maxError);
 	}
+
+	// make faces "match" again
+	if (apply) {
+		std::set<EdgeHandle> visited;
+		for (size_t i = 0; i < fitColls.size(); ++i) {
+			for (auto e_it = m_mesh.cfe_begin(fitColls[i].face),
+				e_end = m_mesh.cfe_end(fitColls[i].face); e_it != e_end; ++e_it
+			) {
+				if (visited.find(*e_it) == visited.end()) {
+					m_mesh.interpolateEdgeControlPoints(*e_it);
+					visited.insert(*e_it);
+				}
+			}
+		}
+	}
+
+	return maxError;
 }
 
 }
