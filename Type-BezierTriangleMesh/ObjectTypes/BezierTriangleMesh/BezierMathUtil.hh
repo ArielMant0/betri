@@ -8,6 +8,10 @@
 namespace betri
 {
 
+///////////////////////////////////////////////////////////////////////////////
+// Helper Functions
+///////////////////////////////////////////////////////////////////////////////
+
 /**
  * @param n The number for which the calculation should be taken
  */
@@ -35,6 +39,8 @@ static inline int mersennePrime(int n)
 
 /**
  * Returns the third barycentric coordinates for two values between 0 and 1
+ * Order: 100 - 010 - 001
+ *
  * @param u First Coordinate
  * @param v Secound Coordinate
  * @returns A full point with w = 1-u-v
@@ -44,21 +50,31 @@ static inline BezierTMesh::Point getBaryCoords(double u, double v)
 	return BezierTMesh::Point(u, v, 1.0 - u - v);
 }
 
+static double inline length(BezierTMesh::Point p)
+{
+	return sqrt(dot(p, p));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BoundingVolume Helper Functions
+///////////////////////////////////////////////////////////////////////////////
+
 // TODO this is accesseable without by betri::AABB
 enum boundingVolumeType
 {
 	AABB = 0,
 	PrismVolume = 1,
-	ConvexHull = 2
+	ConvexHull = 2,
+	BoundingMesh = 3
 };
 
 static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 {
-
 	constexpr int indicesPerTriangle = 3;
 	constexpr int AABBTriangles = 12;
 	constexpr int prismTriangles = 6 + 2;
 	constexpr int hullTriangles = 8;
+	constexpr int bMeshTriangles = 8; // TODO
 
 	switch (bVolume) {
 		case boundingVolumeType::AABB :
@@ -73,12 +89,19 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 			numVerts = 6; // TODO 
 			numIndices = hullTriangles * indicesPerTriangle; // BIG TODO
 			break;
+		case boundingVolumeType::BoundingMesh:
+			numVerts = 6; // TODO 
+			numIndices = bMeshTriangles * indicesPerTriangle; // BIG TODO
+			break;
 		default:
 			numVerts = 0;
 			numIndices = 0;
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// BoundingBox
+///////////////////////////////////////////////////////////////////////////////
 static void addBoundingBoxFromPoints(
 	const int controlPointsPerFace,
 	int &vboIndex,
@@ -120,6 +143,7 @@ static void addBoundingBoxFromPoints(
 		for (int m = 0; m < 3; ++m)
 			vboData[vboIndex++] = float(p[m]);
 
+		/*
 		// TODO not nessessary
 		// store normal
 		//for (int m = 0; m < 3; ++m)
@@ -127,12 +151,13 @@ static void addBoundingBoxFromPoints(
 		//vboData[vboIndex++] = float(1.0);
 		vboData[vboIndex++] = float(0.0);
 		vboData[vboIndex++] = float(0.0);
+		*/
 
 		// store texcoord
 		//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
 		//vboData[vboIndex++] = texCoord[0];
 		//vboData[vboIndex++] = texCoord[1];
-		vboData[vboIndex++] = 1.0;
+		vboData[vboIndex++] = float(face_index);
 		vboData[vboIndex++] = 0.0;
 	}
 
@@ -171,7 +196,7 @@ static void addBoundingBoxFromPoints(
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	// sixth face -rigth
+	// sixth face - rigth
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
@@ -180,11 +205,9 @@ static void addBoundingBoxFromPoints(
 	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
 }
 
-static double inline length(BezierTMesh::Point p)
-{
-	return sqrt(dot(p, p));
-}
-
+///////////////////////////////////////////////////////////////////////////////
+// BoundingPrism
+///////////////////////////////////////////////////////////////////////////////
 // http://geomalgorithms.com/a05-_intersect-1.html
 static bool inline linePlaneIntersect(
 	BezierTMesh::Point line_p0, BezierTMesh::Point line_p1,
@@ -320,6 +343,7 @@ static void addPrismVolumeFromPoints(
 		for (int m = 0; m < 3; ++m)
 			vboData[vboIndex++] = float(p[m]);
 
+		/*
 		// TODO not nessessary
 		// store normal
 		//for (int m = 0; m < 3; ++m)
@@ -327,12 +351,10 @@ static void addPrismVolumeFromPoints(
 		//vboData[vboIndex++] = float(1.0);
 		vboData[vboIndex++] = float(0.0);
 		vboData[vboIndex++] = float(0.0);
+		*/
 
 		// store texcoord
-		//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
-		//vboData[vboIndex++] = texCoord[0];
-		//vboData[vboIndex++] = texCoord[1];
-		vboData[vboIndex++] = 1.0;
+		vboData[vboIndex++] = float(face_index);
 		vboData[vboIndex++] = 0.0;
 	}
 
@@ -348,63 +370,11 @@ static void addPrismVolumeFromPoints(
 	for (int i : indexArray) {
 		iboData[iboIndex++] = face_index * boundingVolumeVCount + i;
 	}
-
-	/*
-	// first face - top
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	// second face - bot
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	// third face - front
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	// forth face - right
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	// fifth face - left
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	*/
 }
 
-static void createSimplex(std::vector<BezierTMesh::Point> &faceControlP)
-{
-	float minX = 0, maxX = 0;
-	float minY = 0, maxY = 0;
-	float minZ = 0, maxZ = 0;
-
-	for (int i = 0; i < faceControlP.size(); i++) {
-		if (faceControlP[i][0] < faceControlP[minX][0])
-			minX = i;
-		if (faceControlP[i][0] > faceControlP[maxX][0])
-			maxX = i;
-		if (faceControlP[i][1] < faceControlP[minY][1])
-			minY = i;
-		if (faceControlP[i][1] > faceControlP[maxY][1])
-			maxY = i;
-		if (faceControlP[i][2] < faceControlP[minZ][2])
-			minZ = i;
-		if (faceControlP[i][2] > faceControlP[maxZ][2])
-			maxZ = i;
-	}
-}
-
-
+///////////////////////////////////////////////////////////////////////////////
+// ConvexHull
+///////////////////////////////////////////////////////////////////////////////
 // Chan's algorithm
 // https://en.wikipedia.org/wiki/Chan%27s_algorithm
 // Quick Hull
@@ -438,13 +408,106 @@ static void addConvexHullFromPoints(
 	std::vector<BezierTMesh::Point> &faceControlP
 )
 {
-	/*
-	std::cerr << "controlP:\n";
-	for (auto vec : faceControlP) {
-		std::cerr << vec << '\n';
+	quickhull::QuickHull<float> qh;
+
+	std::vector<float> points;
+	points.reserve(controlPointsPerFace * 3);
+	for (auto p : faceControlP) {
+		points.push_back(p[0]);
+		points.push_back(p[1]);
+		points.push_back(p[2]);
 	}
-	std::cerr << std::endl;
-	*/
+	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
+
+	//////////////////
+	// Convert Mesh //
+	//////////////////
+	TriMesh reducedMesh;
+	for (auto v : hull.m_vertices) {
+		reducedMesh.add_vertex({ v.x, v.y, v.z });
+	}
+
+	for (auto f : hull.m_faces) {
+		auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
+		auto he2 = hull.m_halfEdges[he1.m_next];
+		auto he3 = hull.m_halfEdges[he2.m_next];
+		TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
+		TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
+		TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
+		reducedMesh.add_face(vh1, vh2, vh3);
+	}
+
+	//////////////////
+	// Setup Buffer //
+	//////////////////
+	const size_t boundingVolumeVCount = hull.m_vertices.size();
+
+	for (auto v : reducedMesh.vertices()) {
+		vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
+		vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
+		vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+
+		/*
+		vboData[vboIndex++] = float(face_index);
+		//vboData[vboIndex++] = float(1.0);
+		vboData[vboIndex++] = float(0.0);
+		vboData[vboIndex++] = float(0.0);
+		*/
+
+		vboData[vboIndex++] = float(face_index);
+		vboData[vboIndex++] = 0.0;
+	}
+
+	for (auto f : reducedMesh.faces()) {
+		for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {		
+			iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BoundingMesh
+///////////////////////////////////////////////////////////////////////////////
+static void generateBoundingMesh(TriMesh &reducedMesh)
+{
+	for (auto e_it = reducedMesh.edges_begin(); e_it != reducedMesh.edges_end(); ++e_it) {
+		// Compute Q(e)
+
+		// Minimize E(e, v*)
+
+		// Add E(e, v*) to priority Queue
+	}
+#define EPSILON 0.1
+	//while (E(e, v*) < EPSILON * EPSILON) {
+		// Pop best edge e
+
+		// Modify geometry
+		// remove Edge e and adjacent triangles
+		// Insert new vertex v* and triangles
+
+		// Modify priority queue
+		// Recalculate costs of changed edges
+	//}
+}
+
+static void addBoundingMeshFromPoints(
+	const int controlPointsPerFace,
+	const int grad,
+	int &vboIndex,
+	int &iboIndex,
+	int face_index,
+	std::vector<float> &vboData,
+	std::vector<int> &iboData,
+	std::vector<BezierTMesh::Point> &faceControlP
+)
+{
+	/*
+std::cerr << "controlP:\n";
+for (auto vec : faceControlP) {
+	std::cerr << vec << '\n';
+}
+std::cerr << std::endl;
+*/
 	quickhull::QuickHull<float> qh;
 
 	//auto data = bezierTriangleMesh_.data(bezierTriangleMesh_.face_handle(0)).points();
@@ -484,13 +547,16 @@ static void addConvexHullFromPoints(
 	reducedMesh.request_face_normals();
 	reducedMesh.request_vertex_normals();
 
+	generateBoundingMesh(reducedMesh);
+	/*
 	///////////////////
 	// Delete Vertex //
 	///////////////////
-	// TODO Select vertex 
+	// TODO Select vertex
 	TriMesh::VertexHandle vh = reducedMesh.vertex_handle(3);
 
 	auto oldPos = reducedMesh.point(vh);
+	auto oldNormal = reducedMesh.normal(vh);
 	reducedMesh.delete_vertex(vh);
 	reducedMesh.garbage_collection();
 
@@ -504,50 +570,49 @@ static void addConvexHullFromPoints(
 	}
 
 	TriMesh::HalfedgeHandle borderIt = borderStart;
-	TriMesh::HalfedgeHandle directionH;
 	std::vector<TriMesh::VertexHandle> border;
-	std::vector<TriMesh::Point> directions;
-	TriMesh::Point bla = TriMesh::Point({ 0.0,0.0,0.0 });
-	TriMesh::Scalar bla2 = 0.0;
 	do {
 		// Find next border-vertex
 		border.push_back(reducedMesh.to_vertex_handle(borderIt));
-		TriMesh::VertexHandle lala = reducedMesh.from_vertex_handle(borderIt);
 		// increment iterator
 		borderIt = reducedMesh.next_halfedge_handle(borderIt);
-		// calculate direction vector
-		for (auto vv_it = reducedMesh.vv_iter(lala); vv_it.is_valid(); ++vv_it) {
-			auto tmp = normalize(reducedMesh.point(lala) - reducedMesh.point(vv_it)) | (oldPos - reducedMesh.point(lala));
-			if (tmp > bla2) // TODO
-				bla = tmp * normalize(reducedMesh.point(lala) - reducedMesh.point(vv_it));
-		}
-		directions.push_back(bla);
-		/*
-		// TODO select the best candidate and dont simple use one of them
-		directionH = reducedMesh.opposite_halfedge_handle(borderIt);
-		directionH = reducedMesh.next_halfedge_handle(directionH);
-		directions.push_back(
-			normalize(
-				reducedMesh.point(reducedMesh.to_vertex_handle(directionH)) - 
-				reducedMesh.point(border.back())
-			)
-		);*/
 	} while (borderIt != borderStart);
 
 	reducedMesh.add_face(border);
-	// Move border vertices
-	for (auto i = 0; i < directions.size(); i++) {
-		//auto multiplier = (directions[i] | (oldPos - reducedMesh.point(border[i])));
-		std::cerr << directions[i] <<  std::endl;
-		//assert(multiplier >= 0.0);
-	    reducedMesh.point(border[i]) += directions[i];
+
+	//////////////////////////
+	// Move border vertices //
+	//////////////////////////
+	std::vector<TriMesh::Point> directions;
+
+	reducedMesh.update_normals();
+	//reducedMesh.calc_face_normal;
+
+	for (auto v_it = reducedMesh.vertices_begin(); v_it != reducedMesh.vertices_end(); ++v_it) {
+		std::cerr << reducedMesh.point(v_it) << std::endl;
 	}
+
+	for (auto i = 0; i < border.size(); i++) {
+		BezierTMesh::Point intersection;
+		// TODO 100.0
+		bool intersect = linePlaneIntersect(
+			reducedMesh.point(border[i]),
+			reducedMesh.normal(border[i])*100.0,
+			oldPos, oldNormal, intersection
+		);
+		if (intersect)
+			reducedMesh.point(border[i]) = intersection;
+	}
+
+	for (auto v_it = reducedMesh.vertices_begin(); v_it != reducedMesh.vertices_end(); ++v_it) {
+		std::cerr << reducedMesh.point(v_it) << std::endl;
+	}*/
 
 	//////////////////
 	// Setup Buffer //
 	//////////////////
 	if (false) {
-		const int boundingVolumeVCount = hull.m_vertices.size();
+		const size_t boundingVolumeVCount = hull.m_vertices.size();
 
 		for (auto v : hull.m_vertices) {
 			vboData[vboIndex++] = float(v.x);
@@ -577,29 +642,54 @@ static void addConvexHullFromPoints(
 			} while (e != f.m_halfEdgeIndex);
 		}
 	} else {
-		const int boundingVolumeVCount = hull.m_vertices.size();
+		const size_t boundingVolumeVCount = hull.m_vertices.size();
 
 		for (auto v : reducedMesh.vertices()) {
 			vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
 			vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
 			vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
 
-
+			/*
 			vboData[vboIndex++] = float(face_index);
 			//vboData[vboIndex++] = float(1.0);
 			vboData[vboIndex++] = float(0.0);
 			vboData[vboIndex++] = float(0.0);
+			*/
 
-			vboData[vboIndex++] = 1.0;
+			vboData[vboIndex++] = float(face_index);
 			vboData[vboIndex++] = 0.0;
 		}
 
 		for (auto f : reducedMesh.faces()) {
-			for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {		
+			for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
 				iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
 			}
 		}
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Unused (was das?)
+///////////////////////////////////////////////////////////////////////////////
+static void createSimplex(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	float minX = 0, maxX = 0;
+	float minY = 0, maxY = 0;
+	float minZ = 0, maxZ = 0;
+
+	for (int i = 0; i < faceControlP.size(); i++) {
+		if (faceControlP[i][0] < faceControlP[minX][0])
+			minX = i;
+		if (faceControlP[i][0] > faceControlP[maxX][0])
+			maxX = i;
+		if (faceControlP[i][1] < faceControlP[minY][1])
+			minY = i;
+		if (faceControlP[i][1] > faceControlP[maxY][1])
+			maxY = i;
+		if (faceControlP[i][2] < faceControlP[minZ][2])
+			minZ = i;
+		if (faceControlP[i][2] > faceControlP[maxZ][2])
+			maxZ = i;
+	}
+}
 }

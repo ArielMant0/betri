@@ -15,9 +15,9 @@ public:
 		m_render(false),
 		m_degree(2)
 	{
-		request_edge_colors();
-		request_vertex_colors();
-		request_face_colors();
+		//request_edge_colors();
+		//request_vertex_colors();
+		//request_face_colors();
 	}
 
 	BezierTMesh(const BezierTMesh &other) :
@@ -25,9 +25,9 @@ public:
 		m_render(other.m_render),
 		m_degree(other.m_degree)
 	{
-		request_edge_colors();
-		request_vertex_colors();
-		request_face_colors();
+		//request_edge_colors();
+		//request_vertex_colors();
+		//request_face_colors();
 	}
 
 	void degreeElevation(FaceHandle fh);

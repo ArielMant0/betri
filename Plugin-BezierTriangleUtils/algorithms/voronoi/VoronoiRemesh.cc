@@ -877,10 +877,11 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		}
 		border(vh, adj.size() > 1);
 
-#ifndef DRAW_CURVED
-		if (!vtt(vh).isBorder()) m_mesh.set_color(vh, m_colors[id(vh)]);
-		else if (isSeedVertex(vh)) m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
-#endif
+		if (!vtt(vh).isBorder()) 
+			m_mesh.set_color(vh, m_colors[id(vh)]);
+		else if (isSeedVertex(vh)) 
+			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
+
 		adj.clear();
 	}
 }

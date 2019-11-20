@@ -58,15 +58,12 @@ void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl)
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->partition();
 
-#ifndef DRAW_CURVED
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
 			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 	}
-#endif
-
 }
 
 bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)

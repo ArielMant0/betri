@@ -126,7 +126,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(tessSlider, SIGNAL(valueChanged(int)), tessSpinBox, SLOT(setValue(int)));
 	connect(tessSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setTessAmount(int)));
 
-	tessSpinBox->setValue(1);
+	tessSpinBox->setValue(0);
 
 	QCheckBox *adaptCBox = new QCheckBox("Adaptive Tesselation");
 
@@ -171,6 +171,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
+	boundVComboBox->addItem(tr("BOUNDING MESH"));
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;
@@ -234,8 +235,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QCheckBox *boundVBox = new QCheckBox("Show BoundingVolume");
 	QLabel *visLabel = new QLabel(tr("Facecoloring:"));
 	QComboBox *visComboBox = new QComboBox;
-	//boundVComboBox->addItem(tr("NONE"));
-	visComboBox->addItem(tr("Color")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
+	visComboBox->addItem(tr("Phong-Color"));
+	visComboBox->addItem(tr("Color"));
 	visComboBox->addItem(tr("Normal"));
 	visComboBox->addItem(tr("Curvature"));
 
@@ -616,7 +617,8 @@ void BezierTriangleUtilsPlugin::callPartition()
 			betri::voronoiPartition(*o_it, ctrl_obj);
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
-			emit updatedObject(meshObj->id(), UPDATE_COLOR);
+			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 
 		//m_voronoiSteps[0]->setDisabled(true);

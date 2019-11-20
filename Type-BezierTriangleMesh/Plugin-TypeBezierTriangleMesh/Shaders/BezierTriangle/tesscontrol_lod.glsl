@@ -20,7 +20,8 @@ const vec3 atten = vec3(0.001, 0.08, 0.3);
 float GetTessLevel(float Distance0, float Distance1)
 {
     float AvgDistance = (Distance0 + Distance1) / 2.0;
-	return tessAmount / max(AvgDistance, 1);
+	//return tessAmount / max(AvgDistance, 1);
+	return tessAmount;
 }
 
 void main()
