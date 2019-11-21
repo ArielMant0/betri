@@ -5,6 +5,9 @@
 #include "algorithms/voronoi/VoronoiFitting.hh"
 #include "algorithms/voronoi/VoronoiParametrization.hh"
 
+#include "algorithms/decimation/DecimationParametrization.hh"
+#include "algorithms/decimation/DecimationFitting.hh"
+
 using VOD = VoronoiRemeshPerObjectData;
 using DEC = DecimationPerObjectData;
 
@@ -175,8 +178,9 @@ bool decimation(BaseObjectData *object, size_t complexity, bool steps)
 bool test(TestOptions which, BezierTMesh *mesh)
 {
 	switch (which) {
-		case TestOptions::fitting: return VoronoiFitting::test(mesh);
-		case TestOptions::parametrization: return VoronoiParametrization::test(mesh);
+		case TestOptions::voronoi_fit: return VoronoiFitting::test(mesh);
+		case TestOptions::voronoi_param: return VoronoiParametrization::test(mesh);
+		case TestOptions::decimation_param: return DecimationParametrization::test(mesh);
 		default: return true;
 	}
 }

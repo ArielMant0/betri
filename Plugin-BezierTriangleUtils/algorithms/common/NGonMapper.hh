@@ -80,10 +80,9 @@ public:
 	{
 		const Scalar ru = 0.5; // outer radius
 		const Scalar angle = (2.0 * M_PI) / n;
-		const Scalar sideLength = 2.0 * ru * std::sin(M_PI / n);
 		const Vec2 trans(ru, ru);
 
-		return trans + Vec2(ru * sin(angle*index), ru * cos(angle*index));
+		return trans + Vec2(ru * std::cos(angle*index), ru * std::sin(angle*index));
 	}
 
 private:

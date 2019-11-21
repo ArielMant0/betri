@@ -5,8 +5,10 @@ namespace betri
 
 enum class TestOptions
 {
-	fitting,
-	parametrization
+	voronoi_fit,
+	voronoi_param,
+	decimation_fit,
+	decimation_param
 };
 
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors);

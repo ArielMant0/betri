@@ -121,31 +121,24 @@ struct VertexToTri
 
 struct FitCollection
 {
-	using FitPair = std::pair<Vec2, Point>;
+	//using FitPair = std::pair<Vec2, Point>;
 
-	std::vector<FitPair> uvs;
+	std::vector<Point> points;
 	FaceHandle face;
 
-	void add(Point &p, Vec2 &uv)
+	void add(Point &p)
 	{
-		uvs.push_back({ uv, p });
+		points.push_back(p);
 	}
 
-	Point& point(size_t index)
+	size_t size() const
 	{
-		return uvs[index].second;
+		return points.size();
 	}
 
-	Vec2& uv(size_t index)
+	Point& operator[](size_t index)
 	{
-		return uvs[index].first;
-	}
-
-	void sort()
-	{
-		std::sort(uvs.begin(), uvs.end(), [](const FitPair &lhs, const FitPair &rhs) {
-			return lhs.first[0] < rhs.first[0];
-		});
+		return points[index];
 	}
 };
 

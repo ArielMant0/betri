@@ -41,35 +41,44 @@ public:
 		const bool print
 	);
 
-	static bool test(BezierTMesh *mesh=nullptr);
-
-	static std::vector<Vec2> getSampleUVs(size_t degree);
-
-	static Vec3 bary2D(Vec2 &uv, NGonFace &corners)
+	std::vector<Vec2>& getBarycentricCoords()
 	{
-		Vec2 v0 = corners[1] - corners[0];
-		Vec2 v1 = corners[2] - corners[0];
-		Vec2 v2 = uv - corners[0];
-
-		Vec2::value_type d00 = v0 | v0;
-		Vec2::value_type d01 = v0 | v1;
-		Vec2::value_type d11 = v1 | v1;
-		Vec2::value_type d20 = v2 | v0;
-		Vec2::value_type d21 = v2 | v1;
-		Vec2::value_type denom = d00 * d11 - d01 * d01;
-
-		// https://gamedev.stackexchange.com/a/23745
-		// TODO: bary 2d correct u,v,w ?
-		Vec2::value_type v = (d11 * d20 - d01 * d21) / denom;
-		Vec2::value_type w = (d00 * d21 - d01 * d20) / denom;
-		Vec2::value_type u = 1.0 - v - w;
-
-		return Vec3(u, v, w);
+		return m_sampleUVs;
 	}
+
+	static bool test(BezierTMesh *mesh=nullptr);
 
 private:
 
-	Vec2 trianglePoint(Vec2 uv, NGonFace points)
+	static std::vector<Vec2> getSampleUVs(size_t degree);
+	static std::vector<Vec2> getRandomUVs(size_t n);
+
+	static Vec3 bary2D(Vec2 &uv, NGonFace &corners)
+	{
+		//std::cerr << "corners:\n\t" << corners[0] << "\n\t" << corners[1];
+		//std::cerr << "\n\t" << corners[2] << "\npoint: " << uv << std::endl;
+
+		Vec2 ba = corners[1] - corners[0];
+		Vec2 ca = corners[2] - corners[0];
+		Vec2 pa = uv - corners[0];
+
+		Scalar denom = ba[0] * ca[1] - ba[1] * ca[0];
+
+		if (1.0 + fabs(denom) == 1.0) {
+			return Vec3(-1., -1, -1.);
+		}
+
+		Vec3 result(
+			0.,
+			1.0 + ((pa[0] * ca[1] - pa[1] * ca[0]) / denom) - 1.0,
+			1.0 + ((ba[0] * pa[1] - ba[1] * pa[0]) / denom) - 1.0
+		);
+		result[0] = 1. - result[1] - result[2];
+
+		return result;
+	}
+
+	static Vec2 trianglePoint(Vec2 uv, NGonFace points)
 	{
 		Scalar w = 1. - uv[0] - uv[1];
 
@@ -79,7 +88,7 @@ private:
 		return points[0] * uv[0] + points[1] * uv[1] + points[2] * w;
 	}
 
-	FaceHandle findTargetFace(
+	static FaceHandle findTargetFace(
 		Vec2 &uv,
 		Point &faceBary,
 		std::unordered_map<FaceHandle, NGonFace> &faces

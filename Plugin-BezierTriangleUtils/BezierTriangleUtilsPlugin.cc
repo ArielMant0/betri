@@ -51,11 +51,6 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *smoothButton = new QPushButton(tr("Smooth"));
 	connect(smoothButton, SIGNAL(clicked()), this, SLOT(callSmooth()));
 
-	QPushButton *testFitButton = new QPushButton(tr("Test Fitting"));
-	connect(testFitButton, SIGNAL(clicked()), this, SLOT(testFitting()));
-	QPushButton *testParamButton = new QPushButton(tr("Test Parametrization"));
-	connect(testParamButton, SIGNAL(clicked()), this, SLOT(testParametrization()));
-
 	m_voronoiSteps.push_back(patitionButton);
 	m_voronoiSteps.push_back(dualStepButton);
 	m_voronoiSteps.push_back(dualButton);
@@ -68,9 +63,10 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualButton, 2, 1, 1, 1);
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(smoothButton, 3, 0, 1, 3);
-	voronoiLayout->addWidget(testFitButton, 4, 0, 1, 3);
-	voronoiLayout->addWidget(testParamButton, 5, 0, 1, 3);
 	voronoiGroup->setLayout(voronoiLayout);
+
+	QPushButton *testButton = new QPushButton(tr("Start Test"));
+	connect(testButton, SIGNAL(clicked()), this, SLOT(testAlgorithm()));
 
 	///////////////////////////////////////////////////////////////////////////
 	// Decimation group
@@ -320,9 +316,6 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	}
 	);
 
-	//std::cerr << "result: " << result << std::endl;
-
-
 	QGridLayout *perfLayout = new QGridLayout;
 	perfLayout->addWidget(startTestButton, 0, 0);
 	perfLayout->addWidget(endTestButton, 1, 0);
@@ -334,12 +327,13 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(voronoiGroup, 0, 0);
 	grid->addWidget(deciGroup, 1, 0);
+	grid->addWidget(testButton, 2, 0);
 
-	grid->addWidget(modeGroup, 2, 0);
-	grid->addWidget(tessGroup, 3, 0);
-	grid->addWidget(raytracingGroup, 4, 0);
-	grid->addWidget(visGroup, 5, 0);
-	grid->addWidget(perfGroup, 6, 0);
+	grid->addWidget(modeGroup, 3, 0);
+	grid->addWidget(tessGroup, 4, 0);
+	grid->addWidget(raytracingGroup, 5, 0);
+	grid->addWidget(visGroup, 6, 0);
+	grid->addWidget(perfGroup, 7, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
@@ -645,42 +639,46 @@ void BezierTriangleUtilsPlugin::callPartition()
 	}
 }
 
-void BezierTriangleUtilsPlugin::testFitting()
+void BezierTriangleUtilsPlugin::testAlgorithm()
 {
-	int ctrl_id;
+	QStringList items;
+	items << tr("Voronoi Parametrization");
+	items << tr("Voronoi Fitting");
+	items << tr("Decimation Parametrization");
 
-	emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-	PluginFunctions::getObject(ctrl_id, ctrl_obj);
-	BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+	bool okay;
+	QString option = QInputDialog::getItem(
+		m_tool,
+		"Test Algorithm",
+		"Please choose an algorithm to test: ",
+		items,
+		// current selection, editable
+		0, false, &okay
+	);
 
-	ctrlMeshObj->setName("fitting-test");
-	ctrlMeshObj->target(true);
+	if (okay && !option.isEmpty()) {
+		int ctrl_id;
 
-	betri::test(betri::TestOptions::fitting, ctrlMeshObj->mesh());
+		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+		PluginFunctions::getObject(ctrl_id, ctrl_obj);
+		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+		ctrlMeshObj->target(true);
+		ctrlMeshObj->setName("test-mesh");
 
-	emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+		std::string item = option.toStdString();
+		if (item.compare("Voronoi Parametrization") == 0) {
+			betri::test(betri::TestOptions::voronoi_param, ctrlMeshObj->mesh());
+		} else if (item.compare("Voronoi Fitting") == 0) {
+			betri::test(betri::TestOptions::voronoi_param, ctrlMeshObj->mesh());
+		} else if (item.compare("Decimation Parametrization") == 0) {
+			betri::test(betri::TestOptions::decimation_param, ctrlMeshObj->mesh());
+		}
 
-	ctrlMeshObj->mesh()->setRenderable();
-	ctrlMeshObj->show();
-}
+		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-void BezierTriangleUtilsPlugin::testParametrization()
-{
-	int ctrl_id;
-
-	emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-	PluginFunctions::getObject(ctrl_id, ctrl_obj);
-	BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
-
-	ctrlMeshObj->setName("parametrization-test");
-	ctrlMeshObj->target(true);
-
-	betri::test(betri::TestOptions::parametrization, ctrlMeshObj->mesh());
-
-	emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
-
-	ctrlMeshObj->mesh()->setRenderable();
-	ctrlMeshObj->show();
+		ctrlMeshObj->mesh()->setRenderable();
+		ctrlMeshObj->show();
+	}
 }
 
 void BezierTriangleUtilsPlugin::callDecimation()
@@ -717,9 +715,8 @@ void BezierTriangleUtilsPlugin::callDecimation()
 			emit log(LOGINFO, "Performed Decimation (DONE)!");
 
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
-
-			m_target = 0;
 		}
+		m_target = 0;
 	}
 }
 
@@ -762,6 +759,8 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 			} else {
 				emit log(LOGINFO, "Performed Decimation Step!");
 			}
+		} else {
+			m_target = 0;
 		}
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);

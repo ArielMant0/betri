@@ -9,6 +9,11 @@ void DecimationFitting::prepare()
 void DecimationFitting::cleanup()
 {}
 
+void DecimationFitting::setBarycentricCoords(std::vector<Vec2> &bary)
+{
+	m_samples = bary;
+}
+
 bool DecimationFitting::solve()
 {
 	return true;
@@ -18,12 +23,11 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 {
 	FaceHandle face = fitColl.face;
 
-	fitColl.sort();
-
 	size_t degree = m_mesh.degree();
 	size_t cpNum = pointsFromDegree(degree);
 
-	size_t uvSize = fitColl.uvs.size();
+	size_t uvSize = fitColl.size();
+	assert(uvSize == m_samples.size());
 	size_t matSize = uvSize;
 
 	// sample surface at given (u,v) coordinates -> rhs
@@ -59,7 +63,7 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 	}*/
 
 	for (size_t i = 0; i < matSize; ++i) {
-		Point p = fitColl.point(i);
+		Point p = fitColl[i];
 		rhsx[i] = p[0];
 		rhsy[i] = p[1];
 		rhsz[i] = p[2];
@@ -67,7 +71,7 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 
 	for (size_t row = 0; row < matSize; ++row) {
 
-		Vec2 uv = fitColl.uv(row);
+		Vec2 uv = m_samples[row];
 
 		for (size_t i = 0, column = 0; i <= degree; ++i) {
 			for (size_t j = 0; j + i <= degree; ++j, ++column) {

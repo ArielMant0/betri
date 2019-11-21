@@ -16,12 +16,10 @@ public:
 		m_complexity(m_mesh.n_vertices()),
 		m_nverts(m_mesh.n_vertices()),
 		m_q(nullptr),
-		m_fit(mesh),
-		m_param(mesh, m_uv)
+		m_param(mesh, m_uv),
+		m_fit(mesh)
     {
 		prepare();
-		// initialize quadrics
-		calculateErrors();
 		// create priority q
 		VertexCmp cmp(mesh, m_hprio, m_target);
 		m_q = new std::set<VertexHandle, VertexCmp>(cmp);
@@ -58,7 +56,8 @@ private:
 
 		Scalar priority(const VertexHandle vh) const
 		{
-			return m_mesh->property(m_prio, m_mesh->property(m_target, vh));
+			HalfedgeHandle h = m_mesh->property(m_target, vh);
+			return h.is_valid() ? m_mesh->property(m_prio, h) : -1.0;
 		}
 
 		bool operator()(const VertexHandle v0, const VertexHandle v1) const
