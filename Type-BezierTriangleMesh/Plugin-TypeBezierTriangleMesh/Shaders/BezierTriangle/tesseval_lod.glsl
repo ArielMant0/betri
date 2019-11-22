@@ -6,8 +6,8 @@
 
 layout(triangles, equal_spacing, ccw) in;
 
-uniform sampler2D controlPointTex;
 uniform int tessAmount;
+uniform sampler2D controlPointTex;
 
 //uniform vec4 uvRange;
 

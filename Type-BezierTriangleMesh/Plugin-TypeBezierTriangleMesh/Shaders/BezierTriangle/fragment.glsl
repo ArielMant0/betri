@@ -43,6 +43,7 @@ struct hitinfo {
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
 vec3 g_color = vec3(0.0);
+vec3 g_position = vec3(0.0);
 
 vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
 //vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
@@ -249,10 +250,7 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 		{
 			//outFragment = vec4(vec3(float(j)/4.0), 1.0);
 			g_color = B_uv;
-			// TODO hier soll der Depth BUffer aktualisiert werden
-			// Funktioniert noch nicht ganz
-			//vec4 n_pos = g_mWVP * vec4(B_uv, 1.0);
-			//gl_FragDepth = n_pos.z / n_pos.w;
+			g_position = B_uv;
 
 		    return vec3(result, z);
 			/*
@@ -374,7 +372,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 		2 * q_3 * t +
 		q_4;
 
-	return cross(dBs, dBt);
+	return normalize(cross(dBs, dBt));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -382,6 +380,7 @@ vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
 ///////////////////////////////////////////////////////////////////////////////
 
 // http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
+// http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node29.html
 vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal)
 {
 	// TODO refactor everything, this is a stupid doublication
@@ -436,33 +435,54 @@ void main(void)
 	//vec3 ray_direction = normalize(g_mWV * vec4(vRayDirection,1.0)).xyz - tmp);
 
 	vec3 tmp = campos;
-	vec3 ray_direction = normalize(vec4(vRayDirection,1.0).xyz - campos);
+	vec3 ray_direction = normalize(vec4(vRayDirection, 1.0).xyz - campos);
 	vec3 ray_origin = tmp;
 
 	hitinfo hit = trace(ray_origin, ray_direction);
-	vec4 oColor = hit.color;
+	vec4 color = hit.color;
+	vec4 sg_cColor = vec4(0.0);
+	vec3 sg_vPosOS = g_position; // TODO
 
-	if (hit.id != -1)
+	if (hit.id > -1)
 	{
-		vec3 normal = calcNormal(ray_origin, ray_direction, hit);
+		// https://community.khronos.org/t/playing-with-gl-fragdepth/57016/7
+		// https://stackoverflow.com/questions/10264949/glsl-gl-fragcoord-z-calculation-and-setting-gl-fragdepth
+		vec4 n_pos = g_mWVP * vec4(g_position, 1.0);
+
+		float ndc_depth = n_pos.z / n_pos.w;
+
+		float far = gl_DepthRange.far; 
+		float near = gl_DepthRange.near;
+		float depth = (((far-near) * ndc_depth) + near + far) / 2.0;
+// TODO why is this needed?
+#ifndef SHOWBVOLUME
+		gl_FragDepth = depth;
+#endif
+
+		vec3 sg_vNormalOS = calcNormal(ray_origin, ray_direction, hit);
 #ifdef SG_OUTPUT_NORMAL
-		oColor.rgb = normal;
+		color.rgb = sg_vNormalOS;
 #endif
 #ifdef SG_OUTPUT_CURVATURE
-		oColor.rgb = calcCurvature(ray_origin, ray_direction, hit, normal);
+		color.rgb = calcCurvature(ray_origin, ray_direction, hit, sg_vNormalOS);
 #endif
 #ifdef SG_OUTPUT_PHONGCOLOR
-		oColor.rgb *= clamp(dot(normal, lig), 0.0, 1.0);
+		vec3 sg_vNormalVS = (g_mWV * vec4(sg_vNormalOS, 0.0)).xyz;
+		vec3 sg_vPosVS = (g_mWV * vec4(sg_vPosOS, 0.0)).xyz;
+		SG_FRAGMENT_LIGHTING
+		color *= sg_cColor;
 #endif
-	}
+#ifdef SG_OUTPUT_DEPTH
+		color.rgb = vec3(gl_FragDepth);
+#endif
 
-	outFragment = vec4(oColor.rgb, 1.0);
-
-	if (hit.id == -1)
+		outFragment = vec4(color.rgb, 1.0);
+	} else {
 #ifdef SHOWBVOLUME
 		outFragment = vec4(1.0, 0.0, 0.0, 1.0);
 #endif
 #ifndef SHOWBVOLUME
 		discard;
 #endif
+	}
 }

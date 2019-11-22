@@ -1,2 +1,5 @@
 include (plugin)
-openflipper_plugin (TYPES BEZIERTRIANGLEMESH)
+openflipper_plugin (
+    DEPS EIGEN3
+    TYPES BEZIERTRIANGLEMESH
+)

@@ -15,6 +15,7 @@
 
 #include "globals/BezierOptions.hh"
 #include "BezierMathUtil.hh"
+#include "boundVol/BVolGenerator.hh"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Defines
@@ -622,33 +623,32 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
 
+				///////////////////////
+				// Additional States //
+				///////////////////////
+				ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
+
+				////////////////
+				// Set Shader //
+				////////////////
 				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
 				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
 
-				ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-
-				//std::cerr << _state.eye() << std::endl;
-				//std::cerr << _renderer->camPosWS_ << std::endl;
-				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
-
-				//ro.setUniform("campos", _renderer->camPosWS_);
-				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
-				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
-
-				ro.setUniform("b_error", (1.0f / betri::option(betri::BezierOption::B_ERROR)));
-				ro.setUniform("d_error", (1.0f / betri::option(betri::BezierOption::D_ERROR)));
-
-				// TODO is the shader recompiled every frame?
+				/////////////
+				// Defines //
+				/////////////
 				QString shaderMacro;
 				shaderMacro.sprintf("#define NEWTON_IT_COUNT %i", betri::option(betri::BezierOption::NEWTON_IT_COUNT));
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
-				if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 0)
+				if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::PHONGCOLOR)
 					shaderMacro.sprintf("#define SG_OUTPUT_PHONGCOLOR");
-				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 1)
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::COLOR)
 					shaderMacro.sprintf("#define SG_OUTPUT_COLOR");
-				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == 2)
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::NORMAL)
 					shaderMacro.sprintf("#define SG_OUTPUT_NORMAL");
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::DEPTH)
+					shaderMacro.sprintf("#define SG_OUTPUT_DEPTH");
 				else
 					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
 				ro.shaderDesc.macros.push_back(shaderMacro);
@@ -665,13 +665,28 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					ro.shaderDesc.macros.push_back(shaderMacro);
 				}
 
+				//////////////
+				// Uniforms //
+				//////////////
+				//std::cerr << _state.eye() << std::endl;
+				//std::cerr << _renderer->camPosWS_ << std::endl;
+				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
+
 				// vertex shader uniforms
+				//ro.setUniform("campos", _renderer->camPosWS_);
+				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
 				//ro.setUniform("cameraPos", );
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// fragment shader uniforms
+				ro.setUniform("b_error", (1.0f / betri::option(betri::BezierOption::B_ERROR)));
+				ro.setUniform("d_error", (1.0f / betri::option(betri::BezierOption::D_ERROR)));
+
 				static float iteration = 0.0f;
 				iteration += 0.04f;
 				ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
+
+				ro.setUniform("g_vLightDir_1", ACG::Vec3f(0.0, 0.0, 0.0));
 
 				ro.setUniform("btriangles", int(1));
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
@@ -687,31 +702,41 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
 
+				////////////////
+				// Set Shader //
+				////////////////
 				ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
 				ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
 
-				//QString shaderMacro;
-				//shaderMacro.sprintf("#define BSPLINE_DEGREE_U %i", bezierTriangleMesh_.degree_m());
-				//ro.shaderDesc.macros.push_back(shaderMacro);
-
-
-				ro.setUniform("controlPointTex", int(1));
-
-				// Tesselation Control Shader Uniforms
-
-				//ro.setUniform("uvRange", Vec4f(bezierTriangleMesh_.loweru(), bezierTriangleMesh_.upperu(),
-				//	bezierTriangleMesh_.lowerv(), bezierTriangleMesh_.upperv()));
-
-				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
-				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
-
-				// TODO warum geht das, aber uniform geht nicht?
-				// Liegt das an der for-schleife
+				/////////////
+				// Defines //
+				/////////////
+				// TODO why is it possible to submit the degree
+				// as an define but not as an uniform?
+				// Liegt das an der for-schleife?
 				QString shaderMacro;
 				shaderMacro.sprintf("#define DEGREE %i", grad());
 				ro.shaderDesc.macros.push_back(shaderMacro);
-				//ro.setUniform("GRAD", int(2));
 
+				if (betri::option(betri::BezierOption::TESSELLATION_ADAPTIVE) == 1) {
+					shaderMacro.sprintf("#define TESS_DISTANCE");
+					ro.shaderDesc.macros.push_back(shaderMacro);
+				} else if (betri::option(betri::BezierOption::TESSELLATION_ADAPTIVE) == 2) {
+					shaderMacro.sprintf("#define TESS_FLATNESS");
+					ro.shaderDesc.macros.push_back(shaderMacro);
+				} else {
+					shaderMacro.sprintf("#define TESS_CONST");
+					ro.shaderDesc.macros.push_back(shaderMacro);
+				}
+
+				//////////////
+				// Uniforms //
+				//////////////
+				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
+				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+				ro.setUniform("controlPointTex", int(1));
+
+				// Textures ---------------------------------------------------
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
 				//ro.addTexture(RenderObject::Texture(knotTexBufferU_.id(), GL_TEXTURE_BUFFER), 2, false);
 				//ro.addTexture(RenderObject::Texture(knotTexBufferV_.id(), GL_TEXTURE_BUFFER), 3, false);
@@ -726,8 +751,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			ro.glDrawElements(roPrimitives, surfaceIndexCount_, GL_UNSIGNED_INT, 0);
 
 			_renderer->addRenderObject(&ro);
-
-
 		}
 #endif
 	}
@@ -841,7 +864,7 @@ void BezierTriangleMeshNode<MeshT>::draw(
 )
 {
 	// only render mesh if it is ready
-	if (!bezierTriangleMesh_.isRenderable()) 
+	if (!bezierTriangleMesh_.isRenderable())
 		return;
 
 	// TODO
@@ -1450,7 +1473,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption, const DrawModes::DrawModeProperties* props) // TODO methode überladen, statt pointer?
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption, const DrawModes::DrawModeProperties* props) // TODO methode ï¿½berladen, statt pointer?
 {
 	//std::cerr << "IN updateSurfaceMesh: " << " isColored? " << props->colored() << std::endl;
 	//std::cerr << "IN updateSurfaceMesh: colorSource " << props->colorSource() << std::endl;
@@ -1504,7 +1527,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// vertex layout:
 	//  float3 pos
 
-	// TODO Hä?
+	// TODO Hï¿½?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
@@ -1539,7 +1562,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
 	int bottomTriangles = betri::gaussSum(grad());
-	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
+	// TODO unterschiedliche Faces kï¿½nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();
@@ -1779,7 +1802,7 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::newPosition(
 
 template <class MeshT>
 BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getFaceNormal(
-	double u, double v, 
+	double u, double v,
 	BezierTMesh::Point toEval, BezierTMesh::FaceHandle face,
 	BezierTMesh::Point start
 )
@@ -1788,8 +1811,8 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getFaceNormal(
 	Point pos2;
 
 	// It is nessessary to distinguish between vertices that are
-	// in the face and those which are on a border, because for 
-	// these the vector needs to show in the other direction and 
+	// in the face and those which are on a border, because for
+	// these the vector needs to show in the other direction and
 	// sometimes the order for the cross-product needs to be changed
 	// Otherwise the result is wrong i.e. flat triangle
 	if (toEval[2] < STEPSIZE) {
@@ -1835,7 +1858,7 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getVertexNormal(
 	Point toEval2;
 	int count = 0;
 
-	const MeshT::Color offsets[] = { 
+	const MeshT::Color offsets[] = {
 		MeshT::Color(-STEPSIZE, 0.0, 0.0, -STEPSIZE),
 		MeshT::Color(0.0, -STEPSIZE, STEPSIZE, -STEPSIZE),
 		MeshT::Color(STEPSIZE, -STEPSIZE, STEPSIZE, 0.0),
@@ -1940,7 +1963,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh(
 				//vboData[elementOffset++] = texCoord[1];
 				vboData[elementOffset++] = 1.0;
 				vboData[elementOffset++] = 0.0;
-				
+
 				///////////
 				// Color //
 				///////////
@@ -1959,7 +1982,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh(
 					vboData[elementOffset++] = float(color[m]);
 				}
 				vboData[elementOffset++] = float(1.0);
-				
+
 				/* DrawMeshT<Mesh>::readVertex(
 				byteCol[col] = (unsigned char)(vecCol[0]);
 				byteCol[col] |= ((unsigned char)(vecCol[1])) << 8;

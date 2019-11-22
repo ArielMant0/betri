@@ -1,3 +1,3 @@
 include(type)
 
-include_directories(globals quickhull)
+include_directories(./boundVol ./globals ./quickhull ${EIGEN3_INCLUDE_DIR})

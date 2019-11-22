@@ -6,7 +6,7 @@
 #include <OpenFlipper/BasePlugin/PluginFunctions.hh> // TODO
 
 #include "globals/BezierOptions.hh"
-#include "BezierMathUtil.hh"
+#include "boundVol/BVolGenerator.hh"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Defines

@@ -128,7 +128,15 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 
 	tessSpinBox->setValue(0);
 
-	QCheckBox *adaptCBox = new QCheckBox("Adaptive Tesselation");
+	// Create Drop down menu
+	QLabel *tessMLabel = new QLabel(tr("Tesselation Mode:"));
+	QComboBox *tessmodeComboBox = new QComboBox;
+	tessmodeComboBox->addItem(tr("Constant"));
+	tessmodeComboBox->addItem(tr("Dist-Adaptive"));
+	tessmodeComboBox->addItem(tr("Flatness-Adaptive"));
+
+	connect(tessmodeComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setTessMode);
 
 	// hide/show the appropriate widgets
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -140,10 +148,19 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 						tessGroup->hide();
 					}
 					break;
-				case 1: case 2:
+				case betri::TESSELLATION_TYPE::CPU:
 					if (tessGroup->isHidden()) {
 						tessGroup->show();
 					}
+					tessMLabel->hide();
+					tessmodeComboBox->hide();
+					break;
+				case betri::TESSELLATION_TYPE::GPU:
+					if (tessGroup->isHidden()) {
+						tessGroup->show();
+					}
+					tessMLabel->show();
+					tessmodeComboBox->show();
 					break;
 				default:
 					tessGroup->hide();
@@ -155,7 +172,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	tessLayout->addWidget(tessALabel, 0, 0);
 	tessLayout->addWidget(tessSpinBox, 0, 1);
 	tessLayout->addWidget(tessSlider, 1, 0);
-	tessLayout->addWidget(adaptCBox, 2, 0);
+	tessLayout->addWidget(tessMLabel, 2, 0);
+	tessLayout->addWidget(tessmodeComboBox, 3, 0);
 	tessGroup->setLayout(tessLayout);
 	tessGroup->hide();
 
@@ -238,6 +256,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	visComboBox->addItem(tr("Phong-Color"));
 	visComboBox->addItem(tr("Color"));
 	visComboBox->addItem(tr("Normal"));
+	visComboBox->addItem(tr("Depth"));
 	visComboBox->addItem(tr("Curvature"));
 
 	// hide/show the appropriate widgets
@@ -349,16 +368,6 @@ void BezierTriangleUtilsPlugin::tessellateMesh()
 	emit log(LOGINFO, "Tessellated Bezier Triangles!");
 }
 
-void BezierTriangleUtilsPlugin::setTessAmount(int value)
-{
-	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
-	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
-	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
-		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
-	}
-}
-
 void BezierTriangleUtilsPlugin::setTessType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
@@ -381,6 +390,27 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 			break;
 	}
 	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
+}
+
+void BezierTriangleUtilsPlugin::setTessAmount(int value)
+{
+	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
+}
+
+void BezierTriangleUtilsPlugin::setTessMode(int value)
+{
+	PluginFunctions::betriOption(BezierOption::TESSELLATION_ADAPTIVE, value);
+	// TODO does franziska approves this?
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+	emit log(LOGINFO, tr("set tessellation mode to %1").arg(value));
 }
 
 void BezierTriangleUtilsPlugin::setBoundVType(int value)

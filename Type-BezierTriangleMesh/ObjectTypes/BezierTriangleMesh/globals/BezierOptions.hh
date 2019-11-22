@@ -10,6 +10,7 @@ enum BezierOption : int
 {
 	TESSELLATION_TYPE = 0, // TODO this should propably not be called tesselation type
 	TESSELLATION_AMOUNT,
+	TESSELLATION_ADAPTIVE,
 	BOUNDING_VOLUME,
 	SHOW_BOUNDING_VOLUME,
 	B_ERROR,
@@ -26,6 +27,15 @@ enum TESSELLATION_TYPE : int
 	CPU,
 	GPU,
 	RAYTRACING
+};
+
+enum VIS_MODE : int
+{
+	PHONGCOLOR = 0,
+	COLOR,
+	NORMAL,
+	DEPTH,
+	CURVATURE
 };
 
 //extern std::array<int, BezierOption::N> s_options;

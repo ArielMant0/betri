@@ -79,12 +79,13 @@ private slots:
 	void tessellateMesh();
 
 	// option setting function
-	void setTessAmount(int);
 	void setTessType(int);
+	void setTessAmount(int);
+	void setTessMode(int);
 	void setBoundVType(int);
 	void setVisulisationType(int);
 
-	// TODO wirklich n�tig?
+	// TODO wirklich nötig?
 	void setBError(int);
 	void setDError(int);
 	void setNewtonIt(int);
