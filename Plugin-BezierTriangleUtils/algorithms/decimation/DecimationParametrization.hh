@@ -7,6 +7,8 @@
 #include <OpenMesh/Core/Utils/Property.hh>
 #include <OpenMesh/Core/Utils/PropertyManager.hh>
 
+#include <unordered_map>
+
 namespace betri
 {
 
@@ -51,9 +53,9 @@ public:
 private:
 
 	static std::vector<Vec2> getSampleUVs(size_t degree);
-	static std::vector<Vec2> getRandomUVs(size_t n);
+	static std::vector<Vec2> getRandomUVs(size_t n, bool sampleUniform=false);
 
-	static Vec3 bary2D(Vec2 &uv, NGonFace &corners)
+	static Vec3 bary2D(const Vec2 &uv, const NGonFace &corners)
 	{
 		//std::cerr << "corners:\n\t" << corners[0] << "\n\t" << corners[1];
 		//std::cerr << "\n\t" << corners[2] << "\npoint: " << uv << std::endl;
@@ -78,7 +80,7 @@ private:
 		return result;
 	}
 
-	static Vec2 trianglePoint(Vec2 uv, NGonFace points)
+	static Vec2 trianglePoint(const Vec2 &uv, const NGonFace &points)
 	{
 		Scalar w = 1. - uv[0] - uv[1];
 
@@ -89,9 +91,9 @@ private:
 	}
 
 	static FaceHandle findTargetFace(
-		Vec2 &uv,
+		const Vec2 &uv,
 		Point &faceBary,
-		std::unordered_map<FaceHandle, NGonFace> &faces
+		const std::unordered_map<FaceHandle, NGonFace> &faces
 	);
 
 	///////////////////////////////////////////////////////////

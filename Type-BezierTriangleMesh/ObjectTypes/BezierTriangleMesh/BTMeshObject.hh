@@ -1,5 +1,9 @@
 #pragma once
 
+#include "BezierTMesh.hh"
+
+#ifdef DRAW_CURVED
+
 //== INCLUDES =================================================================
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
@@ -23,11 +27,8 @@
 //#include <OpenFlipper/common/BaseObjectData.hh>
 #include <ACG/Scenegraph/MeshNode2T.hh>
 
-#include "BezierTMesh.hh"
-
 #include "BezierTriangleMeshNode.hh"
 
-#ifdef DRAW_CURVED
 
 //== TYPEDEFS =================================================================
 

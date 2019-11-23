@@ -22,6 +22,8 @@ public:
 
 	bool solveLocal(FitCollection &fitColl, Scalar &error, const bool apply);
 
+	static bool test(BezierTMesh *mesh);
+
 private:
 
 	std::vector<Vec2> m_samples;

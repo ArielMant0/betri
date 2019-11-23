@@ -4,6 +4,8 @@
 
 #include <Type-OpenMesh/ObjectTypes/TriangleMesh/TriangleMeshTypes.hh>
 
+//#include <iostream>
+
 //#include <OpenFlipper/libs_required/OpenMesh/src/OpenMesh/Core/Mesh/TriConnectivity.hh>
 
 struct BezierTriangleTraits : public TriTraits
@@ -26,13 +28,63 @@ struct BezierTriangleTraits : public TriTraits
 			return m_cps;
 		}
 
-		void edgePoints(Point from, Point to, size_t deg, const std::vector<Point> &p)
+		void align(size_t degree, Point &p0, Point &p1, Point p2)
+		{
+			int c0, c1, c2;
+			std::tie(c0, c1, c2) = findClosestCorners(degree, p0, p1, p2);
+
+			assert(c0 != c1 && c1 != c2 && c0 != c2);
+
+			// control points are already aligned
+			if (c0 == 0 && c1 == degree && c2 == m_cps.size()-1) {
+				return;
+			}
+
+			std::vector<Point> aligned(m_cps.size());
+
+			int min0, max0, mod;
+			// edge 1
+			calcIndexMod(c0, c1, min0, max0, mod, degree);
+
+			for (int i = c0, j = 0; j <= degree; ++j) {
+				aligned[j] = m_cps[i];
+				i += mod;
+				mod = min0 == 0 && max0 == degree ? mod : mod - 1;
+			}
+
+			// edge 2
+			calcIndexMod(c1, c2, min0, max0, mod, degree);
+
+			int iterMod = degree;
+			for (int i = c1, j = degree; j < m_cps.size(); ) {
+				aligned[j] = m_cps[i];
+				i += mod;
+				mod = min0 == 0 && max0 == degree ? mod : mod - 1;
+				j += iterMod;
+				iterMod = std::max(iterMod - 1, 1);
+			}
+
+			// edge 3
+			calcIndexMod(c2, c0, min0, max0, mod, degree);
+
+			iterMod = -2;
+			for (int i = c2, j = m_cps.size() - 1; j >= 0; ) {
+				aligned[j] = m_cps[i];
+				i += mod;
+				mod = min0 == 0 && max0 == degree ? mod : mod - 1;
+				j += iterMod;
+				iterMod--;
+			}
+
+			m_cps = std::move(aligned);
+		}
+
+		void edgePoints(const Point &from, const Point &to, const size_t deg, const std::vector<Point> &p)
 		{
 			assert(p.size() == deg + 1);
 
-			int i0 = findClosestCorner(from, deg);
-			int j0 = findClosestCorner(to, deg, i0);
-			assert(i0 != j0);
+			int i0, j0;
+			std::tie(i0, j0) = findClosestEdgeCorners(deg, from, to);
 
 			int min0, max0, mod;
 			calcIndexMod(i0, j0, min0, max0, mod, deg);
@@ -44,14 +96,13 @@ struct BezierTriangleTraits : public TriTraits
 			}
 		}
 
-		std::vector<Point> edgePoints(Point from, Point to, size_t deg) const
+		std::vector<Point> edgePoints(const Point &from, const Point &to, const size_t deg) const
 		{
 			std::vector<Point> cps;
 			cps.reserve(deg+1);
 
-			int i0 = findClosestCorner(from, deg);
-			int j0 = findClosestCorner(to, deg, i0);
-			assert(i0 != j0);
+			int i0, j0;
+			std::tie(i0, j0) = findClosestEdgeCorners(deg, from, to);
 
 			int min0, max0, mod;
 			calcIndexMod(i0, j0, min0, max0, mod, deg);
@@ -107,21 +158,104 @@ struct BezierTriangleTraits : public TriTraits
 			return m_cps.end();
 		}
 
+
+		std::tuple<int,int> findClosestEdgeCorners(
+			const size_t degree,
+			const Point &p0,
+			const Point &p1
+		) const {
+
+			constexpr double maxval = std::numeric_limits<double>::max();
+			int end = m_cps.size() - 1;
+
+			std::array<double, 3> d0 = { {
+				(p0 - m_cps[0]).norm(),
+				(p0 - m_cps[degree]).norm(),
+				(p0 - m_cps[end]).norm()
+			} };
+			std::array<double, 3> d1 = { {
+				(p1 - m_cps[0]).norm(),
+				(p1 - m_cps[degree]).norm(),
+				(p1 - m_cps[end]).norm()
+			} };
+
+			int i = std::min_element(d0.begin(), d0.end()) - d0.begin();
+			int j = std::min_element(d1.begin(), d1.end()) - d1.begin();
+
+			if (i == j) {
+				findNextMin(i, j, d0, d1);
+			}
+			assert(i != j);
+
+			i = i == 0 ? 0 : (i == 1 ? degree : end);
+			j = j == 0 ? 0 : (j == 1 ? degree : end);
+
+			return { i, j };
+		}
+
+		std::tuple<int, int, int> findClosestCorners(
+			const size_t degree,
+			const Point &p0, const Point &p1, const Point &p2
+		) {
+
+			int end = m_cps.size() - 1;
+
+			std::array<double, 3> d0 = { {
+				(p0 - m_cps[0]).norm(),
+				(p0 - m_cps[degree]).norm(),
+				(p0 - m_cps[end]).norm()
+			} };
+			std::array<double, 3> d1 = { {
+				(p1 - m_cps[0]).norm(),
+				(p1 - m_cps[degree]).norm(),
+				(p1 - m_cps[end]).norm()
+			} };
+			std::array<double, 3> d2 = { {
+				(p2 - m_cps[0]).norm(),
+				(p2 - m_cps[degree]).norm(),
+				(p2 - m_cps[end]).norm()
+			} };
+
+			int i = std::min_element(d0.begin(), d0.end()) - d0.begin();
+			int j = std::min_element(d1.begin(), d1.end()) - d1.begin();
+			int k = std::min_element(d2.begin(), d2.end()) - d2.begin();
+
+			while (i == j || i == k || j == k) {
+				if (i == j) {
+					findNextMin(i, j, d0, d1);
+				}
+				if (i == k) {
+					findNextMin(i, k, d0, d2);
+				}
+				if (j == k) {
+					findNextMin(j, k, d1, d2);
+				}
+			}
+
+			assert(i != j && i != k && j != k);
+
+			i = i == 0 ? 0 : (i == 1 ? degree : end);
+			j = j == 0 ? 0 : (j == 1 ? degree : end);
+			k = k == 0 ? 0 : (k == 1 ? degree : end);
+
+			return { i, j, k };
+		}
+
 	private:
 
-		int findClosestCorner(Point &p, size_t degree, int ignore=-1) const
+		static void findNextMin(int &i, int &j, std::array<double, 3> &d0, std::array<double, 3> &d1)
 		{
+			if (i != j) return;
+
 			constexpr double maxval = std::numeric_limits<double>::max();
-			double d0 = ignore == 0 ? maxval : (p - m_cps.front()).norm();
-			double d1 = ignore == degree ? maxval : (p - m_cps[degree]).norm();
-			double d2 = ignore == m_cps.size()-1 ? maxval : (p - m_cps.back()).norm();
 
-			if (d0 < d1 && d0 < d2)
-				return 0;
-			if (d1 < d0 && d1 < d2)
-				return degree;
-
-			return m_cps.size()-1;
+			if (d0[i] < d1[j]) {
+				d0[i] = maxval;
+				i = std::min_element(d0.begin(), d0.end()) - d0.begin();
+			} else {
+				d1[j] = maxval;
+				j = std::min_element(d1.begin(), d1.end()) - d1.begin();
+			}
 		}
 
 		void calcIndexMod(int i, int j, int &min, int &max, int &mod, size_t degree) const

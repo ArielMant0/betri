@@ -17,7 +17,8 @@ public:
 		m_nverts(m_mesh.n_vertices()),
 		m_q(nullptr),
 		m_param(mesh, m_uv),
-		m_fit(mesh)
+		m_fit(mesh),
+		m_cancel(false)
     {
 		prepare();
 		// create priority q
@@ -110,6 +111,29 @@ private:
 		return min;
 	}
 
+	void debugCancel(const char *msg)
+	{
+		m_cancel = true;
+		m_errors += msg;
+		m_errors += '\n';
+	}
+	void debugCancel(const std::string &msg)
+	{
+		m_cancel = true;
+		m_errors += msg;
+		m_errors += '\n';
+	}
+	bool debugCancel()
+	{
+		if (m_cancel && !m_errors.empty()) {
+			std::cerr << "------------------------------\n";
+			std::cerr << "Decimation Error:\n" << m_errors << std::endl;
+			std::cerr << "------------------------------\n";
+			m_errors.clear();
+		}
+		return m_cancel;
+	}
+
 	//-----------------------------------------------//
 	// member variables
 	//-----------------------------------------------//
@@ -118,6 +142,9 @@ private:
 
 	DecimationFitting m_fit;
 	DecimationParametrization m_param;
+
+	std::string m_errors;
+	bool m_cancel;
 
 	// desired complexity and current vertex count
 	size_t m_complexity, m_nverts;

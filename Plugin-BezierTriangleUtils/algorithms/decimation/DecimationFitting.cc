@@ -93,34 +93,80 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 	// --------------------------------------------
 
 	if (success) {
+
 		error = 0.;
+		auto &cp = m_mesh.data(face);
+
+		//if (apply) {
+		//	std::cerr << "control points BEFORE align:\n";
+		//	for (auto it = cp.cpBegin(); it != cp.cpEnd(); ++it) {
+		//		std::cerr << '\t' << *it << '\n';
+		//	}
+		//	std::cerr << "calculated control points:\n";
+		//	for (size_t i = 0; i < cpNum; ++i) {
+		//		std::cerr << '\t' << Point(resultX[i], resultY[i], resultZ[i]) << '\n';
+		//	}
+		//}
+
+		//cp.align(degree,
+		//	Point(resultX[0], resultY[0], resultZ[0]),
+		//	Point(resultX[degree], resultY[degree], resultZ[degree]),
+		//	Point(resultX[cpNum - 1], resultY[cpNum - 1], resultZ[cpNum - 1])
+		//);
+
+		//if (apply) {
+		//	std::cerr << "control points AFTER align:\n";
+		//	for (auto it = cp.cpBegin(); it != cp.cpEnd(); ++it) {
+		//		std::cerr << '\t' << *it << '\n';
+		//	}
+		//}
+
 		if (apply) {
 			// set face control points to result points and calculate max error
-
-			auto &cp = m_mesh.data(face);
-			// resize control point vector
-			cp.prepare(cpNum);
-
-			std::cerr << "\nface " << face << " has control points:\n";
-			// write control point positions back
 			for (size_t i = 0; i < cpNum; ++i) {
 				Point p(resultX[i], resultY[i], resultZ[i]);
-				error = std::max(error, (p - cp.controlPoint(i)).norm());
 				cp.controlPoint(i, p);
-				std::cerr << "\t(" << i << ") = " << p << "\n";
 			}
-		} else {
-			// only calculate max error
-			auto &cp = m_mesh.data(face);
 
+			// calculate errors
+			for (size_t i = 0; i < matSize; ++i) {
+				Point p(rhsx[i], rhsy[i], rhsz[i]);
+				error = std::max(
+					error,
+					(p - evalSurface(cp.points(), m_samples[i], degree)).norm()
+				);
+			}
+
+		} else {
+			std::vector<Point> cps;
+			cps.reserve(cpNum);
+
+			// only calculate max error
 			for (size_t i = 0; i < cpNum; ++i) {
-				Point p(resultX[i], resultY[i], resultZ[i]);
-				error = std::max(error, (p - cp.controlPoint(i)).norm());
+				cps.push_back(Point(resultX[i], resultY[i], resultZ[i]));
+			}
+
+			// calculate errors
+			for (size_t i = 0; i < matSize; ++i) {
+				Point p(rhsx[i], rhsy[i], rhsz[i]);
+				error = std::max(
+					error,
+					(p - evalSurface(cps, m_samples[i], degree)).norm()
+				);
 			}
 		}
 	}
 
 	return success;
+}
+
+bool DecimationFitting::test(BezierTMesh *mesh)
+{
+	assert(mesh != nullptr);
+
+
+
+	return true;
 }
 
 } // namespace betri

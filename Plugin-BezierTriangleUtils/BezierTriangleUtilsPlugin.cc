@@ -694,10 +694,13 @@ void BezierTriangleUtilsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
-		bool okay;
+		bool okay = true;
 
-		if (m_target == 0) {
-			m_target = QInputDialog::getInt(
+		int meshId = meshObj->id();
+		auto data = m_target.find(meshId);
+
+		if (data == m_target.end()) {
+			m_target[meshId] = QInputDialog::getInt(
 				m_tool,
 				"Decimation Meshing",
 				"Please enter target complexity: ",
@@ -706,17 +709,15 @@ void BezierTriangleUtilsPlugin::callDecimation()
 				// max value, steps
 				mesh->n_vertices(), 1, &okay
 			);
-		} else {
-			okay = true;
 		}
 
 		if (okay) {
-			betri::decimation(meshObj, m_target, false);
+			betri::decimation(meshObj, m_target[meshId], false);
 			emit log(LOGINFO, "Performed Decimation (DONE)!");
 
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
-		m_target = 0;
+		m_target.erase(meshId);
 	}
 }
 
@@ -733,12 +734,15 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
-		bool okay = false;
+		bool okay = true;
 
-		if (m_target == 0) {
+		int meshId = meshObj->id();
+		auto data = m_target.find(meshId);
+
+		if (data == m_target.end()) {
 			BezierTMesh *mesh = meshObj->mesh();
 
-			int complexity = QInputDialog::getInt(
+			m_target[meshId] = QInputDialog::getInt(
 				m_tool,
 				"Decimation Meshing",
 				"Please enter target complexity: ",
@@ -747,20 +751,17 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 				// max value, steps
 				mesh->n_vertices(), 1, &okay
 			);
-			m_target = complexity;
-		} else {
-			okay = true;
 		}
 
 		if (okay) {
-			const bool done = betri::decimation(meshObj, m_target, true);
+			const bool done = betri::decimation(meshObj, m_target[meshId], true);
 			if (done) {
 				emit log(LOGINFO, "Performed Decimation Step (DONE)!");
 			} else {
 				emit log(LOGINFO, "Performed Decimation Step!");
 			}
 		} else {
-			m_target = 0;
+			m_target.erase(meshId);
 		}
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);

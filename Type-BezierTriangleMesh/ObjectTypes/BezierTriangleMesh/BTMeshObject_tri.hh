@@ -6,31 +6,9 @@
 #ifndef DRAW_CURVED
 
 // -------------------- OpenMesh
-// #include <OpenMesh/Core/IO/MeshIO.hh>
-
-// #include <ACG/Scenegraph/SeparatorNode.hh>
-// #include <ACG/Scenegraph/EnvMapNode.hh>
-// #include <ACG/Scenegraph/ShaderNode.hh>
-// #include <ACG/Scenegraph/StatusNodesT.hh>
-
-// #include <OpenFlipper/common/GlobalDefines.hh>
-
-// #include <ObjectTypes/BezierTriangleMesh/BTStatusNodeMods.hh>
-// #include <ObjectTypes/BezierTriangleMesh/BTStatusViewNodeT.hh>
-// #include <OpenFlipper/common/BaseObjectData.hh>
 #include <OpenFlipper/common/ObjectTypeDLLDefines.hh>
 
-// -------------------- BSP
-// #include <ACG/Geometry/bsp/TriangleBSPT.hh>
-
-
-//#include <OpenFlipper/common/BaseObjectData.hh>
-// #include <ACG/Scenegraph/MeshNode2T.hh>
 #include <ObjectTypes/BTBaseMeshObject/BTBaseMeshObjectT.hh>
-
-
-
-// #include "BezierTriangleMeshNode.hh"
 
 //== TYPEDEFS =================================================================
 

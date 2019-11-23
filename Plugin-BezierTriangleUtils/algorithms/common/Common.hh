@@ -180,7 +180,7 @@ inline int cpIndex(int i, int j, unsigned int degree)
 	return sum + j;
 }
 
-inline Point evalSurface(std::vector<Point> &cps, Vec2 &bary, unsigned int degree)
+inline Point evalSurface(const std::vector<Point> &cps, const Vec2 &bary, const unsigned int degree)
 {
 	Point point(0.0);
 

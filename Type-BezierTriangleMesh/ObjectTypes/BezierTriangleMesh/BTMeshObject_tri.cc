@@ -2,21 +2,8 @@
 #include "BTMeshObject_tri.hh"
 
 #ifndef DRAW_CURVED
-// #include <OpenFlipper/common/Types.hh>
-// #include <ACG/Scenegraph/DrawModes.hh>
-// #include <OpenFlipper/common/GlobalOptions.hh>
-// #include <OpenFlipper/BasePlugin/PluginFunctions.hh>
-
-// #include <ACG/Scenegraph/ManipulatorNode.hh>
-// #include <ACG/Scenegraph/BoundingBoxNode.hh>
 #include <ACG/Scenegraph/StatusNodesT.hh>
 #include <ACG/QtScenegraph/QtTranslationManipulatorNode.hh>
-
-//#define DATA_BEZIER_TRIANGLE_MESH typeId("BezierTriangleMesh")
-
-//== TYPEDEFS =================================================================
-
-//== CLASS DEFINITION =========================================================
 
 BTMeshObject::BTMeshObject(const BTMeshObject &_object) : BTBaseMeshObject<BezierTMesh>(_object) {}
 

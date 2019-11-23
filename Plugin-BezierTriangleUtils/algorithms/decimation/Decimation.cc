@@ -189,13 +189,16 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
 		step();
+
+		if (debugCancel())
+			return true;
+
 		// in case we only want to do a single step
 		if (stepwise) break;
 	}
 
-	m_mesh.garbage_collection();
-
 	done = m_nverts <= m_complexity || m_q->empty();
+
 	// only update when we're done
 	if (done) {
 		m_q->clear();
@@ -203,6 +206,8 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 		m_nverts = m_mesh.n_vertices();
 		m_complexity = m_nverts;
 	}
+
+	m_mesh.garbage_collection();
 
 	// update normals
 	m_mesh.update_normals();
@@ -246,6 +251,11 @@ void Decimation::step()
 		std::cerr << "collapsing halfedge " << hh << " with error " << priority(hh) << '\n';
 		// fit remaining faces (and apply update)
 		fit(hh, true);
+
+		if (debugCancel()) {
+			return;
+		}
+
 		// collapse halfedge
 		m_mesh.collapse(hh);
 		// remove vertex from q since it counts as deleted now
@@ -290,14 +300,20 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 	std::vector<FitCollection> fitColls;
 
 	// parametrize to n-gon
-	m_param.solveLocal(from, to, fitColls, apply);
+	if (!m_param.solveLocal(from, to, fitColls, apply)) {
+		debugCancel("parametrization failed");
+		return 0.;
+	}
 
 	Scalar maxError = 0., error = 0.;
 
 	assert(fitColls.size() == valence - 2);
 	for (size_t i = 0; i < fitColls.size(); ++i) {
 		// fit all surrounding faces
-		m_fit.solveLocal(fitColls[i], error, apply);
+		if (!m_fit.solveLocal(fitColls[i], error, apply)) {
+			debugCancel("fitting failed");
+			return 0.;
+		}
 		// store max error
 		maxError = std::max(error, maxError);
 	}
