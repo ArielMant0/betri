@@ -302,9 +302,11 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	void updateSurfaceDecl();
 	/// update vertex + index buffer of surface mesh
-	void updateSurfaceMesh(const int meshOption, const DrawModes::DrawModeProperties* props);
+	void updateSurfaceMesh(const int meshOption);
 	/// update vertex + index buffer of control net mesh
 	void updateControlNetMesh();
+	/// update texture resources for gpu-based spline evaluation
+	void updateTexBuffers();
 
 	///////////////////////////////////////////////////////////////////////////
 	// Functions for VBO creation
@@ -334,7 +336,7 @@ private:
 		BezierTMesh::FaceHandle face,
 		BezierTMesh::Point start
 	);
-	void VBOtesselatedFromMesh(const DrawModes::DrawModeProperties* props);
+	void VBOtesselatedFromMesh();
 	//-------------------------------------------------------------------------
 	void VBOfromMesh();
 	void VBOfromBoundingMesh();
@@ -376,8 +378,6 @@ private:
 
 	/// update index buffer of selected control points
 	void updateControlNetMeshSel();
-	/// update texture resources for gpu-based spline evaluation
-	void updateTexBuffers();
 	void updateControlPointSelectionTexture(GLState& _state);
 	void updateKnotVectorSelectionTexture(GLState& _state);
 
@@ -444,6 +444,7 @@ private:
 	std::map<int, GLuint>* textureMap_;
 
 	MeshT& bezierTriangleMesh_;
+	GLState state_;
 
 //===========================================================================
 /** @name Draw-mesh handling

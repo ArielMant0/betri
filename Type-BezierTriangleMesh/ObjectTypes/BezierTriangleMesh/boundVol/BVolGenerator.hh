@@ -22,7 +22,8 @@ enum boundingVolumeType
 	AABB = 0,
 	PrismVolume = 1,
 	ConvexHull = 2,
-	BoundingMesh = 3
+	BoundingMesh = 3,
+	BoundingBillboard = 4
 };
 
 static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
@@ -32,6 +33,7 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 	constexpr int prismTriangles = 6 + 2;
 	constexpr int hullTriangles = 8;
 	constexpr int bMeshTriangles = 8; // TODO
+	constexpr int bBoardTriangles = 4; // TODO
 
 	switch (bVolume) {
 		case boundingVolumeType::AABB:
@@ -49,6 +51,10 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 		case boundingVolumeType::BoundingMesh:
 			numVerts = 6; // TODO 
 			numIndices = bMeshTriangles * indicesPerTriangle; // BIG TODO
+			break;
+		case boundingVolumeType::BoundingBillboard:
+			numVerts = 6; // TODO 
+			numIndices = bBoardTriangles * indicesPerTriangle; // BIG TODO
 			break;
 		default:
 			numVerts = 0;
@@ -332,11 +338,10 @@ static void addPrismVolumeFromPoints(
 ///////////////////////////////////////////////////////////////////////////////
 // ConvexHull
 ///////////////////////////////////////////////////////////////////////////////
-// Chan's algorithm
-// https://en.wikipedia.org/wiki/Chan%27s_algorithm
 // Quick Hull
 // http://algolist.ru/maths/geom/convhull/qhull3d.php
 // http://www.cogsci.rpi.edu/~destem/gamearch/quickhull.pdf
+/*
 static std::vector<BezierTMesh::Point> findConvexHull(std::vector<BezierTMesh::Point> &faceControlP)
 {
 	// Pick start by finding point with lowest y
@@ -353,6 +358,7 @@ static std::vector<BezierTMesh::Point> findConvexHull(std::vector<BezierTMesh::P
 
 	return C;
 }
+*/
 
 static void addConvexHullFromPoints(
 	const int controlPointsPerFace,
@@ -421,15 +427,7 @@ static void addConvexHullFromPoints(
 		}
 	}
 }
-/*
-std::set<float> queue_;
-static void recomputeQueue(TriMesh &reducedMesh)
-{
-	queue_ = std::set<float>();
-	for (unsigned int i = 0; i < reducedMesh.n_edges(); ++i)
-		queue_.insert(computeEdgeContraction(i));
-}
-*/
+
 ///////////////////////////////////////////////////////////////////////////////
 // BoundingMesh
 // https://github.com/gaschler/bounding-mesh/blob/master/src/boundingmesh/Decimator.cpp
@@ -629,4 +627,161 @@ std::cerr << std::endl;
 		}
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Bounding Billboard
+///////////////////////////////////////////////////////////////////////////////
+// https://www.cs.jhu.edu/~misha/Spring16/06.pdf
+// Angle calculation
+// https://math.stackexchange.com/questions/878785/how-to-find-an-angle-in-range0-360-between-2-vectors
+// https://stackoverflow.com/questions/21483999/using-atan2-to-find-angle-between-two-vectors
+// since the points lie on a plane we can ignore one component?!
+static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	std::vector<size_t> convexHull;
+
+	// Search for biggest x as one of the points of the convex hull
+	auto start = BezierTMesh::Point(-INFINITY);
+	auto last = BezierTMesh::Point(-INFINITY);
+
+	for (auto p : faceControlP) {
+		if (p[0] > start[0] || (p[0] >= start[0] && p[1] < start[1])) {
+			start = p;
+		}
+	}
+
+	for (auto p : faceControlP) {
+		if (p[0] > last[0] && (p[0] < start[0] || p[1] > start[1])) {
+			last = p;
+		}
+	}
+
+	assert(start != last);
+	assert(BezierTMesh::Point(-INFINITY) != last);
+
+	int itCount = 0;
+	size_t lastIndex = 0;
+	BezierTMesh::Point tmp;
+	BezierTMesh::Point pos = start;
+	// Search as long as there is no loop
+	do {
+		auto angleMax = 1.0;
+		auto vector1 = last - pos;
+		auto normVec1 = vector1;
+
+		for (size_t j = 0; j < faceControlP.size(); j++) {
+			auto pointNow = faceControlP.at(j);
+			auto vector2 = pointNow - pos;
+			auto normVec2 = vector2;
+
+			// If it is the same point continue
+			if (length(vector2) < 0.001)
+				continue;
+			auto angle = dot(normalize(normVec1), normalize(normVec2));
+			auto vector3 = tmp - pos;
+			if (angle < angleMax || (angle == angleMax && length(vector2) > length(vector3))) {
+				angleMax = angle;
+				tmp = pointNow;
+				lastIndex = j;
+			}
+		}
+		convexHull.push_back(lastIndex);
+		last = pos;
+		pos = tmp;
+		assert(itCount++ < faceControlP.size());
+	} while (pos != start);
+
+	assert(convexHull.size() <= faceControlP.size());
+
+	return convexHull;
+}
+
+static void addBoundingBillboardFromPoints(
+	const int controlPointsPerFace,
+	const int grad,
+	int &vboIndex,
+	int &iboIndex,
+	int face_index,
+	ACG::Vec3d origin,
+	ACG::Vec3d normal,
+	double nearPlane,
+	ACG::GLMatrixd projection,
+	ACG::GLMatrixd modelview,
+	std::vector<float> &vboData,
+	std::vector<int> &iboData,
+	std::vector<BezierTMesh::Point> &faceControlP
+)
+{
+	std::vector<BezierTMesh::Point> movedP;
+
+	// Parallel Projection
+	// https://stackoverflow.com/questions/9605556/how-to-project-a-point-onto-a-plane-in-3d
+	/*
+	for (auto p : faceControlP) {
+		// project
+		auto dir = p - origin;
+		auto dist = dot(normal, dir);
+		auto projPoint = p - normal * dist;
+
+		//std::cerr << "Original: " << p << " projPoint " << projPoint << std::endl;
+		movedP.push_back(projPoint);
+	}*/
+
+	double nearP = nearPlane;
+	// Perspective Projection
+	// http://www.cse.psu.edu/~rtc12/CSE486/lecture12.pdf
+	for (auto p : faceControlP) {
+		auto cpDir = p - origin;
+		auto nDist = dot(normal, cpDir);
+		auto npDir = p - (origin + (nDist * normal));
+
+		double offset = (length(npDir) / nDist) * nearP;
+		auto projPoint = (origin + nearP * normal) + offset * normalize(npDir);
+		movedP.push_back(projPoint);
+	}
+
+	auto hull = findConvexHull2D(movedP);
+
+	//////////////////
+	// Convert Mesh //
+	//////////////////
+	TriMesh reducedMesh;
+	std::vector<BezierTMesh::VertexHandle> vh;
+	for (auto index : hull) {
+		auto v = faceControlP[index];
+		vh.push_back(reducedMesh.add_vertex({ v[0], v[1], v[2] }));
+	}
+	reducedMesh.add_face(vh);
+
+	//////////////////
+	// Setup Buffer //
+	//////////////////
+	const size_t boundingVolumeVCount = faceControlP.size();
+
+	for (auto v : reducedMesh.vertices()) {
+		vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
+		vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
+		vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+
+		/*
+		vboData[vboIndex++] = float(face_index);
+		//vboData[vboIndex++] = float(1.0);
+		vboData[vboIndex++] = float(0.0);
+		vboData[vboIndex++] = float(0.0);
+		*/
+
+		vboData[vboIndex++] = float(face_index);
+		vboData[vboIndex++] = 0.0;
+	}
+
+	// TODO das ist dämlich
+	vboIndex += 5 * (boundingVolumeVCount - reducedMesh.n_vertices());
+
+	for (auto f : reducedMesh.faces()) {
+		for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
+			iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+		}
+	}
+}
+
 }

@@ -190,6 +190,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	boundVComboBox->addItem(tr("PRISM"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
+	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;
