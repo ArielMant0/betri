@@ -103,7 +103,8 @@ public:
 		NEWVERTICES(0), // TODO
 		VERTEXSUM(3), // TODO
 		STEPSIZE(1.0), // TODO
-		textureMap_(0) // TODO
+		textureMap_(0), // TODO
+		checkerboard_idx_(0) // TODO
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
@@ -115,6 +116,10 @@ public:
 		// TODO why is this nessessary?
 		// Hand draw mesh down to super class.
 		MeshNodeBase::supplyDrawMesh(drawBTMesh_);
+
+		// TODO
+		drawModeProps_ = DrawModes::DrawModeProperties();
+		createCheckerBoardTex();
 	}
 
 	/// Destructor
@@ -342,6 +347,12 @@ private:
 	void VBOfromBoundingMesh();
 
 	///////////////////////////////////////////////////////////////////////////
+	// Functions for Texture creation
+	///////////////////////////////////////////////////////////////////////////
+	void createCheckerBoardTex();
+	void createCheckerBoardImage();
+
+	///////////////////////////////////////////////////////////////////////////
 	// Picking Function
 	///////////////////////////////////////////////////////////////////////////
 	void pick_vertices(GLState& _state);
@@ -444,7 +455,8 @@ private:
 	std::map<int, GLuint>* textureMap_;
 
 	MeshT& bezierTriangleMesh_;
-	GLState state_;
+	GLState state_; // TODO should this be here ?
+	DrawModes::DrawModeProperties drawModeProps_; // TODO should this be here ?
 
 //===========================================================================
 /** @name Draw-mesh handling
@@ -516,7 +528,11 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	TextureBuffer knotTexBufferU_;
 	TextureBuffer knotTexBufferV_;
+
+	QImage checkerboard_image_;
+	GLuint checkerboard_idx_;
 	Texture2D controlPointTex_;
+	Texture2D checkerBoardTex_;
 
 	///////////////////////////////////////////////////////////////////////////
 	// Tessellation variables

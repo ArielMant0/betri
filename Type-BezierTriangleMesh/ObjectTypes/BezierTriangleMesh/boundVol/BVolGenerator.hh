@@ -21,9 +21,10 @@ enum boundingVolumeType
 {
 	AABB = 0,
 	PrismVolume = 1,
-	ConvexHull = 2,
-	BoundingMesh = 3,
-	BoundingBillboard = 4
+	BoundingTetraeder = 2,
+	ConvexHull = 3,
+	BoundingMesh = 4,
+	BoundingBillboard = 5
 };
 
 static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
@@ -31,6 +32,7 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 	constexpr int indicesPerTriangle = 3;
 	constexpr int AABBTriangles = 12;
 	constexpr int prismTriangles = 6 + 2;
+	constexpr int tetraederTriangles = 4;
 	constexpr int hullTriangles = 8;
 	constexpr int bMeshTriangles = 8; // TODO
 	constexpr int bBoardTriangles = 4; // TODO
@@ -43,6 +45,10 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 		case boundingVolumeType::PrismVolume:
 			numVerts = 6;
 			numIndices = prismTriangles * indicesPerTriangle;
+			break;
+		case boundingVolumeType::BoundingTetraeder:
+			numVerts = 4;
+			numIndices = tetraederTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::ConvexHull:
 			numVerts = 6; // TODO 
@@ -60,6 +66,113 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 			numVerts = 0;
 			numIndices = 0;
 	}
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+// BoundingTetraeder
+///////////////////////////////////////////////////////////////////////////////
+static void addBoundingTetraederFromPoints(
+	const int controlPointsPerFace,
+	const int grad,
+	int &vboIndex,
+	int &iboIndex,
+	int face_index,
+	std::vector<float> &vboData,
+	std::vector<int> &iboData,
+	std::vector<BezierTMesh::Point> &faceControlP
+)
+{
+	quickhull::QuickHull<float> qh;
+
+	std::vector<float> points;
+	points.reserve(controlPointsPerFace * 3);
+	for (auto p : faceControlP) {
+		points.push_back(p[0]);
+		points.push_back(p[1]);
+		points.push_back(p[2]);
+	}
+	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
+
+	/////////////////////
+	// Build Tetraeder //
+	/////////////////////
+	// Find biggest face
+	// https://www.mathsisfun.com/geometry/herons-formula.html
+	int i = 0;
+	int maxIndex = 0;
+	double maxA = 0.0;
+	for (auto f : hull.m_faces) {
+		auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
+		auto he2 = hull.m_halfEdges[he1.m_next];
+		auto he3 = hull.m_halfEdges[he2.m_next];
+		auto v1 = hull.m_vertices[he1.m_endVertex];
+		auto v2 = hull.m_vertices[he2.m_endVertex];
+		auto v3 = hull.m_vertices[he3.m_endVertex];
+		auto l1 = (v2 - v1).getLength();
+		auto l2 = (v3 - v2).getLength();
+		auto l3 = (v1 - v3).getLength();
+
+		auto s = (l1 + l2 + l3) / 2.0;
+		auto A = sqrt(s * (s - l1) * (s - l2) * (s - l3));
+		if (A > maxA) {
+			maxIndex = i;
+			maxA = A;
+		}
+		i++;
+	}
+
+	auto myFace = hull.m_faces[maxIndex];
+	auto he1 = hull.m_halfEdges[myFace.m_halfEdgeIndex];
+	auto he2 = hull.m_halfEdges[he1.m_next];
+	auto he3 = hull.m_halfEdges[he2.m_next];
+	auto v1 = hull.m_vertices[he1.m_endVertex];
+	auto v2 = hull.m_vertices[he2.m_endVertex];
+	auto v3 = hull.m_vertices[he3.m_endVertex];
+	auto v4 = (v1 + v2 + v3) / 3.0 + (v3 - v1).crossProduct(v2 - v1) * 1.0;
+
+	std::vector<BezierTMesh::Point> newPoints;
+	newPoints.push_back(BezierTMesh::Point(v1.x, v1.y, v1.z));
+	newPoints.push_back(BezierTMesh::Point(v2.x, v2.y, v2.z));
+	newPoints.push_back(BezierTMesh::Point(v3.x, v3.y, v3.z));
+	newPoints.push_back(BezierTMesh::Point(v4.x, v4.y, v4.z));
+
+	//////////////////
+	// Setup Buffer //
+	//////////////////
+	const size_t boundingVolumeVCount = 4;
+
+	for (auto v : newPoints) {
+		vboData[vboIndex++] = float(v[0]);
+		vboData[vboIndex++] = float(v[1]);
+		vboData[vboIndex++] = float(v[2]);
+
+		/*
+		vboData[vboIndex++] = float(face_index);
+		//vboData[vboIndex++] = float(1.0);
+		vboData[vboIndex++] = float(0.0);
+		vboData[vboIndex++] = float(0.0);
+		*/
+
+		vboData[vboIndex++] = float(face_index);
+		vboData[vboIndex++] = 0.0;
+	}
+
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
+
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
+
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
+
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
+	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -705,8 +818,6 @@ static void addBoundingBillboardFromPoints(
 	ACG::Vec3d origin,
 	ACG::Vec3d normal,
 	double nearPlane,
-	ACG::GLMatrixd projection,
-	ACG::GLMatrixd modelview,
 	std::vector<float> &vboData,
 	std::vector<int> &iboData,
 	std::vector<BezierTMesh::Point> &faceControlP

@@ -25,6 +25,7 @@ using namespace betri;
 
 void BezierTriangleUtilsPlugin::initializePlugin()
 {
+
 	m_tool = new QWidget();
 	QIcon *toolIcon = new QIcon(
 		OpenFlipper::Options::iconDirStr() +
@@ -32,6 +33,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		"btutils.png"
 	);
 
+	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
 	// Voronoi meshing group
 	///////////////////////////////////////////////////////////////////////////
@@ -85,8 +87,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
-	// Tesselation group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Visualisation mode group
 	///////////////////////////////////////////////////////////////////////////
 
 	QGroupBox *modeGroup = new QGroupBox(tr("Mode"));
@@ -110,8 +111,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	modeGroup->setLayout(modeLayout);
 
 	///////////////////////////////////////////////////////////////////////////
-	// Tesselation group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Tesselation Settings group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *tessGroup = new QGroupBox(tr("Tessellation"));
 
@@ -178,8 +178,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	tessGroup->hide();
 
 	///////////////////////////////////////////////////////////////////////////
-	// Raytracing group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Raytracing Settings group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *raytracingGroup = new QGroupBox(tr("Raytracing"));
 
@@ -188,6 +187,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	//boundVComboBox->addItem(tr("NONE"));
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
+	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
 	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
@@ -300,6 +300,36 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	visComboBox->hide();
 
 	///////////////////////////////////////////////////////////////////////////
+	// Mesh-Attribute group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *attrGroup = new QGroupBox(tr("Mesh Attributes"));
+
+	QPushButton *addTexCoordsButton = new QPushButton(tr("Re-Add TexCoords"));
+
+	connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+
+		PluginFunctions::ObjectIterator o_it(
+			PluginFunctions::TARGET_OBJECTS,
+			DATA_BEZIER_TRIANGLE_MESH
+		);
+
+		if (o_it != PluginFunctions::objectsEnd()) {
+
+			BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+			betri::randomMeshUV(*(meshObj->mesh()));
+			
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
+	});
+	//connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
+	//	this, &BezierTriangleUtilsPlugin::setVisulisationType);
+
+	QGridLayout *attrLayout = new QGridLayout;
+	attrLayout->addWidget(addTexCoordsButton, 0, 0);
+	attrGroup->setLayout(attrLayout);
+
+	///////////////////////////////////////////////////////////////////////////
 	// Performance group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *perfGroup = new QGroupBox(tr("Performace Tester"));
@@ -313,6 +343,11 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
 
+		std::cerr << "\nREDRAW DISABLED " << OpenFlipper::Options::redrawDisabled() << std::endl;
+		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::sceneGraphUpdatesBlocked() << std::endl;
+		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::examinerWidgets() << std::endl;
+		
+
 		std::clock_t start = std::clock();
 		int frames = 6000;
 
@@ -320,6 +355,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 
 		for (int i = 0; i < frames; i++) {
 			// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
+			// http://openflipper.org/Documentation/latest/a14811.html#baseInterfaceSceneUpdateNotification
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
 			//emit BaseInterface::updateView();
 			emit updateView();
@@ -330,6 +366,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-1.1/classACG_1_1QtWidgets_1_1QtBaseViewer.html
 			//auto bla = PluginFunctions::getRootNode();
 			//bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
+			//bla->updateGL();
 		}
 
 		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -358,7 +395,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	grid->addWidget(tessGroup, 3, 0);
 	grid->addWidget(raytracingGroup, 4, 0);
 	grid->addWidget(visGroup, 5, 0);
-	grid->addWidget(perfGroup, 6, 0);
+	grid->addWidget(attrGroup, 6, 0);
+	grid->addWidget(perfGroup, 7, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);

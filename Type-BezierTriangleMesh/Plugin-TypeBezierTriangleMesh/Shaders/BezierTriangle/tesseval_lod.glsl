@@ -193,4 +193,9 @@ void main()
 #ifdef SG_OUTPUT_NORMALVS
 	SG_OUTPUT_NORMALVS = g_mWVIT * surfaceNormal;
 #endif
+#ifdef SG_OUTPUT_TEXCOORD
+	SG_OUTPUT_TEXCOORD = SG_INPUT_TEXCOORD[0] * gl_TessCoord.x
+		+ SG_INPUT_TEXCOORD[1] * gl_TessCoord.y 
+		+ SG_INPUT_TEXCOORD[2] * gl_TessCoord.z;
+#endif
 }

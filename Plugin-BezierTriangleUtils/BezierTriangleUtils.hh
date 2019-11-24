@@ -9,6 +9,8 @@ enum class TestOptions
 	parametrization
 };
 
+void randomMeshUV(BezierTMesh &mesh);
+
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors);
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
