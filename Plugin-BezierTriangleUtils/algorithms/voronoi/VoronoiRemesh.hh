@@ -180,12 +180,6 @@ private:
 		return false;
 	}
 
-	bool isRegionBorderEdge(EH e) const
-	{
-		HH h = m_mesh.halfedge_handle(e, 0);
-		return id(m_mesh.face_handle(h)) != id(m_mesh.opposite_face_handle(h));
-	}
-
 	// everythign related to the voronoi partition
 	using FQElem = std::pair<Scalar, FH>;
 	using FaceDijkstra = std::set<FQElem>;
@@ -343,6 +337,71 @@ private:
 		}
 		return FH();
 	}
+
+	bool adjToRegion(const VertexHandle vh, const ID id0) const
+	{
+		for (auto f_it = m_mesh.cvf_begin(vh), f_e = m_mesh.cvf_end(vh); f_it != f_e; ++f_it) {
+			if (id(*f_it) == id0) return true;
+		}
+		return false;
+	}
+
+	VH minPredecessor(const VertexHandle vh, const ID id0, bool noBorder=false)
+	{
+		Scalar minDist = std::numeric_limits<Scalar>::max();
+		VH minPred;
+		for (auto v_it = m_mesh.cvv_begin(vh); v_it != m_mesh.cvv_end(vh); ++v_it) {
+			if (id(*v_it) >= 0 && dist(*v_it) < minDist && adjToRegion(vh, id(*v_it)) &&
+				(noBorder || !vtt(*v_it).isBorder())) {
+				minPred = *v_it;
+				minDist = id(*v_it);
+			}
+
+		}
+		return minPred;
+	}
+
+	int countAdjRegions(const VH vh) const
+	{
+		std::set<ID> adj;
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (id(*f_it) >= 0) adj.insert(id(*f_it));
+		}
+		return adj.size();
+	}
+
+	int countRegionFaces(const VH vh, const ID id0) const
+	{
+		int adj = 0;
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (id(*f_it) == id0) adj++;
+		}
+		return adj;
+	}
+
+	bool onRegionBorder(const VH vh) const
+	{
+		return countAdjRegions(vh) > 1;
+	}
+
+	bool onRegionBorder(const VH vh, const ID id0, const ID id1) const
+	{
+		bool r0 = false, r1 = false;
+
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (id(*f_it) == id0) r0 = true;
+			else if (id(*f_it) == id1) r1 = true;
+		}
+		return r0 && r1;
+	}
+
+	void ensureReachable(const ID id0);
+
+	void vertexSP(VertexDijkstra &q);
+
+	void findShortestPath(const VH vh, const ID id0);
+
+	void setShortestPath(const VH vh);
 
 	// -------------------------------------------------------------- //
 	// member variables

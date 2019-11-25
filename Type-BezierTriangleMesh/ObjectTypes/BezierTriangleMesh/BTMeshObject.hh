@@ -6,6 +6,10 @@
 
 //== INCLUDES =================================================================
 // -------------------- OpenMesh
+#include "BezierTMesh.hh"
+
+#ifdef DRAW_CURVED
+
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 #include <ACG/Scenegraph/SeparatorNode.hh>
