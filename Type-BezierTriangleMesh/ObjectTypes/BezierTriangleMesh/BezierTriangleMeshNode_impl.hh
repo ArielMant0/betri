@@ -275,7 +275,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		// TODO this can propably be done differently
 		// TODO make this toggle
 		//ACG::GLState::enable(GL_CULL_FACE);
-		//ACG::GLState::cullFace(GL_FRONT);
+		//ACG::GLState::cullFace(GL_BACK);
 
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
 
@@ -824,7 +824,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
 
-	std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
+	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
 //-----------------------------------------------------------------------------

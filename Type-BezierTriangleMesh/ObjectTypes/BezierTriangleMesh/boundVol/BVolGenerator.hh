@@ -131,6 +131,86 @@ static void addBoundingTetraederFromPoints(
 	auto v3 = hull.m_vertices[he3.m_endVertex];
 	auto v4 = (v1 + v2 + v3) / 3.0 + (v3 - v1).crossProduct(v2 - v1) * 1.0;
 
+	// TODO make this shorter
+	// Shift Vertices
+	// we only need to test the three top-side faces since the last one
+	// was in the convex hull
+	for (auto v : hull.m_vertices) {
+		auto normal = (v2 - v4).crossProduct(v1 - v4);
+		normal.normalize();
+		auto dist = (v - v4).dotProduct(normal);
+		if (dist > 0.0) {
+			auto dir1 = v1 - v3;
+			auto dir1_n = dir1;
+			dir1_n.normalize();
+			auto dir2 = v2 - v3;
+			auto dir2_n = dir2;
+			dir2_n.normalize();
+			auto dir4 = v4 - v3;
+			auto dir4_n = dir4;
+			dir4_n.normalize();
+
+			auto dDiv1 = dir1_n.dotProduct(normal);
+			auto dDiv2 = dir2_n.dotProduct(normal);
+			auto dDiv4 = dir4_n.dotProduct(normal);
+
+			v1 += (dist / dDiv1) * dir1_n;
+			v2 += (dist / dDiv2) * dir2_n;
+			v4 += (dist / dDiv4) * dir4_n;
+		}
+	}
+
+	for (auto v : hull.m_vertices) {
+		auto normal = (v3 - v4).crossProduct(v2 - v4);
+		normal.normalize();
+		auto dist = (v - v4).dotProduct(normal);
+		if (dist > 0.0) {
+			auto dir2 = v2 - v1;
+			auto dir2_n = dir2;
+			dir2_n.normalize();
+			auto dir3 = v3 - v1;
+			auto dir3_n = dir3;
+			dir3_n.normalize();
+			auto dir4 = v4 - v1;
+			auto dir4_n = dir4;
+			dir4_n.normalize();
+
+			auto dDiv2 = dir2_n.dotProduct(normal);
+			auto dDiv3 = dir3_n.dotProduct(normal);
+			auto dDiv4 = dir4_n.dotProduct(normal);
+
+			v2 += (dist / dDiv2) * dir2_n;
+			v3 += (dist / dDiv3) * dir3_n;
+			v4 += (dist / dDiv4) * dir4_n;
+		}
+	}
+
+	for (auto v : hull.m_vertices) {
+		auto normal = (v1 - v4).crossProduct(v3 - v4);
+		normal.normalize();
+		auto dist = (v - v4).dotProduct(normal);
+		if (dist > 0.0) {
+			auto dir3 = v3 - v2;
+			auto dir3_n = dir3;
+			dir3_n.normalize();
+			auto dir1 = v1 - v2;
+			auto dir1_n = dir1;
+			dir1_n.normalize();
+			auto dir4 = v4 - v2;
+			auto dir4_n = dir4;
+			dir4_n.normalize();
+
+			auto dDiv3 = dir3_n.dotProduct(normal);
+			auto dDiv1 = dir1_n.dotProduct(normal);
+			auto dDiv4 = dir4_n.dotProduct(normal);
+
+			v3 += (dist / dDiv3) * dir3_n;
+			v1 += (dist / dDiv1) * dir1_n;
+			v4 += (dist / dDiv4) * dir4_n;
+		}
+	}
+
+
 	std::vector<BezierTMesh::Point> newPoints;
 	newPoints.push_back(BezierTMesh::Point(v1.x, v1.y, v1.z));
 	newPoints.push_back(BezierTMesh::Point(v2.x, v2.y, v2.z));
