@@ -5,7 +5,6 @@
 #include <vector>
 #include <unordered_set>
 
-
 namespace betri
 {
 

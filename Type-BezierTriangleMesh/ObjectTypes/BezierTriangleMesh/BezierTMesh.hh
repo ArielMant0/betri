@@ -1,6 +1,6 @@
 #pragma once
 
-//#define DRAW_CURVED
+#define DRAW_CURVED
 
 #include "BezierTriangleMeshTypes.hh"
 
