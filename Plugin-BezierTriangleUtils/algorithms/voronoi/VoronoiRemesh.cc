@@ -149,10 +149,6 @@ void VoronoiRemesh::preventiveEdgeSplits()
 				FH f1 = m_mesh.face_handle(he);
 				FH f2 = m_mesh.opposite_face_handle(he);
 
-				//m_mesh.set_color(f1, { 1., 1., 1., 1. });
-				//m_mesh.set_color(f2, { 1., 1., 1., 1. });
-
-				//std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
 
 				// make sure the vertices along this split always belong
@@ -175,6 +171,7 @@ void VoronoiRemesh::preventiveEdgeSplits()
 					pred(node) = which;
 					assert(m_mesh.find_halfedge(which, node).is_valid());
 					dist(node) = dist(which) + (m_mesh.point(which) - m_mesh.point(node)).norm();
+					m_mesh.set_color(which, m_colors[id(which)]);
 				}
 			}
 		}
@@ -311,24 +308,44 @@ void VoronoiRemesh::splitClosedPaths()
 	size_t nedges = m_mesh.n_edges();
 	size_t count = 0, count2 = 0, count3 = 0;
 
-	for (size_t i = 0; i < nedges; ++i) {
+	for (size_t i = 0; i < m_mesh.n_edges(); ++i) {
 		EH edge = m_mesh.edge_handle(i);
 
 		HH he = m_mesh.halfedge_handle(edge, 0);
 
 		const FH f1 = m_mesh.face_handle(he), f2 = m_mesh.opposite_face_handle(he);
 
-		if (!isCrossed(edge) && !isSeed(f1) && !isSeed(f2)) {
+		if (!isCrossed(edge)) {// && !isSeed(f1) && !isSeed(f2)) {
 			VH to = m_mesh.to_vertex_handle(he);
 			VH from = m_mesh.from_vertex_handle(he);
 
 			// if both adj vertices are border vertices, split this edge
 			if (vtt(from).isBorder() && vtt(to).isBorder()) {
-				std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
+
+				FH f3 = m_mesh.face_handle(m_mesh.n_faces() - 2);
+				FH f4 = m_mesh.face_handle(m_mesh.n_faces() - 1);
+
+				if (isSeed(f1)) {
+					// make sure seed face is adj to seed vertex
+					if (id(f3) == id(f1) && m_mesh.adjToVertex(f3, m_seedVerts[id(f1)])) {
+						m_seeds[id(f1)] = f3;
+					} else if (id(f4) == id(f1) && m_mesh.adjToVertex(f4, m_seedVerts[id(f1)])) {
+						m_seeds[id(f1)] = f4;
+					}
+				}
+				if (isSeed(f2) && !m_mesh.adjToVertex(f2, m_seedVerts[id(f2)])) {
+					// make sure seed face is adj to seed vertex
+					if (id(f3) == id(f2) && m_mesh.adjToVertex(f3, m_seedVerts[id(f2)])) {
+						m_seeds[id(f2)] = f3;
+					} else if (id(f4) == id(f2) && m_mesh.adjToVertex(f4, m_seedVerts[id(f2)])) {
+						m_seeds[id(f2)] = f4;
+					}
+				}
+
 				count++;
 			}/* else if (vtt(from).isBorder() && !vtt(to).isBorder() &&
-				id(from) == id(to) && onRegionBorder(to)
+				id(from) == id(to) && onRegionBorder(to) && id(f1) == id(f2)
 			) {
 				std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
@@ -337,7 +354,7 @@ void VoronoiRemesh::splitClosedPaths()
 				VH newNode = m_mesh.vertex_handle(m_mesh.n_vertices() - 1);
 				id(newNode) = id(from);
 			} else if (vtt(to).isBorder() && !vtt(from).isBorder() &&
-				id(from) == id(to) && onRegionBorder(from)
+				id(from) == id(to) && onRegionBorder(from) && id(f1) == id(f2)
 			) {
 				std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
@@ -345,15 +362,14 @@ void VoronoiRemesh::splitClosedPaths()
 
 				VH newNode = m_mesh.vertex_handle(m_mesh.n_vertices() - 1);
 				id(newNode) = id(to);
-			}*/ else if (id(from) == id(to) && onRegionBorder(from) && onRegionBorder(to) &&
+			} else if (id(from) == id(to) && onRegionBorder(from) && onRegionBorder(to) &&
 				id(f1) == id(f2)) {
-				std::cerr << "splitting faces " << f1 << " and " << f2 << '\n';
 				fixCrossing(f1, f2);
 				count3++;
 
 				VH newNode = m_mesh.vertex_handle(m_mesh.n_vertices() - 1);
 				id(newNode) = id(to);
-			}
+			}*/
 		}
 	}
 	std::cerr << __FUNCTION__ << ": split " << count << " edges (" << count2;
@@ -363,8 +379,14 @@ void VoronoiRemesh::splitClosedPaths()
 void VoronoiRemesh::fixPredecessor(const FH fh, const bool rewrite)
 {
 	//std::cerr << "fixing predecessor for " << fh << "(" << pred(fh) << ")\n";
-	// nothing do to
-	if (isSeed(fh) || !pred(fh).is_valid()) return;
+
+	// we acutally dont have to care about face predecessors
+	// since all shortest path are foudn using vertices
+	return;
+
+	if (isSeed(fh) || !pred(fh).is_valid()) {
+		return;
+	}
 
 	const auto calcDist = [&](FH from, FH to) {
 		P p1 = m_mesh.calc_face_centroid(from);
@@ -436,10 +458,14 @@ HalfedgeHandle VoronoiRemesh::fixCrossing(
 		if (*f_it != f0 && pred(*f_it) == f1) fixOther.push_back(*f_it);
 	}
 
-	size_t nedge = m_mesh.n_edges();
 	EH commonEdge;
+	VH vFrom, vTo;
+	size_t nedge = m_mesh.n_edges();
+
 	for (auto f_it = m_mesh.cfh_begin(f0); f_it != m_mesh.cfh_end(f0); ++f_it) {
 		if (m_mesh.opposite_face_handle(*f_it) == f1) {
+			vFrom = m_mesh.from_vertex_handle(*f_it);
+			vTo = m_mesh.to_vertex_handle(*f_it);
 			commonEdge = m_mesh.edge_handle(*f_it); break;
 		}
 	}
@@ -447,24 +473,42 @@ HalfedgeHandle VoronoiRemesh::fixCrossing(
 	VH newNode = m_mesh.splitFacesRivara(f0, f1, true);
 
 	if (m_seedVerts.size() > 0) {
-		Scalar minDist = std::numeric_limits<Scalar>::max();
-		VH newPred;
-		// choose id/distance/predecessor for the new vertex (which neighbor is closest)
-		for (auto vh = m_mesh.cvoh_begin(newNode); vh != m_mesh.cvoh_end(newNode); ++vh) {
-			Scalar len = dist(m_mesh.to_vertex_handle(*vh)) + m_mesh.calc_edge_length(*vh);
-			VH np = m_mesh.to_vertex_handle(*vh);
-			if (len <= minDist && adjToRegion(newNode, id(np))) {
-				newPred = np;
-				minDist = len;
+
+		if (pred(vFrom) == vTo) {
+			pred(newNode) = vTo;
+			id(newNode) = id(vTo);
+			dist(newNode) = dist(vTo) + (m_mesh.point(vTo) - m_mesh.point(newNode)).norm();
+
+			pred(vFrom) = newNode;
+			dist(vFrom) = dist(newNode) + (m_mesh.point(vFrom) - m_mesh.point(newNode)).norm();
+		} else if (pred(vTo) == vFrom) {
+			pred(newNode) = vFrom;
+			id(newNode) = id(vFrom);
+			dist(newNode) = dist(vFrom) + (m_mesh.point(vFrom) - m_mesh.point(newNode)).norm();
+
+			pred(vTo) = newNode;
+			dist(vTo) = dist(newNode) + (m_mesh.point(vTo) - m_mesh.point(newNode)).norm();
+		} else  {
+			Scalar minDist = std::numeric_limits<Scalar>::max();
+			VH newPred;
+			// choose id/distance/predecessor for the new vertex (which neighbor is closest)
+			for (auto vh = m_mesh.cvoh_begin(newNode); vh != m_mesh.cvoh_end(newNode); ++vh) {
+				VH np = m_mesh.to_vertex_handle(*vh);
+				Scalar len = dist(np) + m_mesh.calc_edge_length(*vh);
+				if (!vtt(np).isBorder() && len <= minDist && adjToRegion(newNode, id(np))) {
+					newPred = np;
+					minDist = len;
+					if (isSeedVertex(np)) break;
+				}
 			}
-		}
-		if (newPred.is_valid()) {
-			dist(newNode) = minDist;
-			pred(newNode) = newPred;
-			id(newNode) = id(newPred);
-		} else {
-			id(newNode) = id(m_mesh.face_handle(m_mesh.halfedge_handle(newNode)));
-			dist(newNode) = minDist;
+			if (newPred.is_valid()) {
+				dist(newNode) = minDist;
+				pred(newNode) = newPred;
+				id(newNode) = id(newPred);
+			} else {
+				id(newNode) = id(m_mesh.face_handle(m_mesh.halfedge_handle(newNode)));
+				dist(newNode) = minDist;
+			}
 		}
 	}
 
@@ -661,12 +705,13 @@ void VoronoiRemesh::shortestPath(
 		if (i > 0 && i < subpath.size()-1 && vtt(node).isBorder()) {
 			const VH prev = subpath[i - 1];
 			const VH succ = subpath[i + 1];
+			std::cerr << "\nSPLITTING PATH\n";
 
 			// get the correct edge to split
 			HH he = m_mesh.find_halfedge(succ, node);
 			he = m_mesh.next_halfedge_handle(he);
 			if (isCrossed(he)) {
-				he = m_mesh.find_halfedge(node, subpath[i + 1]);
+				he = m_mesh.find_halfedge(node, succ);
 				he = m_mesh.next_halfedge_handle(he);
 			}
 			assert(!isCrossed(he));
@@ -687,15 +732,17 @@ void VoronoiRemesh::shortestPath(
 			subpath.insert(std::next(subpath.begin(), i + 1), next);
 		}
 
-		if (i < subpath.size() - 1) {
-			const HH he = m_mesh.find_halfedge(node, subpath[i + 1]);
-			const EH edge = m_mesh.edge_handle(he);
-			if (isCrossed(edge)) {
+		if (i > 0) {
+			HH he = m_mesh.find_halfedge(path.back(), node);
+			if (!he.is_valid()) he = m_mesh.find_halfedge(node, path.back());
+
+			if (!he.is_valid()) {
 				m_mesh.set_color(node, { 0.6f, 0.1f, 0.45f, 1.f });
-				m_mesh.set_color(subpath[i+1], { 0.6f, 0.1f, 0.45f, 1.f });
-				debugCancel("shortestPath: edge is crossed but shouldnt be");
+				m_mesh.set_color(path.back(), { 0.6f, 0.1f, 0.45f, 1.f });
+				debugCancel("shortestPath: no connecting edge");
 				return;
 			}
+			const EH edge = m_mesh.edge_handle(he);
 			crossed(edge) = ctrlFace.idx();
 			m_mesh.set_color(edge, black);
 		}
@@ -795,9 +842,34 @@ void VoronoiRemesh::vertexSP(VertexDijkstra & q)
 		if (fixed.find(to) != fixed.end())
 			return -1; // already fixed, so not okay to change
 
-		int c1 = countAdjRegions(to);
-		if (c1 == 1)
-			return 0; // okay, must not be fixed
+		std::set<ID> ids;
+
+		// make sure that vertices adj to paths have the same id as the path vertex
+		for (auto v_it = m_mesh.cvv_begin(to), v_e = m_mesh.cvv_end(to); v_it != v_e; ++v_it) {
+			if (vtt(*v_it).isBorder() && adjToRegion(to, id(*v_it))) {
+				ids.insert(id(*v_it));
+			}
+		}
+		if (!ids.empty()) {
+			if (ids.size() == 1) return *ids.begin() == id(from) ? 1 : -1;
+
+			ID maxID;
+			int maxAdj = 0;
+
+			// if 'to' is adj to 2 regions and well as 2 path vertices
+			// then we simply assign it to the region with the most faces
+			// around this vertex
+			for (ID id0 : ids) {
+				int adj = countRegionFaces(to, id0);
+				if (adj > maxAdj) {
+					maxAdj = adj;
+					maxID = id0;
+				}
+			}
+
+			return maxID == id(from) ? 1 : -1;
+		}
+
 
 		/*
 		 * Look at all vertices around the destination vertex and check whether this is
@@ -805,15 +877,16 @@ void VoronoiRemesh::vertexSP(VertexDijkstra & q)
 		 * vertex is question may not be put into another region, so that we can guarantee
 		 * that all vertices of the region are reached/passable.
 		 */
-		for (auto h_it = m_mesh.cvoh_begin(to), h_e = m_mesh.cvoh_end(to); h_it != h_e; ++h_it) {
-			const ID id0 = id(m_mesh.face_handle(*h_it));
-			// inner edge
-			if (id0 == id(m_mesh.opposite_face_handle(*h_it))) {
-				VH next = m_mesh.to_vertex_handle(*h_it);
-				int count = countAdjRegions(next);
-				if (count == 2) {
-					// if ids are the same its okay but must be fixed, otherwise not okay
-					return id0 == id(from) || (id(next) >= 0 && id(next) == id0) ? 1 : -1;
+		if (onRegionBorder(to)) {
+			for (auto h_it = m_mesh.cvoh_begin(to), h_e = m_mesh.cvoh_end(to); h_it != h_e; ++h_it) {
+				ID id0 = id(m_mesh.face_handle(*h_it));
+				// inner edge
+				if (id0 == id(m_mesh.opposite_face_handle(*h_it))) {
+					VH next = m_mesh.to_vertex_handle(*h_it);
+					if (onRegionBorder(next)) {
+						// if ids are the same its okay but must be fixed, otherwise not okay
+						return id0 == id(from) || (id(next) >= 0 && id(next) == id0) ? 1 : -1;
+					}
 				}
 			}
 		}
@@ -834,13 +907,18 @@ void VoronoiRemesh::vertexSP(VertexDijkstra & q)
 
 			Scalar updateDist = dist(vh) + (p0 - m_mesh.point(vv)).norm();
 
+			const bool adjacent = adjToRegion(vv, id(vh));
 			// vertex must ...
 			// - not be a border vertex
 			// - have a larger distance than the new one we calculatd
 			// - be adj to at least 1 face with the same id
-			if (!vtt(vv).isBorder() && updateDist < dist(vv) && adjToRegion(vv, id(vh))) {
+			if (!vtt(vv).isBorder() && updateDist < dist(vv) &&
+				(false || adjacent)) {
 				// edge must not be crossed, debug
 				assert(!isCrossed(*he));
+
+				// TODO: fill sub-regions that have vertices without id
+				// with other region
 
 				switch (isOkay(vh, vv)) {
 					case 1: fixed.insert(vv);
@@ -951,6 +1029,8 @@ void VoronoiRemesh::partition()
 		// COND 3: if one vertex is adj to more than 3 regions, add one adj face as a new seed face
 		reduceAdjRegions(q);
 
+		if (debugCancel()) return;
+
 		// add a new seed if we still need for partitions
 		if (m_seeds.size() < m_minPartition) {
 			for (FH face : m_mesh.faces()) {
@@ -996,11 +1076,27 @@ void VoronoiRemesh::partition()
 	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
 	std::cerr << " faces as seeds" << std::endl;
 
+	m_seedVerts.clear();
+	m_seedVerts.reserve(m_seeds.size());
+	for (FH face : m_seeds) {
+		VH vh;
+		for (auto it = m_mesh.cfv_begin(face); it != m_mesh.cfv_end(face); ++it) {
+			if (std::find(m_seedVerts.begin(), m_seedVerts.end(), *it) == m_seedVerts.end()) {
+				vh = *it;
+				break;
+			}
+		}
+		assert(vh.is_valid());
+		id(vh) = m_seedVerts.size();
+		dist(vh) = 0.0;
+		m_seedVerts.push_back(vh);
+	}
+
+	m_ctrlVerts.clear();
 	m_ctrlVerts.resize(m_seeds.size());
 	// add vertices of seed faces
-	for (FH face : m_seeds) {
-		//m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.calc_face_centroid(face));
-		m_ctrlVerts[id(face)] = m_ctrl.add_vertex(m_mesh.point(*m_mesh.cfv_begin(face)));
+	for (VH vertex : m_seedVerts) {
+		m_ctrlVerts[id(vertex)] = m_ctrl.add_vertex(m_mesh.point(vertex));
 	}
 
 	// calculate shortest distances for all vertices
@@ -1053,8 +1149,6 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 			}
 		}
 	} else {
-		m_seedVerts.clear();
-		m_seedVerts.reserve(m_seeds.size());
 		// first time calling this
 		for (VH vh : m_mesh.vertices()) {
 			id(vh) = -1;
@@ -1062,12 +1156,10 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 			pred(vh) = VH();
 		}
 
-		for (FH face : m_seeds) {
-			const VH vh = *m_mesh.cfv_begin(face);
-			id(vh) = m_seedVerts.size();
-			dist(vh) = 0.0;
-			m_seedVerts.push_back(vh);
-			q.insert({ 0.0, vh });
+		for (size_t i = 0; i < m_seedVerts.size(); ++i) {
+			dist(m_seedVerts[i]) = 0.0;
+			id(m_seedVerts[i]) = i;
+			q.insert({ 0.0, m_seedVerts[i] });
 		}
 	}
 
@@ -1095,6 +1187,13 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		}
 		assert(id(vh) >= 0);
 
+		if (pred(vh).is_valid() && !m_mesh.find_halfedge(pred(vh), vh).is_valid()) {
+			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
+			m_mesh.set_color(pred(vh), { 1.f, 1.f, 1.f, 1.f });
+			debugCancel("no edge between vertex and pred");
+			return;
+		}
+
 		bool noNeighbors = countAdjRegions(vh) == 1;
 
 		if (noNeighbors) count++;
@@ -1106,9 +1205,9 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 			//debugCancel("found non-border vertex without distance");
 		} else if (!vtt(vh).isBorder()) {
 			m_mesh.set_color(vh, m_colors[id(vh)]);
-		} else if (isSeedVertex(vh)) {
+		}/* else if (isSeedVertex(vh)) {
 			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
-		}
+		}*/
 #endif
 	}
 	std::cerr << "inner: " << count << ", outer: " << m_mesh.n_vertices() - count << std::endl;
@@ -1293,6 +1392,8 @@ void VoronoiRemesh::fitting()
 		}
 		std::cerr << "\nfinished fitting for face " << face << "\n";
 	}
+
+	m_ctrl.update_normals();
 }
 
 void VoronoiRemesh::smooth()
@@ -1559,16 +1660,8 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 
 void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 {
-	const auto adjTiles = [&](const VH v) {
-		std::set<ID> tiles;
-		for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
-			if (id(*f) >= 0) tiles.insert(id(*f));
-		}
-		return tiles.size();
-	};
-
 	for (VH v : m_mesh.vertices()) {
-		if (adjTiles(v) > 3) {
+		if (countAdjRegions(v) > 3) {
 			int before = m_seeds.size();
 			for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
 				if (!isSeed(*f)) {
@@ -1577,8 +1670,9 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 				}
 			}
 			if (m_seeds.size() <= before) {
-				std::cerr << "ERROR: vertex adj to more than 3 seeds\n";
-				// TODO: return an use original mesh
+				m_mesh.set_color(v, { 0.f, 1.f, 0.f, 1.f });
+				debugCancel("ERROR: vertex adj to more than 3 seeds\n");
+				return;
 			}
 		}
 	}

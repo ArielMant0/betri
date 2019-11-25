@@ -365,10 +365,19 @@ private:
 	{
 		std::set<ID> adj;
 		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
-			adj.insert(id(*f_it));
+			if (id(*f_it) >= 0) adj.insert(id(*f_it));
 		}
 		return adj.size();
-	};
+	}
+
+	int countRegionFaces(const VH vh, const ID id0) const
+	{
+		int adj = 0;
+		for (auto f_it = m_mesh.cvf_begin(vh); f_it != m_mesh.cvf_end(vh); ++f_it) {
+			if (id(*f_it) == id0) adj++;
+		}
+		return adj;
+	}
 
 	bool onRegionBorder(const VH vh) const
 	{
