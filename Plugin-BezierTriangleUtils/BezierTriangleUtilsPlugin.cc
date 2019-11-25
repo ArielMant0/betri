@@ -717,6 +717,7 @@ void BezierTriangleUtilsPlugin::testAlgorithm()
 	items << tr("Voronoi Parametrization");
 	items << tr("Voronoi Fitting");
 	items << tr("Decimation Parametrization");
+	items << tr("Decimation Fitting");
 
 	bool okay;
 	QString option = QInputDialog::getItem(
@@ -741,9 +742,11 @@ void BezierTriangleUtilsPlugin::testAlgorithm()
 		if (item.compare("Voronoi Parametrization") == 0) {
 			betri::test(betri::TestOptions::voronoi_param, ctrlMeshObj->mesh());
 		} else if (item.compare("Voronoi Fitting") == 0) {
-			betri::test(betri::TestOptions::voronoi_param, ctrlMeshObj->mesh());
+			betri::test(betri::TestOptions::voronoi_fit, ctrlMeshObj->mesh());
 		} else if (item.compare("Decimation Parametrization") == 0) {
 			betri::test(betri::TestOptions::decimation_param, ctrlMeshObj->mesh());
+		} else if (item.compare("Decimation Fitting") == 0) {
+			betri::test(betri::TestOptions::decimation_fit, ctrlMeshObj->mesh());
 		}
 
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);

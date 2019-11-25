@@ -282,6 +282,7 @@ bool test(TestOptions which, BezierTMesh *mesh)
 		case TestOptions::voronoi_fit: return VoronoiFitting::test(mesh);
 		case TestOptions::voronoi_param: return VoronoiParametrization::test(mesh);
 		case TestOptions::decimation_param: return DecimationParametrization::test(mesh);
+		case TestOptions::decimation_fit: return DecimationFitting::test(mesh);
 		default: return true;
 	}
 }

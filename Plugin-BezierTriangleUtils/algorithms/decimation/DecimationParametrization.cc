@@ -100,19 +100,31 @@ bool DecimationParametrization::solveLocal(
 		);
 
 		// correct order: 0 degree cpNum-1 (e.g. 0 2 5)
-		const VertexHandle &v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
-		const VertexHandle &v01 = c0 == degree ? v0 : (c1 == degree ? v1 : from);
-		const VertexHandle &v02 = c0 == cpNum-1 ? v0 : (c1 == cpNum - 1 ? v1 : from);
+		VertexHandle v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
+		VertexHandle v01 = c0 == degree ? v0 : (c1 == degree ? v1 : from);
+		VertexHandle v02 = c0 == cpNum-1 ? v0 : (c1 == cpNum - 1 ? v1 : from);
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 		assert(std::isgreater(area(facesOrig[f]), 0.));
 
-		//double a = (m_mesh.data(f).controlPoint(0) - m_mesh.point(v00)).norm();
-		//if (a > 0.0001) std::cerr << "0 offset " << a << "\n";
-		//double b = (m_mesh.data(f).controlPoint(degree) - m_mesh.point(v01)).norm();
-		//if (b > 0.0001) std::cerr << "1 offset " << b << "\n";
-		//double c = (m_mesh.data(f).controlPoint(cpNum-1) - m_mesh.point(v02)).norm() < 0.0001;
-		//if (c > 0.0001) std::cerr << "2 offset " << c << "\n";
+		double a = (m_mesh.data(f).controlPoint(0) - m_mesh.point(v00)).norm();
+		if (a > 0.0001) {
+			std::cerr << "0 offset " << a << "\n";
+			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(0) << '\n';
+			std::cerr << "\tblue triangle point " << m_mesh.point(v00) << '\n';
+		}
+		double b = (m_mesh.data(f).controlPoint(degree) - m_mesh.point(v01)).norm();
+		if (b > 0.0001) {
+			std::cerr << "1 offset " << b << "\n";
+			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(degree) << '\n';
+			std::cerr << "\tblue triangle point " << m_mesh.point(v01) << '\n';
+		}
+		double c = (m_mesh.data(f).controlPoint(cpNum-1) - m_mesh.point(v02)).norm();
+		if (c > 0.0001) {
+			std::cerr << "2 offset " << c << "\n";
+			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(cpNum-1) << '\n';
+			std::cerr << "\tblue triangle point " << m_mesh.point(v02) << '\n';
+		}
 	}
 	assert(faces.size() == n - 2);
 
