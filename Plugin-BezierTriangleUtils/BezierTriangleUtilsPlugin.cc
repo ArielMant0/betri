@@ -25,6 +25,7 @@ using namespace betri;
 
 void BezierTriangleUtilsPlugin::initializePlugin()
 {
+
 	m_tool = new QWidget();
 	QIcon *toolIcon = new QIcon(
 		OpenFlipper::Options::iconDirStr() +
@@ -32,6 +33,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		"btutils.png"
 	);
 
+	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
 	// Voronoi meshing group
 	///////////////////////////////////////////////////////////////////////////
@@ -84,8 +86,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
-	// Tesselation group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Visualisation mode group
 	///////////////////////////////////////////////////////////////////////////
 
 	QGroupBox *modeGroup = new QGroupBox(tr("Mode"));
@@ -109,8 +110,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	modeGroup->setLayout(modeLayout);
 
 	///////////////////////////////////////////////////////////////////////////
-	// Tesselation group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Tesselation Settings group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *tessGroup = new QGroupBox(tr("Tessellation"));
 
@@ -125,9 +125,17 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(tessSlider, SIGNAL(valueChanged(int)), tessSpinBox, SLOT(setValue(int)));
 	connect(tessSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setTessAmount(int)));
 
-	tessSpinBox->setValue(1);
+	tessSpinBox->setValue(0);
 
-	QCheckBox *adaptCBox = new QCheckBox("Adaptive Tesselation");
+	// Create Drop down menu
+	QLabel *tessMLabel = new QLabel(tr("Tesselation Mode:"));
+	QComboBox *tessmodeComboBox = new QComboBox;
+	tessmodeComboBox->addItem(tr("Constant"));
+	tessmodeComboBox->addItem(tr("Dist-Adaptive"));
+	tessmodeComboBox->addItem(tr("Flatness-Adaptive"));
+
+	connect(tessmodeComboBox, QOverload<int>::of(&QComboBox::activated),
+		this, &BezierTriangleUtilsPlugin::setTessMode);
 
 	// hide/show the appropriate widgets
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -139,10 +147,19 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 						tessGroup->hide();
 					}
 					break;
-				case 1: case 2:
+				case betri::TESSELLATION_TYPE::CPU:
 					if (tessGroup->isHidden()) {
 						tessGroup->show();
 					}
+					tessMLabel->hide();
+					tessmodeComboBox->hide();
+					break;
+				case betri::TESSELLATION_TYPE::GPU:
+					if (tessGroup->isHidden()) {
+						tessGroup->show();
+					}
+					tessMLabel->show();
+					tessmodeComboBox->show();
 					break;
 				default:
 					tessGroup->hide();
@@ -154,13 +171,13 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	tessLayout->addWidget(tessALabel, 0, 0);
 	tessLayout->addWidget(tessSpinBox, 0, 1);
 	tessLayout->addWidget(tessSlider, 1, 0);
-	tessLayout->addWidget(adaptCBox, 2, 0);
+	tessLayout->addWidget(tessMLabel, 2, 0);
+	tessLayout->addWidget(tessmodeComboBox, 3, 0);
 	tessGroup->setLayout(tessLayout);
 	tessGroup->hide();
 
 	///////////////////////////////////////////////////////////////////////////
-	// Raytracing group
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
+	// Raytracing Settings group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *raytracingGroup = new QGroupBox(tr("Raytracing"));
 
@@ -169,6 +186,10 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	//boundVComboBox->addItem(tr("NONE"));
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
+	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
+	boundVComboBox->addItem(tr("CONVEX HULL"));
+	boundVComboBox->addItem(tr("BOUNDING MESH"));
+	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;
@@ -232,9 +253,10 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QCheckBox *boundVBox = new QCheckBox("Show BoundingVolume");
 	QLabel *visLabel = new QLabel(tr("Facecoloring:"));
 	QComboBox *visComboBox = new QComboBox;
-	//boundVComboBox->addItem(tr("NONE"));
-	visComboBox->addItem(tr("Color")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
+	visComboBox->addItem(tr("Phong-Color"));
+	visComboBox->addItem(tr("Color"));
 	visComboBox->addItem(tr("Normal"));
+	visComboBox->addItem(tr("Depth"));
 	visComboBox->addItem(tr("Curvature"));
 
 	// hide/show the appropriate widgets
@@ -277,6 +299,36 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	visComboBox->hide();
 
 	///////////////////////////////////////////////////////////////////////////
+	// Mesh-Attribute group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *attrGroup = new QGroupBox(tr("Mesh Attributes"));
+
+	QPushButton *addTexCoordsButton = new QPushButton(tr("Re-Add TexCoords"));
+
+	connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+
+		PluginFunctions::ObjectIterator o_it(
+			PluginFunctions::TARGET_OBJECTS,
+			DATA_BEZIER_TRIANGLE_MESH
+		);
+
+		if (o_it != PluginFunctions::objectsEnd()) {
+
+			BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+			betri::randomMeshUV(*(meshObj->mesh()));
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
+	});
+	//connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
+	//	this, &BezierTriangleUtilsPlugin::setVisulisationType);
+
+	QGridLayout *attrLayout = new QGridLayout;
+	attrLayout->addWidget(addTexCoordsButton, 0, 0);
+	attrGroup->setLayout(attrLayout);
+
+	///////////////////////////////////////////////////////////////////////////
 	// Performance group
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *perfGroup = new QGroupBox(tr("Performace Tester"));
@@ -290,6 +342,11 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
 
+		std::cerr << "\nREDRAW DISABLED " << OpenFlipper::Options::redrawDisabled() << std::endl;
+		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::sceneGraphUpdatesBlocked() << std::endl;
+		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::examinerWidgets() << std::endl;
+
+
 		std::clock_t start = std::clock();
 		int frames = 6000;
 
@@ -297,6 +354,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 
 		for (int i = 0; i < frames; i++) {
 			// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
+			// http://openflipper.org/Documentation/latest/a14811.html#baseInterfaceSceneUpdateNotification
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
 			//emit BaseInterface::updateView();
 			emit updateView();
@@ -307,6 +365,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 			// http://www.openflipper.org/media/Documentation/OpenFlipper-1.1/classACG_1_1QtWidgets_1_1QtBaseViewer.html
 			//auto bla = PluginFunctions::getRootNode();
 			//bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
+			//bla->updateGL();
 		}
 
 		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -333,7 +392,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	grid->addWidget(tessGroup, 4, 0);
 	grid->addWidget(raytracingGroup, 5, 0);
 	grid->addWidget(visGroup, 6, 0);
-	grid->addWidget(perfGroup, 7, 0);
+	grid->addWidget(attrGroup, 7, 0);
+	grid->addWidget(perfGroup, 8, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
@@ -342,16 +402,6 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 void BezierTriangleUtilsPlugin::tessellateMesh()
 {
 	emit log(LOGINFO, "Tessellated Bezier Triangles!");
-}
-
-void BezierTriangleUtilsPlugin::setTessAmount(int value)
-{
-	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
-	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
-	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
-		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
-	}
 }
 
 void BezierTriangleUtilsPlugin::setTessType(int value)
@@ -376,6 +426,27 @@ void BezierTriangleUtilsPlugin::setTessType(int value)
 			break;
 	}
 	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
+}
+
+void BezierTriangleUtilsPlugin::setTessAmount(int value)
+{
+	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
+}
+
+void BezierTriangleUtilsPlugin::setTessMode(int value)
+{
+	PluginFunctions::betriOption(BezierOption::TESSELLATION_ADAPTIVE, value);
+	// TODO does franziska approves this?
+	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+	emit log(LOGINFO, tr("set tessellation mode to %1").arg(value));
 }
 
 void BezierTriangleUtilsPlugin::setBoundVType(int value)
@@ -632,7 +703,8 @@ void BezierTriangleUtilsPlugin::callPartition()
 			betri::voronoiPartition(*o_it, ctrl_obj);
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
-			emit updatedObject(meshObj->id(), UPDATE_COLOR);
+			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 
 		//m_voronoiSteps[0]->setDisabled(true);

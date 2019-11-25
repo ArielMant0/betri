@@ -68,6 +68,12 @@ void BTOFFImporter::addObject(BaseObject* _object)
 
     if (btMeshObj) {
 		btMesh_ = btMeshObj->mesh();
+		if (hasVertexColors()) {
+			btMesh()->request_vertex_colors();
+		}
+		if (hasFaceColors()) {
+			btMesh()->request_face_colors();
+		}
 		object_ = _object;
 	} else {
         std::cerr << "Error: Cannot add object. Type is unknown!" << std::endl;

@@ -1199,7 +1199,6 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		if (noNeighbors) count++;
 		border(vh, noNeighbors);
 
-#ifndef DRAW_CURVED
 		if (dist(vh) == INF && !vtt(vh).isBorder()) {
 			m_mesh.set_color(vh, { 0.f, 0.f, 0.f, 0.f });
 			//debugCancel("found non-border vertex without distance");
@@ -1208,7 +1207,6 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		}/* else if (isSeedVertex(vh)) {
 			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
 		}*/
-#endif
 	}
 	std::cerr << "inner: " << count << ", outer: " << m_mesh.n_vertices() - count << std::endl;
 }

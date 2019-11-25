@@ -89,8 +89,8 @@ void TypeBezierTriangleMeshPlugin::slotUpdateContextMenu(int _objectId)
 
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-	if (surfaceObject != 0) {
 #ifdef DRAW_CURVED
+	if (surfaceObject != 0) {
 		renderControlNetAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_control_net());
 		renderSurfaceAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_bspline_surface());
 #endif

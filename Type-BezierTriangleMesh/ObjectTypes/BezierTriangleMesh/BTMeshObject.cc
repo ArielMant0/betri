@@ -171,8 +171,8 @@ void BTMeshObject::init(BezierTMesh* _mesh)
     mesh_->request_halfedge_status();
     mesh_->request_face_status();
     mesh_->request_edge_status();
-    mesh_->request_vertex_colors();
-    mesh_->request_face_colors();
+    //mesh_->request_vertex_colors();
+    //mesh_->request_face_colors();
 
 	// TODO
 	// request default properties

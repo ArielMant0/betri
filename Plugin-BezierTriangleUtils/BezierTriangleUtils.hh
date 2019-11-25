@@ -11,6 +11,8 @@ enum class TestOptions
 	decimation_param
 };
 
+void randomMeshUV(BezierTMesh &mesh);
+
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors);
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);

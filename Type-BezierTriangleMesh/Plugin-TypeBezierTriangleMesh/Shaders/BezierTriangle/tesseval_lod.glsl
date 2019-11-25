@@ -6,8 +6,7 @@
 
 layout(triangles, equal_spacing, ccw) in;
 
-//in vec3 position[];
-
+uniform int tessAmount;
 uniform sampler2D controlPointTex;
 
 //uniform vec4 uvRange;
@@ -19,8 +18,6 @@ uniform float FACTORIALS[13] = {
 	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
 	39916800, 479001600 // 11, 12
 };
-
-//const int GRAD = 2;
 
 /**
  * Function to calculate Exponentiation.
@@ -43,14 +40,6 @@ float myPow(float base, float expo)
 	return pow(base, expo);
 }
 
-/*
-float factorial(int f)
-{
-	if (f == 1)
-		return 1;
-	return f * factorial(f-1);
-}*/
-
 /**
  * Get the amount of points that are in the levels below the parameter-level.
  * @param level the level in which the point is
@@ -62,7 +51,7 @@ int pointsBefore(int level)
 	int sum = 0;
 	for (int i = 0; i < level; i++)
 	{
-		sum += GRAD + 1 - i;
+		sum += DEGREE + 1 - i;
 	}
 	return sum;
 }
@@ -83,6 +72,8 @@ vec3 getCP(int i, int j, int k)
 	return texelFetch(controlPointTex, controlPtID, 0).xyz;
 }
 
+vec3 offset = vec3(0.0);
+
 /**
  * Get one Entry for a secific set of i,j,k (control points)
  * multiply these with the barycentric coords
@@ -90,8 +81,10 @@ vec3 getCP(int i, int j, int k)
 vec3 oneEntry(int i, int j, int k)
 {
 	// TODO float nessessary?
-	vec3 entry = (FACTORIALS[GRAD] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]))
-		* myPow(gl_TessCoord.x, float(i)) * myPow(gl_TessCoord.y, float(j)) * myPow(gl_TessCoord.z, float(k))
+	vec3 entry = (FACTORIALS[DEGREE] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]))
+		* myPow(gl_TessCoord.x + offset.x, float(i)) 
+		* myPow(gl_TessCoord.y + offset.y, float(j)) 
+		* myPow(gl_TessCoord.z + offset.z, float(k))
 		* getCP(i, j, k);
 
 	return entry;
@@ -115,18 +108,18 @@ vec3 newPosition()
 	// 1 1 0
 	// 2 0 0
 	// i is the row-index
-	for (int i = 0; i <= GRAD; i++)
+	for (int i = 0; i <= DEGREE; i++)
 	{
 		// j is the column-index
-		for (int j = 0; j + i <= GRAD; j++)
+		for (int j = 0; j + i <= DEGREE; j++)
 		{
 			/*
 			TODO Both variant should be the same, which is more readable?
-			int k = GRAD - i - j;
+			int k = DEGREE - i - j;
 			if (k >= 0) 
 			*/
 			// k is directly dependent from i and j
-			for (int k = GRAD - i - j; k + j + i == GRAD && k >= 0; k++)
+			for (int k = DEGREE - i - j; k + j + i == DEGREE && k >= 0; k++)
 			{
 				sum += oneEntry(i, j, k);
 			}
@@ -144,12 +137,46 @@ void main()
 	// Set Vertex-position
 	vec3 pos = newPosition();
 	gl_Position = g_mWVP * vec4(pos, 1.0);
-	
-	//vec3 surfaceNormal = gl_TessCoord.x * outTcNormalOS[2] + gl_TessCoord.y * outTcNormalOS[1] + gl_TessCoord.z * outTcNormalOS[0];
-	vec3 surfaceNormal = normalize(cross(getCP(GRAD, 0, 0) - getCP(0, GRAD, 0), getCP(0, 0, GRAD) - getCP(0, GRAD, 0)));
-	//vec3 surfaceNormal = normalize(cross(getCP(GRAD, 0, 0) - pos, getCP(0, 0, GRAD) - pos));
-	//vec3 surfaceNormal = gl_Position.xyz;
 
+	/////////////
+	// Normale //
+	/////////////
+	vec3 toEval;
+	vec3 pos1;
+	vec3 pos2;
+
+	float stepSize = 1.0 / tessAmount;
+
+	// It is nessessary to distinguish between vertices that are
+	// in the face and those which are on a border, because for 
+	// these the vector needs to show in the other direction and 
+	// sometimes the order for the cross-product needs to be changed
+	// Otherwise the result is wrong i.e. flat triangle
+	if (gl_TessCoord.z < stepSize) {
+		if (gl_TessCoord.x < stepSize) {
+			offset = vec3(stepSize, -stepSize, 0.0);
+			pos2 = newPosition();
+			offset = vec3(0.0, -stepSize, stepSize);
+			pos1 = newPosition();
+		} else if (gl_TessCoord.y < stepSize) {
+			offset = vec3(-stepSize, stepSize, 0.0);
+			pos1 = newPosition();
+			offset = vec3(-stepSize, 0.0, stepSize);
+			pos2 = newPosition();
+		} else {
+			offset = vec3(-stepSize, 0.0, stepSize);
+			pos1 = newPosition();
+			offset = vec3(0.0, -stepSize, stepSize);
+			pos2 = newPosition();
+		}
+	} else {
+		offset = vec3(stepSize, 0.0, -stepSize);
+		pos1 = newPosition();
+		offset = vec3(0.0, stepSize, -stepSize);
+		pos2 = newPosition();
+	}
+
+	vec3 surfaceNormal = cross(normalize(pos1 - pos), normalize(pos2 - pos));
 
 #ifdef SG_OUTPUT_POSOS
 	SG_OUTPUT_POSOS = vec4(pos, 1);
@@ -165,5 +192,10 @@ void main()
 #endif
 #ifdef SG_OUTPUT_NORMALVS
 	SG_OUTPUT_NORMALVS = g_mWVIT * surfaceNormal;
+#endif
+#ifdef SG_OUTPUT_TEXCOORD
+	SG_OUTPUT_TEXCOORD = SG_INPUT_TEXCOORD[0] * gl_TessCoord.x
+		+ SG_INPUT_TEXCOORD[1] * gl_TessCoord.y 
+		+ SG_INPUT_TEXCOORD[2] * gl_TessCoord.z;
 #endif
 }
