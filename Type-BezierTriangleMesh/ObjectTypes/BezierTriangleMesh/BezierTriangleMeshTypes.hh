@@ -79,12 +79,14 @@ struct BezierTriangleTraits : public TriTraits
 			m_cps = std::move(aligned);
 		}
 
-		void edgePoints(const Point &from, const Point &to, const size_t deg, const std::vector<Point> &p)
+		void edgePoints(const int from, const int to, const size_t deg, const std::vector<Point> &p)
 		{
 			assert(p.size() == deg + 1);
 
-			int i0, j0;
-			std::tie(i0, j0) = findClosestEdgeCorners(deg, from, to);
+			int end = m_cps.size() - 1;
+
+			int i0 = from == 0 ? 0 : (from == 1 ? deg : end);
+			int j0 = to == 0 ? 0 : (to == 1 ? deg : end);
 
 			int min0, max0, mod;
 			calcIndexMod(i0, j0, min0, max0, mod, deg);
@@ -96,13 +98,15 @@ struct BezierTriangleTraits : public TriTraits
 			}
 		}
 
-		std::vector<Point> edgePoints(const Point &from, const Point &to, const size_t deg) const
+		std::vector<Point> edgePoints(const int from, const int to, const size_t deg) const
 		{
 			std::vector<Point> cps;
 			cps.reserve(deg+1);
 
-			int i0, j0;
-			std::tie(i0, j0) = findClosestEdgeCorners(deg, from, to);
+			int end = m_cps.size() - 1;
+
+			int i0 = from == 0 ? 0 : (from == 1 ? deg : end);
+			int j0 = to == 0 ? 0 : (to == 1 ? deg : end);
 
 			int min0, max0, mod;
 			calcIndexMod(i0, j0, min0, max0, mod, deg);
@@ -157,7 +161,6 @@ struct BezierTriangleTraits : public TriTraits
 		{
 			return m_cps.end();
 		}
-
 
 		std::tuple<int,int> findClosestEdgeCorners(
 			const size_t degree,

@@ -308,6 +308,8 @@ private:
 	void updateSurfaceDecl();
 	/// update vertex + index buffer of surface mesh
 	void updateSurfaceMesh(const int meshOption);
+
+	void updateRaytracingFormula();
 	/// update vertex + index buffer of control net mesh
 	void updateControlNetMesh();
 	/// update texture resources for gpu-based spline evaluation

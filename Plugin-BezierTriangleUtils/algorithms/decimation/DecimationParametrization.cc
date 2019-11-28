@@ -10,7 +10,8 @@ constexpr std::array<Vec2, 3> CORNER_UV = { { Vec2(0., 0.), Vec2(1., 0.), Vec2(0
 void DecimationParametrization::prepare()
 {
 	// note: we take the degree+1 so we always sample inside the triangle
-	m_sampleUVs = getRandomUVs(40, true);
+	m_sampleUVs = getRandomUVs(50, true);
+	//m_sampleUVs = getSampleUVs(6);
 
 	std::cerr << "calculated sample uvs:\n";
 	for (Vec2 &uv : m_sampleUVs) {
@@ -42,6 +43,7 @@ bool DecimationParametrization::solveLocal(
 	//std::cerr << "parametrization with valence " << n << std::endl;
 
 	std::unordered_map<FaceHandle, NGonFace> faces;
+	std::unordered_map<FaceHandle, std::array<VertexHandle, 3>> vhs;
 	std::unordered_map<FaceHandle, NGonFace> facesOrig;
 
 	std::unordered_map<VertexHandle, Vec2> vToUV;
@@ -84,47 +86,44 @@ bool DecimationParametrization::solveLocal(
 			assert(m_mesh.adjToVertex(f, v1));
 		}
 
+		int c0 = m_mesh.cpCornerIndex(f, v0);
+		assert(c0 >= 0);
+		int c1 = m_mesh.cpCornerIndex(f, v1);
+		assert(c1 >= 0);
+
+		// correct order: 0 degree cpNum-1 (e.g. 0 2 5)
+		VertexHandle v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : to);
+		VertexHandle v01 = c0 == 1 ? v0 : (c1 == 1 ? v1 : to);
+		VertexHandle v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : to);
+
 		if (v0 != to && v1 != to) {
 			assert(f != f0 && f != f1);
 			// the face after the halfedge collapse
-			faces.insert({ f, { vToUV[v0], vToUV[v1], vToUV[to] } });
+			faces.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 			assert(std::isgreater(area(faces[f]), 0.));
+			//vhs.insert({ f, {v02, v01, v00} });
 		}
 
-		int c0, c1, c2;
-		std::tie(c0, c1, c2) = m_mesh.data(f).findClosestCorners(
-			degree,
-			m_mesh.point(v0),
-			m_mesh.point(v1),
-			m_mesh.point(from)
-		);
+		v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
+		v01 = c0 == 1 ? v0 : (c1 == 1 ? v1 : from);
+		v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : from);
 
-		// correct order: 0 degree cpNum-1 (e.g. 0 2 5)
-		VertexHandle v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
-		VertexHandle v01 = c0 == degree ? v0 : (c1 == degree ? v1 : from);
-		VertexHandle v02 = c0 == cpNum-1 ? v0 : (c1 == cpNum - 1 ? v1 : from);
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 		assert(std::isgreater(area(facesOrig[f]), 0.));
 
-		double a = (m_mesh.data(f).controlPoint(0) - m_mesh.point(v00)).norm();
-		if (a > 0.0001) {
-			std::cerr << "0 offset " << a << "\n";
-			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(0) << '\n';
-			std::cerr << "\tblue triangle point " << m_mesh.point(v00) << '\n';
-		}
-		double b = (m_mesh.data(f).controlPoint(degree) - m_mesh.point(v01)).norm();
-		if (b > 0.0001) {
-			std::cerr << "1 offset " << b << "\n";
-			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(degree) << '\n';
-			std::cerr << "\tblue triangle point " << m_mesh.point(v01) << '\n';
-		}
-		double c = (m_mesh.data(f).controlPoint(cpNum-1) - m_mesh.point(v02)).norm();
-		if (c > 0.0001) {
-			std::cerr << "2 offset " << c << "\n";
-			std::cerr << "\tcontrol point " << m_mesh.data(f).controlPoint(cpNum-1) << '\n';
-			std::cerr << "\tblue triangle point " << m_mesh.point(v02) << '\n';
-		}
+		//std::cerr << "using\n\t" << m_mesh.point(v00) << "\n\t";
+		//std::cerr << m_mesh.point(v01) << "\n\t";
+		//std::cerr << m_mesh.point(v02) << "\n";
+
+		//auto it = m_mesh.cfv_begin(f);
+		//std::cerr << "face\n\t" << m_mesh.point(*it++) << "\n\t";
+		//std::cerr << m_mesh.point(*it++) << "\n\t";
+		//std::cerr << m_mesh.point(*it) << "\n";
+
+		//std::cerr << "cp\n\t" << m_mesh.data(f).controlPoint(0) << "\n\t";
+		//std::cerr << m_mesh.data(f).controlPoint(degree) << "\n\t";
+		//std::cerr << m_mesh.data(f).controlPoint(cpNum-1) << "\n\n";
 	}
 	assert(faces.size() == n - 2);
 
@@ -144,6 +143,14 @@ bool DecimationParametrization::solveLocal(
 	//		}
 	//	}
 	//}
+
+	if (print) {
+		std::cerr << "\nFROM " << m_mesh.point(from) << "\nTO ";
+		std::cerr << m_mesh.point(to) << '\n' << std::endl;
+	}
+
+	Vec2 checkTo0 = vToUV[to];
+	Point checkTo1 = m_mesh.point(to);
 
 	/**
 	 * for each face that remains:
@@ -167,6 +174,13 @@ bool DecimationParametrization::solveLocal(
 			assert(target.is_valid());
 			// sample the target face at its uv position
 			fit.add(evalSurface(m_mesh.data(target).points(), faceBary, degree));
+
+			//if (facePos == checkTo0) {
+			//	//std::cerr << "CHECK TO:\t" << facePos << " = " << checkTo0 << "\n\t";
+			//	//std::cerr << fit.points.back() << " = " << checkTo1 << '\n';
+			//	assert((fit.points.back() - checkTo1).norm() < 0.0001);
+			//}
+
 			//if (print) {
 			//	std::cerr << "green face " << pair.first << '\n';
 			//	std::cerr << "blue face " << target << '\n';
@@ -180,6 +194,15 @@ bool DecimationParametrization::solveLocal(
 			//	std::cerr << "\ttest point " << testPoint << '\n';
 			//}
 		}
+
+		//if (print) {
+		//	std::cerr << fit.face << " has points\n\t";
+		//	std::cerr << m_mesh.point(vhs[fit.face][0]) << "\n\t" << m_mesh.point(vhs[fit.face][1]);
+		//	std::cerr << "\n\t" << m_mesh.point(vhs[fit.face][2]) << "\n";
+		//	std::cerr << " fit points\n\t";
+		//	std::cerr << fit.points[0] << "\n\t" << fit.points[1];
+		//	std::cerr << "\n\t" << fit.points[2] << "\n";
+		//}
 
 		fitColl.push_back(fit);
 	}
@@ -259,7 +282,7 @@ bool DecimationParametrization::test(BezierTMesh *mesh)
 
 			std::cerr << "blue face " << target << '\n';
 			// sample the target face at its uv position
-			auto surface = evalSurface(mesh->data(target).points(), faceBary, degree);
+			Point surface = evalSurface(mesh->data(target).points(), faceBary, degree, true);
 
 			std::cerr << "\tgreen uv " << uv << '\n';
 			std::cerr << "\tblue uv " << faceBary << '\n';
@@ -298,10 +321,12 @@ std::vector<Vec2> DecimationParametrization::getSampleUVs(size_t degree)
 // https://cs.stackexchange.com/a/3229
 std::vector<Vec2> DecimationParametrization::getRandomUVs(size_t n, bool sampleUniform)
 {
+	//return { {Vec2(0., 0.), Vec2(1., 0.), Vec2(0., 1.) } };
+
 	std::vector<Vec2> uvs;
 
 	if (sampleUniform) {
-		uvs = getSampleUVs(4);
+		uvs = getSampleUVs(5);
 	}
 
 	size_t remain = n - uvs.size();

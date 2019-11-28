@@ -187,6 +187,16 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 				q_4 * t +
 				q_5 * s +
 				q_6;
+
+				/*
+			B_uv = pow(1.0 - s - t, 2.0) * bt.cps[5] +
+				2.0 * t * (1.0 - s - t) * bt.cps[4] +
+				t * t * bt.cps[3] +
+				2.0 * s * (1.0 - s - t) * bt.cps[2] +
+				2.0 * s * t * bt.cps[1] +
+				s * s * bt.cps[0];
+				*/
+				
 #elif GRAD == 3
 			// Partial derivate by s
 			dBs = 3 * q_30 * s * s +
@@ -476,7 +486,7 @@ void main(void)
 		outFragment = vec4(color.rgb, 1.0);
 	} else {
 #ifdef SHOWBVOLUME
-		outFragment = vec4(1.0, 0.0, 0.0, 1.0);
+		outFragment = vec4(0.0, 0.0, 1.0, 1.0);
 #endif
 #ifndef SHOWBVOLUME
 		discard;

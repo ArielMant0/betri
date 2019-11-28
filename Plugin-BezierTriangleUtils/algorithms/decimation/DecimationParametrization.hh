@@ -18,8 +18,9 @@ public:
 
 	using NGonFace = std::array<Vec2, 3>;
 
-	explicit DecimationParametrization(BezierTMesh &mesh, OpenMesh::VPropHandleT<Vec2> &uvProp) :
-		Parametrization(mesh), m_mapper(mesh, uvProp)
+	// TODO: need other handle?
+	explicit DecimationParametrization(BezierTMesh &mesh) :
+		Parametrization(mesh), m_mapper(mesh, OpenMesh::VPropHandleT<Vec2>())
 	{
 		prepare();
 	}

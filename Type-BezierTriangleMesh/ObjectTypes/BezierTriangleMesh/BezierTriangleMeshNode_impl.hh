@@ -12,6 +12,7 @@
 
 #include <fstream> // TODO
 #include <functional> // TODO
+#include <regex> // TODO
 
 #include "globals/BezierOptions.hh"
 #include "BezierMathUtil.hh"
@@ -274,11 +275,13 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
 		// TODO this can propably be done differently
-		// TODO make this toggle
 		//ACG::GLState::enable(GL_CULL_FACE);
 		//ACG::GLState::cullFace(GL_BACK);
-
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
+		if (betri::option(betri::BezierOption::CULL_FACES)) {
+			_state.enable(GL_CULL_FACE);
+			_state.cullFace(GL_BACK);
+		}
 
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
@@ -610,25 +613,40 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (props->textured())// && arb_texture_idx_)
 			ro.addTexture(RenderObject::Texture(checkerBoardTex_.id(), GL_TEXTURE_2D), 1, true);
 
-		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
-			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME)
+		if (props->primitive() == DrawModes::PRIMITIVE_POINT ||
+			props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
+			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME ||
+			props->primitive() == DrawModes::PRIMITIVE_HIDDENLINE)
 		{
 			ro.vertexBuffer = surfaceVBO_.id();
 			ro.indexBuffer = surfaceIBO_.id();
 			ro.vertexDecl = &surfaceDecl_;
 
-			if (props->primitive() == DrawModes::PRIMITIVE_WIREFRAME)
+			if (props->primitive() == DrawModes::PRIMITIVE_WIREFRAME ||
+				props->primitive() == DrawModes::PRIMITIVE_HIDDENLINE)
 				ro.fillMode = GL_LINE;
 			else
 				ro.fillMode = GL_FILL;
 
 			GLenum roPrimitives = GL_TRIANGLES;
 
+			if (props->primitive() == DrawModes::PRIMITIVE_POINT) {
+				//ro.setupPointRendering(_mat->pointSize(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
+				//applyRenderObjectSettings(props->primitive(), &ro);
+
+				//roPrimitives = GL_POINTS;
+				//ro.fillMode = GL_POINT;
+			}
+
 			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING) {
 
 				// TODO this is a doublication
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
+
+				// TODO
+				if (true)
+					updateRaytracingFormula();
 
 				///////////////////////
 				// Additional States //
@@ -1520,6 +1538,83 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // T
 	}
 }
 
+// Raytracing -----------------------------------------------------------------
+
+template <class MeshT>
+void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
+{
+	const float FACTORIALS[13] = {
+	1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
+	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
+	39916800, 479001600
+	};
+
+	std::string formula;
+	int n = grad();
+
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j + i <= n; j++) {
+			int k = n - i - j;
+			int cpIndex = pointsBefore(i) + j;
+
+			//formula += std::to_string(i) + " ";
+			//formula += std::to_string(j) + " ";
+			//formula += std::to_string(k) + "\n";
+			formula += std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
+			formula += " * s^" + std::to_string(i) + " * t^" + std::to_string(j) + " * u^" + std::to_string(k);
+			formula += " * a^" + std::to_string(i) + " * b^" + std::to_string(j) + " * c^" + std::to_string(k);
+			formula += " * bt.cps[" + std::to_string(cpIndex) + "]";
+			formula += " + \n";
+		}
+	}
+
+	//s.erase(std::find(s.begin(), s.end(), ' '));
+	// https://en.cppreference.com/w/cpp/regex/regex_replace
+	// http://www.cplusplus.com/reference/regex/ECMAScript/
+	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
+
+	std::cerr << "formula 1" << std::endl;
+	std::cerr << formula << std::endl;
+
+	// Replace everything to the power of 0
+	std::regex replace_re1("\\s\\*\\s\\S+\\^0");
+	formula = std::regex_replace(formula, replace_re1, "");
+
+	std::cerr << "formula 2" << std::endl;
+	std::cerr << formula << std::endl;
+
+	// Remove power of 1
+	std::regex replace_re2("\\^1\\s");
+	formula = std::regex_replace(formula, replace_re2, " ");
+
+	std::cerr << "formula 3" << std::endl;
+	std::cerr << formula << std::endl;
+
+	// Replace additional zeros?
+	std::regex replace_re3("\\.0+\\s");
+	formula = std::regex_replace(formula, replace_re3, ".0 ");
+
+	std::cerr << "formula 4" << std::endl;
+	std::cerr << formula << std::endl;
+
+	// Replace additional 1.0  
+	std::regex replace_re4("1\\.0+\\s\\*\\s");
+	formula = std::regex_replace(formula, replace_re4, "");
+
+	std::cerr << "formula 6" << std::endl;
+	std::cerr << formula << std::endl;
+
+	// Replace additional 1.0  
+	std::regex replace_re5("u");
+	formula = std::regex_replace(formula, replace_re5, "(1.0 - s - t)");
+
+	// TODO Replace additional plus (+) at the end
+	formula = formula.substr(0, formula.find_last_of("+"));
+
+	std::cerr << "formula 5" << std::endl;
+	std::cerr << formula << std::endl;
+}
+
 // ControlNet -----------------------------------------------------------------
 
 template <class MeshT>
@@ -2081,7 +2176,6 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	//int numIndices = vboSize / 4;
 	// TODO geht das besser?
 	int numIndices = pow(4, ITERATIONS) * 3 * bezierTriangleMesh_.n_faces();
 	std::vector<int> iboData(numIndices);
@@ -2123,7 +2217,8 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 		faceindex++;
 	}
 
-	// TODO ist das hier in bytes und deswegen *4?
+	assert(idxOffset == numIndices);
+
 	if (numIndices)
 		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
 
@@ -2142,6 +2237,10 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	// create vertex buffer
 	int vertexCount = bezierTriangleMesh_.n_faces() * 3;
 
+	//assert(bezierTriangleMesh_.n_vertices() == 6);
+	//assert(bezierTriangleMesh_.n_edges() == 10);
+	//assert(bezierTriangleMesh_.n_faces() == 5);
+
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
 	std::vector<float> vboData(vboSize); // float: 4 bytes
 
@@ -2151,12 +2250,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	Point pos;
 	MeshT::Normal normal;
 	MeshT::TexCoord2D texCoord; // TODO haben wir nicht brauchen wir noch
-	for (auto &face : bezierTriangleMesh_.faces()) {
+	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 		for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
 			//////////////
 			// Position //
 			//////////////
 			pos = bezierTriangleMesh_.point(v);
+			//std::cerr << "vertex pos " << pos << '\n';
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = float(pos[m]);
 
@@ -2164,6 +2264,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 			// Normals //
 			/////////////
 			normal = bezierTriangleMesh_.normal(v);
+			//std::cerr << "vertex normal " << normal << '\n';
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = float(normal[m]);
 
@@ -2222,12 +2323,9 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	int numIndices = vboSize / 4; // TODO warum hier durch 4
+	int numIndices = vertexCount;
 
 	std::vector<int> iboData(numIndices);
-
-	// index counter
-	//int idxOffset = 0;
 
 	for (int idxOffset = 0; idxOffset < numIndices; ++idxOffset)
 	{
@@ -2236,7 +2334,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 
 	// TODO i think the numIndices should be *4 and the numIndices-count itself is wrong, try to compare it with idxOffset
 	if (numIndices)
-		surfaceIBO_.upload(numIndices, &iboData[0], GL_STATIC_DRAW);
+		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
 
 	surfaceIndexCount_ = numIndices;
 

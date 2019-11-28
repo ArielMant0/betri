@@ -36,7 +36,7 @@ public:
 
 	void recalculateCPs(const FaceHandle f);
 
-	void interpolateEdgeControlPoints(const EdgeHandle eh);
+	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true, const bool invert=false);
 
 	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
 	{
@@ -67,6 +67,17 @@ public:
 	void degree(size_t degree) { m_degree = degree; }
 
 	size_t degree() { return m_degree; }
+
+	int cpCornerIndex(FaceHandle fh, VertexHandle vh) const
+	{
+		int i = 0;
+		for (auto v_it = cfv_begin(fh); v_it != cfv_end(fh); ++v_it) {
+			if (*v_it == vh)
+				return i;
+			i++;
+		}
+		return -1;
+	}
 
 	HalfedgeHandle splitEdgeSimple(EdgeHandle _eh, VertexHandle _vh, bool copy=false)
 	{

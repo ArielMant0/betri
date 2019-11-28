@@ -16,13 +16,14 @@ public:
 		m_complexity(m_mesh.n_vertices()),
 		m_nverts(m_mesh.n_vertices()),
 		m_q(nullptr),
-		m_param(mesh, m_uv),
+		m_param(mesh),
 		m_fit(mesh),
 		m_cancel(false)
     {
 		prepare();
 		// create priority q
-		VertexCmp cmp(mesh, m_hprio, m_target);
+		//VertexCmp cmp(mesh, m_hprio, m_target);
+		VertexCmp cmp(mesh);
 		m_q = new std::set<VertexHandle, VertexCmp>(cmp);
     }
 
@@ -43,30 +44,49 @@ private:
 	//-----------------------------------------------//
 	// compare functor for priority queue
 	//-----------------------------------------------//
+	//struct VertexCmp
+	//{
+	//	BezierTMesh *m_mesh;
+	//	OpenMesh::HPropHandleT<Scalar> &m_prio;
+	//	OpenMesh::VPropHandleT<HalfedgeHandle> &m_target;
+
+	//	VertexCmp(
+	//		BezierTMesh &mesh,
+	//		OpenMesh::HPropHandleT<Scalar> &prio,
+	//		OpenMesh::VPropHandleT<HalfedgeHandle> &target
+	//	) : m_mesh(&mesh), m_prio(prio), m_target(target) {}
+
+	//	Scalar priority(const VertexHandle vh) const
+	//	{
+	//		HalfedgeHandle h = m_mesh->property(m_target, vh);
+	//		return h.is_valid() ? m_mesh->property(m_prio, h) : -1.0;
+	//	}
+
+	//	bool operator()(const VertexHandle v0, const VertexHandle v1) const
+	//	{
+	//		assert(m_mesh != nullptr);
+	//		Scalar p0 = priority(v0), p1 = priority(v1);
+	//		// std::set needs UNIQUE keys -> handle equal priorities
+	//		return p0 == p1 ? v0.idx() < v1.idx() : p0 < p1;
+	//	}
+	//};
+
 	struct VertexCmp
 	{
 		BezierTMesh *m_mesh;
-		OpenMesh::HPropHandleT<Scalar> &m_prio;
-		OpenMesh::VPropHandleT<HalfedgeHandle> &m_target;
 
-		VertexCmp(
-			BezierTMesh &mesh,
-			OpenMesh::HPropHandleT<Scalar> &prio,
-			OpenMesh::VPropHandleT<HalfedgeHandle> &target
-		) : m_mesh(&mesh), m_prio(prio), m_target(target) {}
-
-		Scalar priority(const VertexHandle vh) const
-		{
-			HalfedgeHandle h = m_mesh->property(m_target, vh);
-			return h.is_valid() ? m_mesh->property(m_prio, h) : -1.0;
-		}
+		VertexCmp(BezierTMesh &mesh) : m_mesh(&mesh) {}
 
 		bool operator()(const VertexHandle v0, const VertexHandle v1) const
 		{
 			assert(m_mesh != nullptr);
-			Scalar p0 = priority(v0), p1 = priority(v1);
+			OpenMesh::VPropHandleT<double> vprio;
+			m_mesh->get_property_handle(vprio, "vertexprio");
+
+			Scalar p0 = m_mesh->property(vprio, v0),
+				p1 = m_mesh->property(vprio, v1);
 			// std::set needs UNIQUE keys -> handle equal priorities
-			return (p0 == p1 ? v0.idx() < v1.idx() : p0 < p1);
+			return p0 == p1 ? v0.idx() < v1.idx() : p0 < p1;
 		}
 	};
 
@@ -82,6 +102,7 @@ private:
 
 	void calculateErrors();
 	void calculateError(const HalfedgeHandle he);
+	void updateError(const HalfedgeHandle he);
 
 	HalfedgeHandle& target(const VertexHandle vh) { return m_mesh.property(m_target, vh); }
 
@@ -90,11 +111,12 @@ private:
 	bool isCollapseLegal(const HalfedgeHandle hh);
 
 	Scalar& priority(const HalfedgeHandle hh) { return m_mesh.property(m_hprio, hh); }
-	Scalar priority(const VertexHandle vh)
-	{
-		HalfedgeHandle h = target(vh);
-		return h.is_valid() ? m_mesh.property(m_hprio, h) : -1.0;
-	}
+	//Scalar priority(const VertexHandle vh)
+	//{
+	//	HalfedgeHandle h = target(vh);
+	//	return h.is_valid() ? m_mesh.property(m_hprio, h) : -1.0;
+	//}
+	Scalar& priority(const VertexHandle vh) { return m_mesh.property(m_vprio, vh); }
 
 	Scalar calcVertexPriority(const VertexHandle vh)
 	{
@@ -154,8 +176,8 @@ private:
 
 	// property handles
 	OpenMesh::HPropHandleT<Scalar> m_hprio;
+	OpenMesh::VPropHandleT<Scalar> m_vprio;
 	OpenMesh::VPropHandleT<HalfedgeHandle> m_target;
-	OpenMesh::VPropHandleT<Vec2> m_uv;
 };
 
 }

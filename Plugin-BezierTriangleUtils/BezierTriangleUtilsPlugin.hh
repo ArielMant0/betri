@@ -90,6 +90,7 @@ private slots:
 	void setDError(int);
 	void setNewtonIt(int);
 
+	void setCulling(bool);
 	void setBoundVShow(bool);
 
 	// voronoi meshing functions

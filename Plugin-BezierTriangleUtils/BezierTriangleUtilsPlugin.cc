@@ -194,10 +194,6 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;
 	berrorSpinBox->setRange(0, 10000);
-	//QDoubleSpinBox *berrorSpinBox = new QDoubleSpinBox;
-	//berrorSpinBox->setRange(0.0, 0.1);
-	//berrorSpinBox->setSingleStep(0.001);
-	//berrorSpinBox->setValue(0.001);
 
 	QLabel *derrorLabel = new QLabel(tr("dot-error:"));
 	QSpinBox *derrorSpinBox = new QSpinBox;
@@ -211,8 +207,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	connect(derrorSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setDError(int)));
 	connect(niterationSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setNewtonIt(int)));
 
-	berrorSpinBox->setValue(1000);
-	derrorSpinBox->setValue(1000);
+	berrorSpinBox->setValue(10000);
+	derrorSpinBox->setValue(10000);
 	niterationSpinBox->setValue(6);
 
 	// hide/show the appropriate widgets
@@ -250,6 +246,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *visGroup = new QGroupBox(tr("Visualisation"));
 
+	QCheckBox *cullBox = new QCheckBox("Backfaceculling");
 	QCheckBox *boundVBox = new QCheckBox("Show BoundingVolume");
 	QLabel *visLabel = new QLabel(tr("Facecoloring:"));
 	QComboBox *visComboBox = new QComboBox;
@@ -282,6 +279,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	}
 	);
 
+	connect(cullBox, QOverload<bool>::of(&QCheckBox::clicked),
+		this, &BezierTriangleUtilsPlugin::setCulling);
+
 	connect(boundVBox, QOverload<bool>::of(&QCheckBox::clicked),
 		this, &BezierTriangleUtilsPlugin::setBoundVShow);
 
@@ -289,9 +289,10 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 		this, &BezierTriangleUtilsPlugin::setVisulisationType);
 
 	QGridLayout *visLayout = new QGridLayout;
-	visLayout->addWidget(boundVBox, 0, 0);
-	visLayout->addWidget(visLabel, 1, 0);
-	visLayout->addWidget(visComboBox, 1, 1);
+	visLayout->addWidget(cullBox, 0, 0);
+	visLayout->addWidget(boundVBox, 1, 0);
+	visLayout->addWidget(visLabel, 2, 0);
+	visLayout->addWidget(visComboBox, 3, 1);
 	visGroup->setLayout(visLayout);
 
 	boundVBox->hide();
@@ -467,6 +468,11 @@ void BezierTriangleUtilsPlugin::setVisulisationType(int value)
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
+}
+
+void BezierTriangleUtilsPlugin::setCulling(bool value)
+{
+	PluginFunctions::betriOption(BezierOption::CULL_FACES, value);
 }
 
 void BezierTriangleUtilsPlugin::setBoundVShow(bool value)

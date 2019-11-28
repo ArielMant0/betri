@@ -89,37 +89,20 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 		error = 0.;
 		auto &cp = m_mesh.data(face);
 
-		//if (apply) {
-		//	std::cerr << "control points BEFORE align:\n";
-		//	for (auto it = cp.cpBegin(); it != cp.cpEnd(); ++it) {
-		//		std::cerr << '\t' << *it << '\n';
-		//	}
-		//	std::cerr << "calculated control points:\n";
-		//	for (size_t i = 0; i < cpNum; ++i) {
-		//		std::cerr << '\t' << Point(resultX[i], resultY[i], resultZ[i]) << '\n';
-		//	}
-		//}
-
-		//cp.align(degree,
-		//	Point(resultX[0], resultY[0], resultZ[0]),
-		//	Point(resultX[degree], resultY[degree], resultZ[degree]),
-		//	Point(resultX[cpNum - 1], resultY[cpNum - 1], resultZ[cpNum - 1])
-		//);
-
-		//if (apply) {
-		//	std::cerr << "control points AFTER align:\n";
-		//	for (auto it = cp.cpBegin(); it != cp.cpEnd(); ++it) {
-		//		std::cerr << '\t' << *it << '\n';
-		//	}
-		//}
-
 		if (apply) {
-			std::cerr << "new control points for face " << face << '\n';
+			//std::cerr << "new control points for face " << face << '\n';
 			// set face control points to result points and calculate max error
-			for (size_t i = 0; i < cpNum; ++i) {
-				Point p(resultX[i], resultY[i], resultZ[i]);
-				std::cerr << "\t(" << i << ") " << p << '\n';
-				cp.controlPoint(i, p);
+			//for (size_t i = 0; i < cpNum; ++i) {
+			//	Point p(resultX[i], resultY[i], resultZ[i]);
+			//	//std::cerr << "\t(" << i << ") " << p << '\n';
+			//	cp.controlPoint(i, p);
+			//}
+
+			for (size_t i = 0, idx = 0; i <= degree; ++i) {
+				for (size_t j = 0; j + i <= degree; ++j, ++idx) {
+					Point p(resultX[idx], resultY[idx], resultZ[idx]);
+					cp.controlPoint(cpIndex(i, j, degree), p);
+				}
 			}
 
 			// calculate errors
@@ -168,10 +151,16 @@ bool DecimationFitting::test(BezierTMesh *mesh)
 	FaceHandle abf = mesh->add_face(a, b, f, true);
 	FaceHandle bcf = mesh->add_face(b, c, f, true);
 	FaceHandle cdf = mesh->add_face(c, d, f, true);
-	return true;
 	FaceHandle def = mesh->add_face(d, e, f, true);
 	FaceHandle eaf = mesh->add_face(e, a, f, true);
 
+	mesh->update_normals();
+
+	assert(mesh->n_vertices() == 6);
+	assert(mesh->n_edges() == 10);
+	assert(mesh->n_faces() == 5);
+
+	return true;
 
 	std::array<FitCollection, 3> remain;
 	remain[0].face = cdf;

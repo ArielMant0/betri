@@ -13,8 +13,8 @@ void Decimation::prepare()
 	if (!m_mesh.get_property_handle(m_target, "vertextargetprop"))
 		m_mesh.add_property(m_target, "vertextargetprop");
 
-	if (!m_mesh.get_property_handle(m_uv, "vuv"))
-		m_mesh.add_property(m_uv, "vuv");
+	if (!m_mesh.get_property_handle(m_vprio, "vertexprio"))
+		m_mesh.add_property(m_vprio, "vertexprio");
 }
 
 void Decimation::cleanup()
@@ -25,8 +25,8 @@ void Decimation::cleanup()
 	if (m_mesh.get_property_handle(m_target, "vertextargetprop"))
 		m_mesh.remove_property(m_target);
 
-	if (m_mesh.get_property_handle(m_uv, "vuv"))
-		m_mesh.remove_property(m_uv);
+	if (m_mesh.get_property_handle(m_vprio, "vertexprio"))
+		m_mesh.remove_property(m_vprio);
 }
 
 void Decimation::calculateErrors()
@@ -54,32 +54,45 @@ void Decimation::calculateErrors()
 	std::cerr << "calcluated errors:\n\tmin: " << minError << "\n\tmax: " << maxError;
 	std::cerr << "\n\tavg: " << avgError << std::endl;
 
-	// normalize errors
-	/*for (HalfedgeHandle hh : m_mesh.halfedges()) {
-		Scalar error = priority(hh);
-		if (error != -1.) {
-			priority(hh) = error / maxError;
-		}
-	}*/
+	for (VertexHandle vh : m_mesh.vertices()) {
+		priority(vh) = -1.0;
+	}
 }
 
 void Decimation::calculateError(const HalfedgeHandle hh)
 {
-	// halfedges that result in an illegal collapse have a priority of -1
-	priority(hh) = -1.0;
-
 	if (isCollapseLegal(hh)) {
 		// "simulate collapse" -> fit all 1-Ring faces -> use max error
 		Scalar error = fit(hh, false);
 		assert(std::isgreaterequal(error, 0.));
 		priority(hh) = error;
+	} else {
+		// halfedges that result in an illegal collapse have a priority of -1
+		priority(hh) = -1.0;
 	}
+}
+
+void Decimation::updateError(const HalfedgeHandle hh)
+{
+	//std::cerr << "update hh " << hh << " prio: " << priority(hh);
+	bool legal = isCollapseLegal(hh);
+	if (priority(hh) != -1.0 && legal) {
+		// "simulate collapse" -> fit all 1-Ring faces -> use max error
+		Scalar error = fit(hh, false);
+		assert(std::isgreaterequal(error, 0.));
+		priority(hh) = priority(hh) + error;
+	} else {
+		// halfedges that result in an illegal collapse have a priority of -1
+		priority(hh) = -1.0;
+	}
+	//std::cerr << " -> " << priority(hh) << "(legal ? " << legal << ")\n";
 }
 
 void Decimation::enqueueVertex(const VertexHandle vh)
 {
 	Scalar prio, min_prio(std::numeric_limits<Scalar>::max());
 	HalfedgeHandle min_hh;
+
 
 	// find best out-going halfedge
 	for (auto voh_it = m_mesh.voh_begin(vh), voh_end = m_mesh.voh_end(vh);
@@ -88,7 +101,7 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 		if (isCollapseLegal(*voh_it)) {
 			prio = priority(*voh_it);
 
-			if (prio != -1.0 && prio < min_prio) {
+			if (prio >= 0.0 && prio < min_prio) {
 				min_prio = prio;
 				min_hh = *voh_it;
 			}
@@ -98,14 +111,16 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 	// remove from queue
 	if (priority(vh) != -1.0) {
 		m_q->erase(vh);
-		target(vh) = HalfedgeHandle();
+		priority(vh) = -1.0;
 	}
 
 	// update queue
 	if (min_hh.is_valid()) {
+		//std::cerr << "update vertex " << vh << " prio " << min_prio << " halfedge ";
+		//std::cerr << min_hh << " with prio " << priority(min_hh) << std::endl;
 		target(vh) = min_hh;
-		if (min_prio >= 0.0)
-			m_q->insert(vh);
+		priority(vh) = min_prio;
+		m_q->insert(vh);
 	}
 }
 
@@ -189,7 +204,6 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
 		step();
-
 		if (debugCancel())
 			return true;
 
@@ -209,6 +223,22 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 	m_mesh.garbage_collection();
 
+	//if (false && !done && stepwise) {
+	//	
+	//	m_q->clear();
+	//	//delete m_q;
+
+	//	//m_mesh.get_property_handle(m_hprio, "halfedgeprioprop");
+	//	//m_mesh.get_property_handle(m_target, "vertextargetprop");
+
+	//	//VertexCmp cmp(m_mesh, m_hprio, m_target);
+	//	//m_q = new std::set<VertexHandle, VertexCmp>(cmp);
+
+	//	for (HalfedgeHandle hh : m_mesh.halfedges()) {
+	//		enqueueVertex(m_mesh.from_vertex_handle(hh));
+	//	}
+	//}
+
 	// update normals
 	m_mesh.update_normals();
 
@@ -217,15 +247,20 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 void Decimation::step()
 {
+	auto testit = m_q->begin();
+	for (size_t i = 0; i < 15 && testit != m_q->end(); ++i, ++testit) {
+		std::cerr << i << " " << priority(*testit) << std::endl;
+	}
 
 	VertexHandle vh = *m_q->begin();
 	m_q->erase(m_q->begin());
 
 	HalfedgeHandle hh = target(vh);
 
-	if (!hh.is_valid() || priority(hh) >= 0.35) return;
+	if (!hh.is_valid()) return;
 
 	VertexHandle from = m_mesh.from_vertex_handle(hh);
+	VertexHandle to = m_mesh.to_vertex_handle(hh);
 
 	// perform collapse
 	if (isCollapseLegal(hh)) {
@@ -233,8 +268,13 @@ void Decimation::step()
 		FaceHandle f1 = m_mesh.opposite_face_handle(hh);
 
 		// store one-ring
-		std::vector<HalfedgeHandle> oneRing;
 		std::vector<FaceHandle> faces;
+		std::set<HalfedgeHandle> oneRing;
+		std::set<VertexHandle> oneRingV;
+
+		for (auto v_it = m_mesh.cvv_begin(from); v_it != m_mesh.cvv_end(from); ++v_it) {
+			oneRingV.insert(*v_it);
+		}
 
 		// storing neighbors beforehand is easier
 		for (auto f_it = m_mesh.cvf_begin(from), f_end = m_mesh.cvf_end(from);
@@ -242,10 +282,8 @@ void Decimation::step()
 		) {
 			// TODO: this is quite a lot of halfedges
 			if (*f_it != f0 && *f_it != f1) {
-				for (auto h_it = m_mesh.cfh_begin(*f_it); h_it != m_mesh.cfh_end(*f_it); ++h_it) {
-					oneRing.push_back(*h_it);
-					faces.push_back(*f_it);
-				}
+				//m_mesh.set_color(*f_it, { 0.f, 0.75f, 0.25f, 1.f });
+				faces.push_back(*f_it);
 			}
 		}
 		std::cerr << "collapsing halfedge " << hh << " with error " << priority(hh) << '\n';
@@ -261,6 +299,13 @@ void Decimation::step()
 		// remove vertex from q since it counts as deleted now
 		m_q->erase(from);
 
+
+		for (VertexHandle vh : oneRingV) {
+			for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
+				oneRing.insert(*h_it);
+			}
+		}
+
 		// make faces "match" again
 		std::set<EdgeHandle> visited;
 
@@ -269,7 +314,7 @@ void Decimation::step()
 				e_it != e_end; ++e_it
 			) {
 				if (visited.find(*e_it) == visited.end()) {
-					m_mesh.interpolateEdgeControlPoints(*e_it);
+					m_mesh.interpolateEdgeControlPoints(*e_it, true, true);
 					visited.insert(*e_it);
 				}
 			}
@@ -281,12 +326,19 @@ void Decimation::step()
 		// recalculate the error first, so we know all incident halfedges
 		// are updated before updating the queue
 		for (HalfedgeHandle he : oneRing) {
-			calculateError(he);
+			updateError(he);
 		}
 		// update queue (reinsert the vertex)
-		for (HalfedgeHandle he : oneRing) {
-			enqueueVertex(m_mesh.from_vertex_handle(he));
+		for (VertexHandle vh : oneRingV) {
+			enqueueVertex(vh);
 		}
+
+		// TODO: why is q not sorted?
+		//assert(std::is_sorted(m_q->begin(), m_q->end(), [&](const VertexHandle &v0, const VertexHandle &v1) {
+		//	Scalar p0 = priority(v0), p1 = priority(v1);
+		//	// std::set needs UNIQUE keys -> handle equal priorities
+		//	return p0 == p1 ? v0.idx() < v1.idx() : p0 < p1;
+		//}));
 	}
 }
 

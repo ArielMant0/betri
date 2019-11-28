@@ -155,7 +155,7 @@ inline size_t pointsFromDegree(const size_t degree)
 
 inline Scalar eval(int i, int j, Vec2 bary, unsigned int degree)
 {
-	int k = degree - i - j;
+	int k = (int)degree - i - j;
 	double w = 1.0 - bary[0] - bary[1];
 
 	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
@@ -194,9 +194,17 @@ inline Point evalSurface(const std::vector<Point> &cps, const Vec2 &bary, const 
 
 
 // TODO: remove inline
-inline Point evalSurface(std::vector<Point> &cps, Point &bary, unsigned int degree)
+inline Point evalSurface(std::vector<Point> &cps, Point &bary, unsigned int degree, bool print=false)
 {
 	Point point(0.0);
+
+	if (print) {
+		std::cerr << "eval surface with cp:\n";
+		for (auto p : cps) {
+			std::cerr << "\t" << p << "\n";
+		}
+	}
+
 
 	for (int i = 0; i <= degree; i++) {
 		for (int j = 0; j + i <= degree; j++) {
