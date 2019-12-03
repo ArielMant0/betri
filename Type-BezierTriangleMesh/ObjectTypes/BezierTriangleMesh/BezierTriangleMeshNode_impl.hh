@@ -83,7 +83,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	float div = 1.0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (10.0 - 1.0)));
 
@@ -1544,25 +1544,27 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 {
 	const float FACTORIALS[13] = {
-	1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
-	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
-	39916800, 479001600
+		1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
+		720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
+		39916800, 479001600
 	};
 
 	std::string formula;
+	std::string subFormula;
+	std::string tmpFormula;
 	int n = grad();
-
-	for (int i = 0; i <= n; i++) {
-		for (int j = 0; j + i <= n; j++) {
-			int k = n - i - j;
-			int cpIndex = pointsBefore(i) + j;
+	/*
+	for (int j = 0; j <= n; j++) {
+		for (int k = 0; j + k <= n; k++) {
+			int i = n - j - k;
+			int cpIndex = pointsBefore(j) + k;
 
 			//formula += std::to_string(i) + " ";
 			//formula += std::to_string(j) + " ";
 			//formula += std::to_string(k) + "\n";
 			formula += std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
 			formula += " * s^" + std::to_string(i) + " * t^" + std::to_string(j) + " * u^" + std::to_string(k);
-			formula += " * a^" + std::to_string(i) + " * b^" + std::to_string(j) + " * c^" + std::to_string(k);
+			//formula += " * a^" + std::to_string(i) + " * b^" + std::to_string(j) + " * c^" + std::to_string(k);
 			formula += " * bt.cps[" + std::to_string(cpIndex) + "]";
 			formula += " + \n";
 		}
@@ -1601,7 +1603,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	std::regex replace_re4("1\\.0+\\s\\*\\s");
 	formula = std::regex_replace(formula, replace_re4, "");
 
-	std::cerr << "formula 6" << std::endl;
+	std::cerr << "formula 5" << std::endl;
 	std::cerr << formula << std::endl;
 
 	// Replace additional 1.0  
@@ -1611,8 +1613,209 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	// TODO Replace additional plus (+) at the end
 	formula = formula.substr(0, formula.find_last_of("+"));
 
-	std::cerr << "formula 5" << std::endl;
+	std::cerr << "final formula" << std::endl;
 	std::cerr << formula << std::endl;
+	*/
+
+	std::string plusDelimiter = " + ";
+	std::string minusDelimiter = " - ";
+
+	std::vector<std::string> posFormulaVec;
+	std::vector<std::string> negFormulaVec;
+
+	for (int j = 0; j <= n; j++) {
+		for (int k = 0; j + k <= n; k++) {
+			int i = n - j - k;
+			int cpIndex = pointsBefore(j) + k;
+
+			subFormula = " + " + std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
+			subFormula += " * bt.cps[" + std::to_string(cpIndex) + "]";
+
+			for (int tmp = 0; tmp < i; tmp++) {
+				subFormula += " * s";
+			}
+			for (int tmp = 0; tmp < j; tmp++) {
+				subFormula += " * t";
+			}
+
+			for (int tmp = 0; tmp < k; tmp++) {
+				posFormulaVec.clear();
+				negFormulaVec.clear();
+
+				// https://stackoverflow.com/questions/53849/how-do-i-tokenize-a-string-in-c
+				size_t start = plusDelimiter.size(), end = 0, endPos = 0, endNeg = 0;
+
+				//std::cerr << "subformula " << subFormula << std::endl;
+				bool next = false;
+				while (endNeg != std::string::npos) {
+					endNeg = subFormula.find(minusDelimiter, start);
+					endPos = subFormula.find(plusDelimiter, start);
+					end = std::min(endNeg, endPos);
+
+					if (next) {
+						negFormulaVec.push_back(subFormula.substr(start,
+							(end == std::string::npos) ? std::string::npos : end - start)
+						);
+					} else {
+						posFormulaVec.push_back(subFormula.substr(start,
+							(end == std::string::npos) ? std::string::npos : end - start)
+						);
+					}
+					start = ((end > (std::string::npos - plusDelimiter.size()))
+						? std::string::npos : end + plusDelimiter.size()
+					);
+					next = endNeg < endPos;
+				}				
+				
+				/*
+				for (auto s : negFormulaVec) {
+					std::cerr << "Neg: " << tmp << " -> " << s << std::endl;
+				}
+				for (auto s : posFormulaVec) {
+					std::cerr << "Pos: " << tmp << " -> " << s << std::endl;
+				}
+				*/
+
+				tmpFormula.clear();
+				for (auto s : negFormulaVec) {
+					tmpFormula += " - 1.0 * " + s;
+					tmpFormula += " + " + s;
+					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
+					if (s.find(" * t") == std::string::npos)
+						tmpFormula += " * s";
+					else
+						tmpFormula.insert(pos, " * s");
+					tmpFormula += " + " + s + " * t";
+				}
+				for (auto s : posFormulaVec) {
+					tmpFormula += " + 1.0 * " + s;
+					tmpFormula += " - " + s;
+					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
+					if (s.find(" * t") == std::string::npos)
+						tmpFormula += " * s";
+					else
+						tmpFormula.insert(pos, " * s");
+					tmpFormula += " - " + s + " * t";
+				}
+
+				subFormula = tmpFormula;
+			}
+
+			//std::cerr << "form " << subFormula << std::endl;
+
+			//std::cerr << " j " << j << " k " << k << " " << subFormula << std::endl;
+
+			subFormula += "\n";
+			formula += subFormula;
+		}
+	}
+
+	//s.erase(std::find(s.begin(), s.end(), ' '));
+	// https://en.cppreference.com/w/cpp/regex/regex_replace
+	// http://www.cplusplus.com/reference/regex/ECMAScript/
+	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
+
+	// Replace additional 1.0  
+	std::regex replace_re0("1\\.0+\\s\\*\\s");
+	formula = std::regex_replace(formula, replace_re0, "");
+
+	// Replace additional zeros?
+	std::regex replace_re1("\\.0+\\s");
+	formula = std::regex_replace(formula, replace_re1, ".0 ");
+
+	//std::cerr << "\nfinal formula" << std::endl;
+	//std::cerr << formula << std::endl;
+
+	std::regex replace_re2("\\n");
+	formula = std::regex_replace(formula, replace_re2, "");
+
+
+	std::vector<std::string> theStringVector;
+	size_t start = 0, end = 0;
+	while (end != std::string::npos) {
+		end = std::min(
+			formula.find(minusDelimiter, start + minusDelimiter.size()), 
+			formula.find(plusDelimiter, start + minusDelimiter.size())
+		);
+
+		// If at end, use length=maxLength.  Else use length=end-start.
+		theStringVector.push_back(formula.substr(start,
+			(end == std::string::npos) ? std::string::npos : end - start));
+
+		// If at end, use start=maxSize.  Else use start=end+delimiter.
+		start = ((end > (std::string::npos - minusDelimiter.size()))
+			? std::string::npos : end + minusDelimiter.size());
+		start = end;
+	}
+	/*
+	std::cerr << "\n\nstringVector" << std::endl;
+	for (auto s : theStringVector)
+		std::cerr << s << std::endl;
+	*/
+
+	std::vector<std::string> regexVec;
+	std::string myRegex;
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			myRegex.clear();
+			for (int x = 0; x < i; x++) {
+				myRegex += " * s";
+			}
+			for (int y = 0; y < j; y++) {
+				myRegex += " * t";
+			}
+			regexVec.push_back(myRegex);
+		}
+	}
+	/*
+	std::cerr << "\n\nRegex" << std::endl;
+	for (auto s : regexVec) {
+		std::cerr << s << std::endl;
+	}*/
+
+	// TODO reserve oben auch
+	std::vector<std::string> qVec;
+
+	std::string tmp;
+	std::string save;
+	for (int iter = regexVec.size() - 1; iter != 0; iter--) {
+		tmp.clear();
+		for (int stringIt = 0; stringIt != theStringVector.size(); stringIt++) {
+			if (theStringVector[stringIt].find(regexVec[iter], 0) != std::string::npos) {
+				theStringVector[stringIt].erase(
+					theStringVector[stringIt].end() - regexVec[iter].size(), 
+					theStringVector[stringIt].end()
+				);
+				tmp += theStringVector[stringIt];
+				// remove used ones
+				theStringVector[stringIt] = "";
+			}
+		}
+		qVec.push_back(tmp);
+	}
+	tmp.clear();
+	for (auto s : theStringVector) {
+		tmp += s;
+	}
+	qVec.push_back(tmp);
+
+	std::string combinedQString;
+	for (int stringIt = 0; stringIt != qVec.size(); stringIt++) {
+		combinedQString += "vec3 q_" + std::to_string(stringIt) + " =" + qVec[stringIt] + "\n";
+	}
+
+	std::string combinedBuv = "B_uv =";
+	for (int stringIt = 0; stringIt != regexVec.size(); stringIt++) {
+		combinedBuv += " + q_" + std::to_string(stringIt) + regexVec[regexVec.size() - stringIt - 1] + "\n";
+	}
+
+	std::cerr << "\n\nQs" << std::endl;
+	std::cerr << combinedQString << std::endl;
+
+	std::cerr << "\nBuv" << std::endl;
+	std::cerr << combinedBuv << std::endl;
+
+	// TODO generate the derivates
 }
 
 // ControlNet -----------------------------------------------------------------
