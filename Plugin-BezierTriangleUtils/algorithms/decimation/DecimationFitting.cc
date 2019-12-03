@@ -90,19 +90,10 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 		auto &cp = m_mesh.data(face);
 
 		if (apply) {
-			//std::cerr << "new control points for face " << face << '\n';
-			// set face control points to result points and calculate max error
-			//for (size_t i = 0; i < cpNum; ++i) {
-			//	Point p(resultX[i], resultY[i], resultZ[i]);
-			//	//std::cerr << "\t(" << i << ") " << p << '\n';
-			//	cp.controlPoint(i, p);
-			//}
-
-			for (size_t i = 0, idx = 0; i <= degree; ++i) {
-				for (size_t j = 0; j + i <= degree; ++j, ++idx) {
-					Point p(resultX[idx], resultY[idx], resultZ[idx]);
-					cp.controlPoint(cpIndex(i, j, degree), p);
-				}
+			// set control points
+			for (size_t i = 0; i < cpNum; ++i) {
+				Point p(resultX[i], resultY[i], resultZ[i]);
+				cp.controlPoint(i, p);
 			}
 
 			// calculate errors

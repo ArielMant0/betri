@@ -36,7 +36,7 @@ public:
 
 	void recalculateCPs(const FaceHandle f);
 
-	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true, const bool invert=false);
+	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true);
 
 	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
 	{

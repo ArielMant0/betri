@@ -45,6 +45,7 @@ void VoronoiFitting::sortInner(const FaceHandle face)
 bool VoronoiFitting::solveLocal(const FaceHandle face)
 {
 	size_t nv_inner_ = pointsFromDegree(m_degree);
+	size_t degree = m_mesh.degree();
 
 	Vertices inner, outVerts;
 
@@ -122,7 +123,6 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 	for (size_t i = 0; i < matSize; ++i) {
 		VertexHandle vh = i < inSize ? inner[i] : outVerts[i - inSize];
 		Point p = m_mesh.point(vh);
-		//std::cerr << vh << " has uv " << hmap(vh) << std::endl;
 		rhsx[i] = p[0];
 		rhsy[i] = p[1];
 		rhsz[i] = p[2];
@@ -150,15 +150,15 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 	// --------------------------------------------
 
 	if (success) {
-		// resize control point vector
-		m_ctrl.data(face).prepare(nv_inner_);
+		auto &cp = m_ctrl.data(face);
 
-		std::cerr << "\nface " << face << " has control points:\n";
+		// resize control point vector
+		cp.prepare(nv_inner_);
+
 		// write control point positions back
 		for (size_t i = 0; i < nv_inner_; ++i) {
 			Point p(resultX[i], resultY[i], resultZ[i]);
-			m_ctrl.data(face).controlPoint(i, p);
-			std::cerr << "\t(" << i << ") = " << p << "\n";
+			cp.controlPoint(i, p);
 		}
 	}
 	return success;

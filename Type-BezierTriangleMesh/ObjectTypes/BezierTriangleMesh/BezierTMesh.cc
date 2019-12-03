@@ -48,7 +48,7 @@ void BezierTMesh::recalculateCPs(const FaceHandle f)
 	addCPsToFace(f);
 }
 
-void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool between, const bool invert)
+void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool between)
 {
 	HalfedgeHandle h0 = halfedge_handle(eh, 0), h1 = halfedge_handle(eh, 1);
 	FaceHandle f0 = face_handle(h0), f1 = face_handle(h1);
@@ -61,20 +61,12 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 	Point p00 = point(v00);
 	Point p01 = point(v01);
 
-	int fi0 = cpCornerIndex(f0, v00);
-	int ti0 = cpCornerIndex(f0, v01);
-	if (invert) {
-		fi0 = 2 - fi0;
-		ti0 = 2 - ti0;
-	}
+	int fi0 = 2 - cpCornerIndex(f0, v00);
+	int ti0 = 2 - cpCornerIndex(f0, v01);
 	std::vector<Point> p0 = cp0.edgePoints(fi0, ti0, m_degree);
-	
-	int fi1 = cpCornerIndex(f1, v00);
-	int ti1 = cpCornerIndex(f1, v01);
-	if (invert) {
-		fi1 = 2 - fi1;
-		ti1 = 2 - ti1;
-	}
+
+	int fi1 = 2 - cpCornerIndex(f1, v00);
+	int ti1 = 2 - cpCornerIndex(f1, v01);
 	std::vector<Point> p1 = cp1.edgePoints(fi1, ti1, m_degree);
 
 	std::cerr.precision(2);
@@ -83,14 +75,18 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 	p0[0] = p00;
 	p0[m_degree] = p01;
 
+	p1[0] = p00;
+	p1[m_degree] = p01;
+
 	if (between) {
 		for (int i = 1; i < p0.size()-1; ++i) {
 			p0[i] = 0.5 * p0[i] + 0.5 * p1[i];
+			p1[i] = p0[i];
 		}
 	}
 
 	cp0.edgePoints(fi0, ti0, m_degree, p0);
-	cp1.edgePoints(fi1, ti1, m_degree, p0);
+	cp1.edgePoints(fi1, ti1, m_degree, p1);
 }
 
 void BezierTMesh::splitFaceDyadical(

@@ -267,29 +267,18 @@ void VoronoiParametrization::initCoords(const FaceHandle face)
 	const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
 	const ShortestPath &ca = ShortestPath::path(ttv(face)[2], ttv(face)[0]);
 
-	std::vector<BoundaryMapper<VertexToTri>::Path*> p;
-	// this makes sure every path is in the right order
-	// -> it always starts with the id the previous path ended with
-	p.push_back(&ab.list(bc));
-	p.push_back(&bc.list());
-	p.push_back(&ca.list(bc.end()));
+	std::vector<BoundaryMapper<VertexToTri>::Path*> paths;
 
-	assert(bc.front() == ab.back());
-	assert(ca.front() == bc.back());
-	assert(ab.front() == ca.back());
+	auto &listA = ab.list(ttv(face)[0]);
+	auto &listB = bc.list(ttv(face)[1]);
+	auto &listC = ca.list(ttv(face)[2]);
+
+	paths.push_back(&listA);
+	paths.push_back(&listB);
+	paths.push_back(&listC);
 
 	// map boundary
-	m_mapper.map(p);
-
-	//for (VertexHandle vh : ab.list()) {
-	//	m_mesh.set_color(vh, { 0., hmap(vh)[0], hmap(vh)[1], 1. });
-	//}
-	//for (VertexHandle vh : bc.list()) {
-	//	m_mesh.set_color(vh, { 0., hmap(vh)[0], hmap(vh)[1], 1. });
-	//}
-	//for (VertexHandle vh : ca.list()) {
-	//	m_mesh.set_color(vh, { 0., hmap(vh)[0], hmap(vh)[1], 1. });
-	//}
+	m_mapper.map(paths);
 }
 
 //-----------------------------------------------------------------------------

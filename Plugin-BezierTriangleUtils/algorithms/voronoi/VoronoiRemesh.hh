@@ -186,8 +186,6 @@ private:
 
 	void resetPath(FaceDijkstra &q, const FH face);
 
-	void repartition(const ID id1);
-
 	using VQElem = std::pair<Scalar, VH>;
 	using VertexDijkstra = std::set<VQElem>;
 

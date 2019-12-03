@@ -224,7 +224,7 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 	m_mesh.garbage_collection();
 
 	//if (false && !done && stepwise) {
-	//	
+	//
 	//	m_q->clear();
 	//	//delete m_q;
 
@@ -314,7 +314,7 @@ void Decimation::step()
 				e_it != e_end; ++e_it
 			) {
 				if (visited.find(*e_it) == visited.end()) {
-					m_mesh.interpolateEdgeControlPoints(*e_it, true, true);
+					m_mesh.interpolateEdgeControlPoints(*e_it, true);
 					visited.insert(*e_it);
 				}
 			}

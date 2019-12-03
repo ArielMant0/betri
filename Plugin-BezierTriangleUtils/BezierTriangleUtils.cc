@@ -161,8 +161,16 @@ void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
 
 	remesher->remesh();
 
-	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
-	mesh->garbage_collection();
+	if (remesher->useColors()) {
+		object->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
+		);
+		ctrl->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
+			ACG::SceneGraph::DrawModes::WIREFRAME
+		);
+	}
 }
 
 void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl)
