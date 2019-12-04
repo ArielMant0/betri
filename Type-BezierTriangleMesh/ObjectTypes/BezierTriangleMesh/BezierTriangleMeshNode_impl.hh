@@ -10,6 +10,8 @@
 #include <ACG/Utils/VSToolsT.hh>
 #include <vector>
 
+#include <iostream>
+#include <fstream>
 #include <fstream> // TODO
 #include <functional> // TODO
 #include <regex> // TODO
@@ -83,7 +85,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	float div = 1.0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (10.0 - 1.0)));
 
@@ -641,12 +643,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING) {
 
 				// TODO this is a doublication
-				if (!controlPointTex_.is_valid())
+				if (!controlPointTex_.is_valid()) {
 					updateTexBuffers();
-
-				// TODO
-				if (true)
-					updateRaytracingFormula();
+				}
 
 				///////////////////////
 				// Additional States //
@@ -657,7 +656,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				// Set Shader //
 				////////////////
 				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
-				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/raytracing_gen_fs.glsl";
 
 				/////////////
 				// Defines //
@@ -674,6 +674,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					shaderMacro.sprintf("#define SG_OUTPUT_NORMAL");
 				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::DEPTH)
 					shaderMacro.sprintf("#define SG_OUTPUT_DEPTH");
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::UV)
+					shaderMacro.sprintf("#define SG_OUTPUT_UV");
 				else
 					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
 				ro.shaderDesc.macros.push_back(shaderMacro);
@@ -687,6 +689,11 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				int showBVolume = betri::option(betri::BezierOption::SHOW_BOUNDING_VOLUME);
 				if (showBVolume) {
 					shaderMacro.sprintf("#define SHOWBVOLUME");
+					ro.shaderDesc.macros.push_back(shaderMacro);
+				}
+
+				if (drawModeProps_.texcoordSource() != DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE) {
+					shaderMacro.sprintf("#define TEXTURED");
 					ro.shaderDesc.macros.push_back(shaderMacro);
 				}
 
@@ -707,8 +714,16 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				ro.setUniform("b_error", (1.0f / betri::option(betri::BezierOption::B_ERROR)));
 				ro.setUniform("d_error", (1.0f / betri::option(betri::BezierOption::D_ERROR)));
 
-				ro.setUniform("btriangles", int(0));
+				ro.setUniform("controlPointTex", int(0));
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 0, false);
+
+				if (drawModeProps_.texcoordSource() != DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE) {
+					ro.setUniform("uvCoordTex", int(1));
+					ro.addTexture(RenderObject::Texture(texCoordTex_.id(), GL_TEXTURE_2D), 1, false);
+
+					ro.setUniform("exampleTex", int(2));
+					ro.addTexture(RenderObject::Texture(checkerBoardTex_.id(), GL_TEXTURE_2D), 2, false);
+				}
 			}
 
 #ifdef GL_ARB_tessellation_shader
@@ -1496,7 +1511,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // TODO methode ueberladen, statt pointer?
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	// TODO this is dump
 	if (!invalidateSurfaceMesh_ &&
@@ -1505,6 +1520,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // T
 			betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard)
 		)
 		return;
+
+	updateRaytracingFormula(); // TODO
 
 	surfaceVBO_.del();
 	surfaceIBO_.del();
@@ -1539,32 +1556,129 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // T
 }
 
 // Raytracing -----------------------------------------------------------------
-
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 {
-	const float FACTORIALS[13] = {
-	1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
-	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
-	39916800, 479001600
+	// TODO move this method
+	// TODO array should contain result of calculation
+	const int FACTORIALS[13] = {
+		betri::Factorial<0>::result, betri::Factorial<1>::result, 
+		betri::Factorial<2>::result, betri::Factorial<3>::result,
+		betri::Factorial<4>::result, betri::Factorial<5>::result,
+		betri::Factorial<6>::result, betri::Factorial<7>::result,
+		betri::Factorial<8>::result, betri::Factorial<9>::result,
+		betri::Factorial<10>::result, betri::Factorial<11>::result,
+		betri::Factorial<12>::result
 	};
 
 	std::string formula;
+	std::string subFormula;
+	std::string tmpFormula;
 	int n = grad();
 
-	for (int i = 0; i <= n; i++) {
-		for (int j = 0; j + i <= n; j++) {
-			int k = n - i - j;
-			int cpIndex = pointsBefore(i) + j;
+	std::string plusDelimiter = " + ";
+	std::string minusDelimiter = " - ";
 
-			//formula += std::to_string(i) + " ";
-			//formula += std::to_string(j) + " ";
-			//formula += std::to_string(k) + "\n";
-			formula += std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
-			formula += " * s^" + std::to_string(i) + " * t^" + std::to_string(j) + " * u^" + std::to_string(k);
-			formula += " * a^" + std::to_string(i) + " * b^" + std::to_string(j) + " * c^" + std::to_string(k);
-			formula += " * bt.cps[" + std::to_string(cpIndex) + "]";
-			formula += " + \n";
+	std::vector<std::string> posFormulaVec;
+	std::vector<std::string> negFormulaVec;
+
+	for (int j = 0; j <= n; j++) {
+		for (int k = 0; j + k <= n; k++) {
+			int i = n - j - k;
+			int cpIndex = pointsBefore(j) + k;
+
+			subFormula = " + " + std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
+			subFormula += " * bt.cps[" + std::to_string(cpIndex) + "]";
+
+			for (int tmp = 0; tmp < i; tmp++) {
+				subFormula += " * s";
+			}
+			for (int tmp = 0; tmp < j; tmp++) {
+				subFormula += " * t";
+			}
+
+			for (int tmp = 0; tmp < k; tmp++) {
+				posFormulaVec.clear();
+				negFormulaVec.clear();
+
+				// https://stackoverflow.com/questions/53849/how-do-i-tokenize-a-string-in-c
+				size_t start = plusDelimiter.size(), end = 0, endPos = 0, endNeg = 0;
+
+				bool next = subFormula.find(minusDelimiter, 0) < start;
+				while (endNeg != std::string::npos) {
+					endNeg = subFormula.find(minusDelimiter, start);
+					endPos = subFormula.find(plusDelimiter, start);
+					end = std::min(endNeg, endPos);
+
+					if (next) {
+						negFormulaVec.push_back(subFormula.substr(start,
+							(end == std::string::npos) ? std::string::npos : end - start)
+						);
+					} else {
+						posFormulaVec.push_back(subFormula.substr(start,
+							(end == std::string::npos) ? std::string::npos : end - start)
+						);
+					}
+					start = ((end > (std::string::npos - plusDelimiter.size()))
+						? std::string::npos : end + plusDelimiter.size()
+					);
+					next = endNeg < endPos;
+				}				
+				
+				/*
+				for (auto s : negFormulaVec) {
+					std::cerr << "Neg: " << tmp << " -> " << s << std::endl;
+				}
+				for (auto s : posFormulaVec) {
+					std::cerr << "Pos: " << tmp << " -> " << s << std::endl;
+				}
+				*/
+
+				tmpFormula.clear();
+				for (auto s : negFormulaVec) {
+					tmpFormula += " - 1.0 * " + s;
+					tmpFormula += " + " + s;
+					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
+					if (s.find(" * t") == std::string::npos)
+						tmpFormula += " * s";
+					else
+						tmpFormula.insert(pos, " * s");
+					tmpFormula += " + " + s + " * t";
+				}
+				for (auto s : posFormulaVec) {
+					tmpFormula += " + 1.0 * " + s;
+					tmpFormula += " - " + s;
+					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
+					if (s.find(" * t") == std::string::npos)
+						tmpFormula += " * s";
+					else
+						tmpFormula.insert(pos, " * s");
+					tmpFormula += " - " + s + " * t";
+				}
+
+				subFormula = tmpFormula;
+				/*
+				if (cpIndex == 3) {
+					std::cerr << "//////////////" << tmp << std::endl;
+					std::cerr << subFormula << "\n" << std::endl;
+
+					std::cerr << "Negative" << std::endl;
+					for (auto elem : negFormulaVec)
+						std::cerr << elem << std::endl;
+					std::cerr << "Positive" << std::endl;
+					for (auto elem : posFormulaVec)
+						std::cerr << elem << std::endl;
+					std::cerr << std::endl;
+				}
+				*/
+			}
+
+			//std::cerr << "form " << subFormula << std::endl;
+
+			//std::cerr << " j " << j << " k " << k << " " << subFormula << std::endl;
+
+			subFormula += "\n";
+			formula += subFormula;
 		}
 	}
 
@@ -1573,46 +1687,203 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	// http://www.cplusplus.com/reference/regex/ECMAScript/
 	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
 
-	std::cerr << "formula 1" << std::endl;
-	std::cerr << formula << std::endl;
-
-	// Replace everything to the power of 0
-	std::regex replace_re1("\\s\\*\\s\\S+\\^0");
-	formula = std::regex_replace(formula, replace_re1, "");
-
-	std::cerr << "formula 2" << std::endl;
-	std::cerr << formula << std::endl;
-
-	// Remove power of 1
-	std::regex replace_re2("\\^1\\s");
-	formula = std::regex_replace(formula, replace_re2, " ");
-
-	std::cerr << "formula 3" << std::endl;
-	std::cerr << formula << std::endl;
+	// Replace additional 1.0  
+	std::regex replace_re0("1\\.0+\\s\\*\\s");
+	formula = std::regex_replace(formula, replace_re0, "");
 
 	// Replace additional zeros?
-	std::regex replace_re3("\\.0+\\s");
-	formula = std::regex_replace(formula, replace_re3, ".0 ");
+	std::regex replace_re1("\\.0+\\s");
+	formula = std::regex_replace(formula, replace_re1, ".0 ");
 
-	std::cerr << "formula 4" << std::endl;
-	std::cerr << formula << std::endl;
+	//std::cerr << "\nfinal formula" << std::endl;
+	//std::cerr << formula << std::endl;
 
-	// Replace additional 1.0  
-	std::regex replace_re4("1\\.0+\\s\\*\\s");
-	formula = std::regex_replace(formula, replace_re4, "");
+	std::regex replace_re2("\\n");
+	formula = std::regex_replace(formula, replace_re2, "");
 
-	std::cerr << "formula 6" << std::endl;
-	std::cerr << formula << std::endl;
 
-	// Replace additional 1.0  
-	std::regex replace_re5("u");
-	formula = std::regex_replace(formula, replace_re5, "(1.0 - s - t)");
+	std::vector<std::string> theStringVector;
+	size_t start = 0, end = 0;
+	while (end != std::string::npos) {
+		end = std::min(
+			formula.find(minusDelimiter, start + minusDelimiter.size()), 
+			formula.find(plusDelimiter, start + minusDelimiter.size())
+		);
 
-	// TODO Replace additional plus (+) at the end
-	formula = formula.substr(0, formula.find_last_of("+"));
+		// If at end, use length=maxLength.  Else use length=end-start.
+		theStringVector.push_back(formula.substr(start,
+			(end == std::string::npos) ? std::string::npos : end - start));
 
-	std::cerr << "formula 5" << std::endl;
-	std::cerr << formula << std::endl;
+		// If at end, use start=maxSize.  Else use start=end+delimiter.
+		start = ((end > (std::string::npos - minusDelimiter.size()))
+			? std::string::npos : end + minusDelimiter.size());
+		start = end;
+	}
+
+	std::vector<std::string> regexVec;
+	std::string myRegex;
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			myRegex.clear();
+			for (int x = 0; x < i; x++) {
+				myRegex += " * s";
+			}
+			for (int y = 0; y < j; y++) {
+				myRegex += " * t";
+			}
+			regexVec.push_back(myRegex);
+		}
+	}
+
+	// TODO reserve oben auch
+	std::vector<std::string> qVec;
+
+	std::string tmp;
+	std::string save;
+	for (int iter = regexVec.size() - 1; iter != 0; iter--) {
+		tmp.clear();
+		for (int stringIt = 0; stringIt != theStringVector.size(); stringIt++) {
+			if (theStringVector[stringIt].find(regexVec[iter], 0) != std::string::npos) {
+				theStringVector[stringIt].erase(
+					theStringVector[stringIt].end() - regexVec[iter].size(), 
+					theStringVector[stringIt].end()
+				);
+				tmp += theStringVector[stringIt];
+				// remove used ones
+				theStringVector[stringIt] = "";
+			}
+		}
+		qVec.push_back(tmp);
+	}
+	tmp.clear();
+	for (auto s : theStringVector) {
+		tmp += s;
+	}
+	qVec.push_back(tmp);
+
+	std::string combinedQString;
+	for (int stringIt = 0; stringIt != qVec.size(); stringIt++) {
+		combinedQString += "vec3 q_" + std::to_string(stringIt) + " =" + qVec[stringIt] + ";\n";
+	}
+
+	std::string combinedBuv = "B_uv =";
+	for (int stringIt = 0; stringIt != regexVec.size(); stringIt++) {
+		combinedBuv += " + q_" + std::to_string(stringIt) + regexVec[regexVec.size() - stringIt - 1] + "\n";
+	}
+	combinedBuv += ";"; // TODO
+
+	////////////////////////////////////
+	// Calculate partial derivate (s) //
+	////////////////////////////////////
+	// TODO reserve
+	std::vector<std::string> derivateVec;
+	std::string derivate;
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (i == 0) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (i >= 2) {
+				derivate += " * " + std::to_string(i);
+			}
+			for (int x = 0; x < i - 1; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	std::string dBs = "dBs =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dBs += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	dBs += ";"; // TODO
+
+	////////////////////////////////////
+	// Calculate partial derivate (t) //
+	////////////////////////////////////
+	derivateVec.clear();
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (j == 0) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (j >= 2) {
+				derivate += " * " + std::to_string(j);
+			}
+			for (int x = 0; x < i; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j - 1; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	std::string dBt = "dBt =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dBt += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	dBt += ";"; // TODO
+	
+	/*
+	std::cerr << "\n\nQs" << std::endl;
+	std::cerr << combinedQString << std::endl;
+
+	std::cerr << "\ndBs" << std::endl;
+	std::cerr << dBs << std::endl;
+
+	std::cerr << "\ndBt" << std::endl;
+	std::cerr << dBt << std::endl;
+
+	std::cerr << "\nBuv" << std::endl;
+	std::cerr << combinedBuv << std::endl;
+	*/
+
+	///////////////////////////
+	// Write results to file //
+	///////////////////////////
+	// http://openflipper.org/Daily-Builds/Doc/Staging/Developer/a02657.html
+	// https://stackoverflow.com/questions/9505085/replace-a-line-in-text-file
+	std::string shaderDir = OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData();
+	std::ifstream filein(shaderDir + "/BezierTriangle/raytracing_template_fs.glsl");
+	std::ofstream fileout(shaderDir + "/BezierTriangle/raytracing_gen_fs.glsl");
+
+	if (!filein) {
+		std::cerr << "Error open filein!" << std::endl;
+		return;
+	}
+	if (!fileout) {
+		std::cerr << "Error open fileout!" << std::endl;
+		return;
+	}
+
+	std::string strTemp;
+	//bool found = false;
+	while (std::getline(filein, strTemp)) {
+		fileout << strTemp << "\n";
+		if (strTemp.find("BEGIN QS") != std::string::npos) {
+			fileout << combinedQString;
+		} else if (strTemp.find("BEGIN DBS") != std::string::npos) {
+			fileout << dBs;
+		} else if(strTemp.find("BEGIN DBT") != std::string::npos) {
+			fileout << dBt;
+		} else if (strTemp.find("BEGIN BUV") != std::string::npos) {
+			fileout << combinedBuv;
+		}
+	}
+
+	// TODO clear all vectors
 }
 
 // ControlNet -----------------------------------------------------------------
@@ -1753,10 +2024,9 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 	if (controlPointBufSize) {
 		std::vector<float> controlPointBuf(controlPointBufSize * 3);
 
+		// write counter
 		int elementOffset = 0;
 		for (auto &face : bezierTriangleMesh_.faces()) {
-			// write counter
-
 			auto faceControlP = bezierTriangleMesh_.data(face);
 			Point cp;
 			for (int i = 0; i < controlPointsPerFace; i++) {
@@ -1772,6 +2042,30 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 		controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
 	}
 
+	MeshT::TexCoord2D texCoord;
+	const int texCoordsPerFace = 3;
+	const size_t texCoordBufSize = texCoordsPerFace * bezierTriangleMesh_.n_faces();
+
+	if (texCoordBufSize && drawModeProps_.texcoordSource() != DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE) {
+		std::vector<float> texCoordBuf(texCoordBufSize * 2);
+
+		// write counter
+		int elementOffset = 0;
+		for (auto &face : bezierTriangleMesh_.faces()) {
+			for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
+
+				texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
+				for (int m = 0; m < 2; ++m)
+					texCoordBuf[elementOffset++] = texCoord[m];
+			}
+		}
+
+		texCoordTex_.bind();
+		texCoordTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+		texCoordTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		texCoordTex_.setData(0, GL_RG32F, texCoordsPerFace, bezierTriangleMesh_.n_faces(), GL_RG, GL_FLOAT, &texCoordBuf[0]);
+	}
+
 #endif
 }
 
@@ -1780,46 +2074,17 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class MeshT>
-BezierTMesh::Point BezierTriangleMeshNode<MeshT>::evaluateCasteljau(
-	Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5
-)
-{
-	auto tmpPointA = cp0 * at[0] + cp1 * at[1] + cp5 * at[2];
-	auto tmpPointB = cp1 * at[0] + cp2 * at[1] + cp3 * at[2];
-	auto tmpPointC = cp5 * at[0] + cp3 * at[1] + cp4 * at[2];
-
-	auto result = tmpPointA * at[0] + tmpPointB * at[1] + tmpPointC * at[2];
-
-	return result;
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 {
-	Point cp0, cp1, cp2, cp3, cp4, cp5;
+	std::cerr << "bla1" << std::endl;
+
+	Point pos;
 	// Iterate over all faces
 	for (auto &face : bezierTriangleMesh_.faces()) {
-		// TODO is this nessessary?
-		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
-		auto vh0 = *(vertexHandle++);
-		auto vh1 = *(vertexHandle++);
-		auto vh2 = *(vertexHandle);
-
 		// Delete the old face
 		bezierTriangleMesh_.delete_face(face, false);
 
-		// Get the controlpoints of this face
-
-		// TODO read the controllpoints from the mesh data
-		auto faceControlP = bezierTriangleMesh_.data(face);
-		cp0 = faceControlP.controlPoint(0);
-		cp1 = faceControlP.controlPoint(1);
-		cp2 = faceControlP.controlPoint(2);
-		cp3 = faceControlP.controlPoint(3);
-		cp4 = faceControlP.controlPoint(4);
-		cp5 = faceControlP.controlPoint(5);
+		std::cerr << "bla2" << std::endl;
 
 		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(VERTEXSUM);
 		// Iterate in two directions (u,v) which can use to determine the point at which
@@ -1828,15 +2093,12 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
 
-				// Get the 3D-position
 				auto toEval = betri::getBaryCoords(u, v);
-				//auto toEval = Point(u, v, 1.0 - u - v);
-
-				auto resultPoint = evaluateCasteljau(toEval, cp0, cp1, cp2, cp3, cp4, cp5);
+				pos = newPosition(toEval, face);
 
 				// Add Point
 				// TODO dont add the Points that are already in there (3 starting points)
-				auto newPointHandle = bezierTriangleMesh_.add_vertex(resultPoint);
+				auto newPointHandle = bezierTriangleMesh_.add_vertex(pos);
 				newHandleVector[handleIt++] = newPointHandle;
 			}
 		}
@@ -1867,13 +2129,13 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 			// bottom triangle
 			auto faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos1], newHandleVector[pos2], newHandleVector[pos3]);
 			// Add the controllPoints to the face
-			bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+			bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
 
 			if (pos2 + 1 < border) {
 				// top triangle
 				faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos2], newHandleVector[pos3+1], newHandleVector[pos3]);
 				// Add the controllPoints to the face
-				bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+				bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
 			}
 
 			if (pos2 + 1 == border) {
@@ -1886,6 +2148,8 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 			pos3++;
 		}
 	}
+	std::cerr << "bla3" << std::endl;
+
 }
 
 //-----------------------------------------------------------------------------
@@ -1923,11 +2187,14 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::oneEntry(
 	BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
 )
 {
-	// TODO
-	const float FACTORIALS[13] = {
-		1, 1, 2, 6, 24, 120, // 0, 1, 2, 3, 4, 5
-		720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
-		39916800, 479001600
+	const int FACTORIALS[13] = {
+		betri::Factorial<0>::result, betri::Factorial<1>::result,
+		betri::Factorial<2>::result, betri::Factorial<3>::result,
+		betri::Factorial<4>::result, betri::Factorial<5>::result,
+		betri::Factorial<6>::result, betri::Factorial<7>::result,
+		betri::Factorial<8>::result, betri::Factorial<9>::result,
+		betri::Factorial<10>::result, betri::Factorial<11>::result,
+		betri::Factorial<12>::result
 	};
 
 	Point entry = FACTORIALS[grad()] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
@@ -2249,7 +2516,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 
 	Point pos;
 	MeshT::Normal normal;
-	MeshT::TexCoord2D texCoord; // TODO haben wir nicht brauchen wir noch
+	MeshT::TexCoord2D texCoord;
 	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 		for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
 			//////////////

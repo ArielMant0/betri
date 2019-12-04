@@ -54,6 +54,16 @@ static double inline length(BezierTMesh::Point p)
 	return sqrt(dot(p, p));
 }
 
+// https://rosettacode.org/wiki/Compile-time_calculation#C.2B.2B
+template<int i> struct Factorial
+{
+	static const int result = i * Factorial<i - 1>::result;
+};
+
+template<> struct Factorial<0>
+{
+	static const int result = 1;
+};
 
 
 ///////////////////////////////////////////////////////////////////////////////
