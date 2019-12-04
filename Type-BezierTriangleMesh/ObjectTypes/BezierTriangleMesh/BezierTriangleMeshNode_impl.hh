@@ -1511,7 +1511,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
  * This is the case if updateGeometry() is called.
  */
 template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // TODO methode ueberladen, statt pointer?
+void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	// TODO this is dump
 	if (!invalidateSurfaceMesh_ &&
@@ -1559,6 +1559,7 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // T
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 {
+	// TODO move this method
 	// TODO array should contain result of calculation
 	const int FACTORIALS[13] = {
 		betri::Factorial<0>::result, betri::Factorial<1>::result, 
@@ -2073,46 +2074,17 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class MeshT>
-BezierTMesh::Point BezierTriangleMeshNode<MeshT>::evaluateCasteljau(
-	Point at, Point cp0, Point cp1, Point cp2, Point cp3, Point cp4, Point cp5
-)
-{
-	auto tmpPointA = cp0 * at[0] + cp1 * at[1] + cp5 * at[2];
-	auto tmpPointB = cp1 * at[0] + cp2 * at[1] + cp3 * at[2];
-	auto tmpPointC = cp5 * at[0] + cp3 * at[1] + cp4 * at[2];
-
-	auto result = tmpPointA * at[0] + tmpPointB * at[1] + tmpPointC * at[2];
-
-	return result;
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 {
-	Point cp0, cp1, cp2, cp3, cp4, cp5;
+	std::cerr << "bla1" << std::endl;
+
+	Point pos;
 	// Iterate over all faces
 	for (auto &face : bezierTriangleMesh_.faces()) {
-		// TODO is this nessessary?
-		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
-		auto vh0 = *(vertexHandle++);
-		auto vh1 = *(vertexHandle++);
-		auto vh2 = *(vertexHandle);
-
 		// Delete the old face
 		bezierTriangleMesh_.delete_face(face, false);
 
-		// Get the controlpoints of this face
-
-		// TODO read the controllpoints from the mesh data
-		auto faceControlP = bezierTriangleMesh_.data(face);
-		cp0 = faceControlP.controlPoint(0);
-		cp1 = faceControlP.controlPoint(1);
-		cp2 = faceControlP.controlPoint(2);
-		cp3 = faceControlP.controlPoint(3);
-		cp4 = faceControlP.controlPoint(4);
-		cp5 = faceControlP.controlPoint(5);
+		std::cerr << "bla2" << std::endl;
 
 		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(VERTEXSUM);
 		// Iterate in two directions (u,v) which can use to determine the point at which
@@ -2121,15 +2093,12 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
 
-				// Get the 3D-position
 				auto toEval = betri::getBaryCoords(u, v);
-				//auto toEval = Point(u, v, 1.0 - u - v);
-
-				auto resultPoint = evaluateCasteljau(toEval, cp0, cp1, cp2, cp3, cp4, cp5);
+				pos = newPosition(toEval, face);
 
 				// Add Point
 				// TODO dont add the Points that are already in there (3 starting points)
-				auto newPointHandle = bezierTriangleMesh_.add_vertex(resultPoint);
+				auto newPointHandle = bezierTriangleMesh_.add_vertex(pos);
 				newHandleVector[handleIt++] = newPointHandle;
 			}
 		}
@@ -2160,13 +2129,13 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 			// bottom triangle
 			auto faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos1], newHandleVector[pos2], newHandleVector[pos3]);
 			// Add the controllPoints to the face
-			bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+			bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
 
 			if (pos2 + 1 < border) {
 				// top triangle
 				faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos2], newHandleVector[pos3+1], newHandleVector[pos3]);
 				// Add the controllPoints to the face
-				bezierTriangleMesh_.data(faceHandle).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
+				bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
 			}
 
 			if (pos2 + 1 == border) {
@@ -2179,6 +2148,8 @@ void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
 			pos3++;
 		}
 	}
+	std::cerr << "bla3" << std::endl;
+
 }
 
 //-----------------------------------------------------------------------------

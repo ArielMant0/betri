@@ -318,10 +318,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Functions for VBO creation
 	///////////////////////////////////////////////////////////////////////////
-	BezierTMesh::Point evaluateCasteljau(
-		Point at, Point cp0, Point cp1, Point cp2,
-		Point cp3, Point cp4, Point cp5
-	);
 	void tesselateMeshCPU();
 	//-------------------------------------------------------------------------
 	int pointsBefore(int level);
