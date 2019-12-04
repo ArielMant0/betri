@@ -65,6 +65,51 @@ template<> struct Factorial<0>
 	static const int result = 1;
 };
 
+// TODO array should contain result of calculation
+const int FACTORIALS[13] = {
+	Factorial<0>::result, Factorial<1>::result,
+	Factorial<2>::result, Factorial<3>::result,
+	Factorial<4>::result, Factorial<5>::result,
+	Factorial<6>::result, Factorial<7>::result,
+	Factorial<8>::result, Factorial<9>::result,
+	Factorial<10>::result, Factorial<11>::result,
+	Factorial<12>::result
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// evaluate bezier functions or surface
+///////////////////////////////////////////////////////////////////////////////
+
+static inline BezierTMesh::Scalar eval(int i, int j, int k, BezierTMesh::Point &bary, unsigned int degree)
+{
+	return FACTORIALS[degree] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
+		* std::pow(bary[0], i) * std::pow(bary[1], j) * std::pow(bary[2], k);
+}
+
+static inline int cpIndex(int i, int j, unsigned int degree)
+{
+	int sum = 0;
+	int grad = degree + 1;
+
+	for (int k = 0; k < i; ++k) {
+		sum += grad - k;
+	}
+
+	return sum + j;
+}
+
+// TODO: remove inline
+static inline BezierTMesh::Point evalSurface(std::vector<BezierTMesh::Point> &cps, BezierTMesh::Point &bary, unsigned int degree)
+{
+	BezierTMesh::Point point(0.0);
+
+	for (int i = 0; i <= degree; i++) {
+		for (int j = 0; j + i <= degree; j++) {
+			point += cps[cpIndex(i, j, degree)] * eval(i, j, degree - i - j, bary, degree);
+		}
+	}
+	return point;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Unused (was das?)

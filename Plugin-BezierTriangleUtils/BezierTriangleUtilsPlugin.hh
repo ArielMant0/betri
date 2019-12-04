@@ -102,6 +102,7 @@ private slots:
 	void callSmooth();
 
 	void testAlgorithm();
+	void applyTessellation();
 
 	// decimation meshing functions
 	void callDecimation();

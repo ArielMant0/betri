@@ -318,8 +318,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Functions for VBO creation
 	///////////////////////////////////////////////////////////////////////////
-	void tesselateMeshCPU();
-	//-------------------------------------------------------------------------
 	int pointsBefore(int level);
 	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
 	BezierTMesh::Point oneEntry(

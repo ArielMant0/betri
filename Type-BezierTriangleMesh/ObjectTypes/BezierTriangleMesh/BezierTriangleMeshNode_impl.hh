@@ -1528,14 +1528,6 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 
 	updateSurfaceDecl();
 
-	if (false) { // TODO if apply tesselation - should get a separate call
-		// TODO
-		// TODO should the mesh really be changed? we could simple apply the
-		// changes to the vbo and dont change the Mesh itself
-		// TODO Button fuer applyTesselation
-		tesselateMeshCPU();
-	}
-
 	// TODO Performance verbessern indem in den vertex buffer alle vertices gepackt werden und dann
 	// beim index buffer die indices direkt genutzt werden
 
@@ -1560,16 +1552,6 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 {
 	// TODO move this method
-	// TODO array should contain result of calculation
-	const int FACTORIALS[13] = {
-		betri::Factorial<0>::result, betri::Factorial<1>::result, 
-		betri::Factorial<2>::result, betri::Factorial<3>::result,
-		betri::Factorial<4>::result, betri::Factorial<5>::result,
-		betri::Factorial<6>::result, betri::Factorial<7>::result,
-		betri::Factorial<8>::result, betri::Factorial<9>::result,
-		betri::Factorial<10>::result, betri::Factorial<11>::result,
-		betri::Factorial<12>::result
-	};
 
 	std::string formula;
 	std::string subFormula;
@@ -1587,7 +1569,8 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 			int i = n - j - k;
 			int cpIndex = pointsBefore(j) + k;
 
-			subFormula = " + " + std::to_string(FACTORIALS[n] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]));
+			subFormula = " + " + std::to_string(betri::FACTORIALS[n] /
+				(betri::FACTORIALS[i] * betri::FACTORIALS[j] * betri::FACTORIALS[k]));
 			subFormula += " * bt.cps[" + std::to_string(cpIndex) + "]";
 
 			for (int tmp = 0; tmp < i; tmp++) {
@@ -2073,85 +2056,6 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 // Functions for VBO creation
 ///////////////////////////////////////////////////////////////////////////////
 
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::tesselateMeshCPU()
-{
-	std::cerr << "bla1" << std::endl;
-
-	Point pos;
-	// Iterate over all faces
-	for (auto &face : bezierTriangleMesh_.faces()) {
-		// Delete the old face
-		bezierTriangleMesh_.delete_face(face, false);
-
-		std::cerr << "bla2" << std::endl;
-
-		std::vector<BezierTMesh::VertexHandle> newHandleVector = std::vector<BezierTMesh::VertexHandle>(VERTEXSUM);
-		// Iterate in two directions (u,v) which can use to determine the point at which
-		// the beziertriangle should be evaluated
-		int handleIt = 0;
-		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
-			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
-
-				auto toEval = betri::getBaryCoords(u, v);
-				pos = newPosition(toEval, face);
-
-				// Add Point
-				// TODO dont add the Points that are already in there (3 starting points)
-				auto newPointHandle = bezierTriangleMesh_.add_vertex(pos);
-				newHandleVector[handleIt++] = newPointHandle;
-			}
-		}
-
-		// Example - first half of the triangles
-		// 0 1 5 b=5
-		// 1 2 6 b=5
-		// 2 3 7 b=5
-		// 3 4 8 b=5
-		// pos1+2 pos2+2 pos3+1 b=5+4
-		// 5 6 9 b=9
-		// 6 7 10 b=9
-		// 7 8 11 b=9
-		// pos1+2 pos2+2 pos3+1 b=5+4+3
-		// 9 10 12 b=12
-		// 10 11 13 b=12
-		// pos1+2 pos2+2 pos3+1 b=5+4+3+2
-		// 12 13 14 b=14
-
-		int pos1 = 0;
-		int pos2 = 1;
-		int pos3 = NEWVERTICES + 2;
-		int border = NEWVERTICES + 2;
-		int boderAdd = border-1;
-
-		// Iterate all added Points and add pairs of three as a new face
-		for (; pos3 < newHandleVector.size(); ) {
-			// bottom triangle
-			auto faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos1], newHandleVector[pos2], newHandleVector[pos3]);
-			// Add the controllPoints to the face
-			bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
-
-			if (pos2 + 1 < border) {
-				// top triangle
-				faceHandle = bezierTriangleMesh_.add_face(newHandleVector[pos2], newHandleVector[pos3+1], newHandleVector[pos3]);
-				// Add the controllPoints to the face
-				bezierTriangleMesh_.data(faceHandle).points(bezierTriangleMesh_.data(face).points());
-			}
-
-			if (pos2 + 1 == border) {
-				border += boderAdd--;
-				pos1++;
-				pos2++;
-			}
-			pos1++;
-			pos2++;
-			pos3++;
-		}
-	}
-	std::cerr << "bla3" << std::endl;
-
-}
-
 //-----------------------------------------------------------------------------
 
 template <class MeshT>
@@ -2187,17 +2091,7 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::oneEntry(
 	BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
 )
 {
-	const int FACTORIALS[13] = {
-		betri::Factorial<0>::result, betri::Factorial<1>::result,
-		betri::Factorial<2>::result, betri::Factorial<3>::result,
-		betri::Factorial<4>::result, betri::Factorial<5>::result,
-		betri::Factorial<6>::result, betri::Factorial<7>::result,
-		betri::Factorial<8>::result, betri::Factorial<9>::result,
-		betri::Factorial<10>::result, betri::Factorial<11>::result,
-		betri::Factorial<12>::result
-	};
-
-	Point entry = FACTORIALS[grad()] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k])
+	Point entry = betri::FACTORIALS[grad()] / (betri::FACTORIALS[i] * betri::FACTORIALS[j] * betri::FACTORIALS[k])
 		* pow(baryCoords[0], i) * pow(baryCoords[1], j) * pow(baryCoords[2], k)
 		* getCP(i, j, k, fh);
 	return entry;

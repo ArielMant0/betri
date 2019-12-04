@@ -282,7 +282,7 @@ bool DecimationParametrization::test(BezierTMesh *mesh)
 
 			std::cerr << "blue face " << target << '\n';
 			// sample the target face at its uv position
-			Point surface = evalSurface(mesh->data(target).points(), faceBary, degree, true);
+			Point surface = evalSurface(mesh->data(target).points(), faceBary, degree);
 
 			std::cerr << "\tgreen uv " << uv << '\n';
 			std::cerr << "\tblue uv " << faceBary << '\n';

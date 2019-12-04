@@ -16,6 +16,7 @@
 
 #include <OpenFlipper/common/GlobalOptions.hh>
 #include <OpenFlipper/common/RendererInfo.hh>
+#include <ObjectTypes/TriangleMesh/TriangleMesh.hh>
 
 #include "OpenFlipper/BasePlugin/PluginFunctions.hh"
 
@@ -382,13 +383,19 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	perfLayout->addWidget(endTestButton, 1, 0);
 	perfGroup->setLayout(perfLayout);
 
+
 	///////////////////////////////////////////////////////////////////////////
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
+
+	QPushButton *applyTess = new QPushButton("Apply Tessellation");
+	connect(applyTess, SIGNAL(clicked()), this, SLOT(applyTessellation()));
+
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(voronoiGroup, 0, 0);
 	grid->addWidget(deciGroup, 1, 0);
 	grid->addWidget(testButton, 2, 0);
+	grid->addWidget(applyTess, 2, 1);
 
 	grid->addWidget(modeGroup, 3, 0);
 	grid->addWidget(tessGroup, 4, 0);
@@ -715,6 +722,46 @@ void BezierTriangleUtilsPlugin::callPartition()
 		}
 
 		//m_voronoiSteps[0]->setDisabled(true);
+	}
+}
+
+void BezierTriangleUtilsPlugin::applyTessellation()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BezierTMesh *mesh = meshObj->mesh();
+
+		bool okay = true;
+		int amount = QInputDialog::getInt(
+			m_tool,
+			"Tessellation",
+			"Please enter subdivision amount: ",
+			// value, min value
+			1, 1,
+			// max value, steps
+			5, 1, &okay
+		);
+
+		if (okay) {
+
+			int tri_id = -1;
+
+			TriMeshObject* object(0);
+
+			emit addEmptyObject(DATA_TRIANGLE_MESH, tri_id);
+			PluginFunctions::getObject(tri_id, object);
+
+			mesh->tessellateToTrimesh(*object->mesh(), amount);
+
+			emit updatedObject(tri_id, UPDATE_ALL);
+		}
 	}
 }
 

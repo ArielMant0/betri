@@ -2,6 +2,8 @@
 
 #include "BezierMathUtil.hh"
 
+#include <OpenMesh/Core/Utils/PropertyManager.hh>
+
 #include <iostream>
 
 void BezierTMesh::addCPsToFace(const FaceHandle f)
@@ -41,6 +43,137 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 	//assert(cp_vec.back() == point(vh2));
 
 	data(f).points(cp_vec);
+}
+
+void BezierTMesh::tessellate(size_t amount)
+{
+	BezierTMesh copy;
+	copy.degree(1);
+	copy.request_face_normals();
+	copy.request_vertex_normals();
+
+	applyTessellation(&copy, amount);
+
+	///////////////
+	// copy mesh //
+	///////////////
+	clean_keep_reservation();
+
+	auto vs = OpenMesh::makeTemporaryProperty<VertexHandle, VertexHandle>(copy);
+	// TODO: works but seems really stupid
+	for (const VertexHandle v : copy.vertices()) {
+		vs[v] = add_vertex_dirty(copy.point(v));
+	}
+	for (const FaceHandle f : copy.faces()) {
+		std::vector<VertexHandle> verts;
+		for (auto fv = copy.cfv_begin(f); fv != copy.cfv_end(f); ++fv) {
+			verts.push_back(vs[*fv]);
+		}
+		add_face(verts, true);
+	}
+
+	garbage_collection();
+}
+
+void BezierTMesh::tessellateToTrimesh(TriMesh &mesh, size_t amount)
+{
+	applyTessellation(&mesh, amount);
+}
+
+template <typename MeshT>
+void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
+{
+	const float newVertices = betri::mersennePrime(amount);
+	const float vertexSum = betri::gaussSum(newVertices + 2);
+	const float stepsize = 1.0 / (double(newVertices) + 1.0);
+
+	const auto getHandle = [&](Point p) {
+		auto viter = std::find_if(mesh->vertices_begin(), mesh->vertices_end(), [&](VertexHandle vh) {
+			return (mesh->point(vh) - p).norm() < 0.0001;
+		});
+
+		if (viter != mesh->vertices_end()) {
+			return *viter;
+		}
+
+		return mesh->add_vertex(p);
+	};
+
+	Point pos;
+	// Iterate over all faces
+	for (FaceHandle face : faces()) {
+
+		std::vector<BezierTMesh::Point> newHandleVector(vertexSum);
+
+		// Iterate in two directions (u,v) which can use to determine the
+		// point at which the bezier triangle should be evaluated
+		int handleIt = 0;
+		for (double u = 0.0; u <= 1.0; u += stepsize) {
+			for (double v = 0.0; u + v <= 1.0; v += stepsize) {
+
+				Point toEval = betri::getBaryCoords(u, v);
+				pos = betri::evalSurface(data(face).points(), toEval, m_degree);
+
+				// Add Point
+				// TODO dont add the Points that are already in there (3 starting points)
+				//VertexHandle newPointHandle = copy.add_vertex(pos);
+				newHandleVector[handleIt++] = pos;//newPointHandle;
+			}
+		}
+
+		// Example - first half of the triangles
+		// 0 1 5 b=5
+		// 1 2 6 b=5
+		// 2 3 7 b=5
+		// 3 4 8 b=5
+		// pos1+2 pos2+2 pos3+1 b=5+4
+		// 5 6 9 b=9
+		// 6 7 10 b=9
+		// 7 8 11 b=9
+		// pos1+2 pos2+2 pos3+1 b=5+4+3
+		// 9 10 12 b=12
+		// 10 11 13 b=12
+		// pos1+2 pos2+2 pos3+1 b=5+4+3+2
+		// 12 13 14 b=14
+
+		int pos1 = 0;
+		int pos2 = 1;
+		int pos3 = newVertices + 2;
+		int border = newVertices + 2;
+		int boderAdd = border - 1;
+
+		// Iterate all added Points and add pairs of three as a new face
+		for (; pos3 < newHandleVector.size(); ) {
+			// bottom triangle
+			FaceHandle fh = mesh->add_face(
+				getHandle(newHandleVector[pos1]),
+				getHandle(newHandleVector[pos2]),
+				getHandle(newHandleVector[pos3])
+			);
+			// Add the controllPoints to the face
+			//data(fh).points(data(face).points());
+
+			if (pos2 + 1 < border) {
+				// top triangle
+				fh = mesh->add_face(
+					getHandle(newHandleVector[pos2]),
+					getHandle(newHandleVector[pos3 + 1]),
+					getHandle(newHandleVector[pos3])
+				);
+				// Add the controllPoints to the face
+				//data(fh).points(data(face).points());
+			}
+
+			if (pos2 + 1 == border) {
+				border += boderAdd--;
+				pos1++;
+				pos2++;
+			}
+			pos1++;
+			pos2++;
+			pos3++;
+		}
+	}
 }
 
 void BezierTMesh::recalculateCPs(const FaceHandle f)

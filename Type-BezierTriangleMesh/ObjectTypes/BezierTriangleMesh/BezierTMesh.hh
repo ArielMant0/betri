@@ -34,6 +34,9 @@ public:
 
 	void degreeReduction(FaceHandle fh);
 
+	void tessellate(size_t amount);
+	void tessellateToTrimesh(TriMesh &mesh, size_t amount);
+
 	void recalculateCPs(const FaceHandle f);
 
 	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true);
@@ -198,6 +201,9 @@ public:
 
 private:
 
+	template <typename MeshT>
+	void applyTessellation(MeshT *mesh, size_t amount);
+	
 	void addCPsToFace(const FaceHandle f);
 
 	void splitRivara(const HalfedgeHandle he, const VertexHandle vh, bool copy=false);
