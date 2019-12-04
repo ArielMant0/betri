@@ -575,12 +575,11 @@ void BezierTriangleUtilsPlugin::callDualStep()
 		bool done = betri::voronoiDual(*o_it, ctrl_obj, true);
 		emit log(LOGINFO, "Performed Dualizing Step!");
 
-		emit updatedObject(meshObj->id(), UPDATE_COLOR);
-
 		// only show control mesh obj if its complete
 		if (done) {
 			emit log(LOGINFO, "Finished Dualizing!");
 
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
 			// TODO: does not work for some reason
@@ -589,6 +588,8 @@ void BezierTriangleUtilsPlugin::callDualStep()
 
 			//m_voronoiSteps[1]->setDisabled(true);
 			//m_voronoiSteps[2]->setDisabled(true);
+		} else {
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 	}
 }
@@ -609,7 +610,7 @@ void BezierTriangleUtilsPlugin::callDual()
 		betri::voronoiDual(*o_it, ctrl_obj, false);
 		emit log(LOGINFO, "Performed Dualizing!");
 
-		emit updatedObject(meshObj->id(), UPDATE_COLOR);
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
 		// TODO: does not work for some reason

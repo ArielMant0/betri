@@ -344,6 +344,20 @@ private:
 		return false;
 	}
 
+	bool adjToSeedFace(const FaceHandle fh) const
+	{
+		for (auto v_it = m_mesh.cfv_begin(fh), v_e = m_mesh.cfv_end(fh); v_it != v_e; ++v_it) {
+			if (countAdjRegions(*v_it) > 2) return true;
+			/*for (auto f_it = m_mesh.cvf_begin(*v_it), f_e = m_mesh.cvf_end(*v_it); f_it != f_e; ++f_it) {
+				if (isSeed(*f_it)) return true;
+			}*/
+		}
+		/*for (auto f_it = m_mesh.cff_begin(fh), f_e = m_mesh.cff_end(fh); f_it != f_e; ++f_it) {
+			if (isSeed(*f_it)) return true;
+		}*/
+		return false;
+	}
+
 	VH minPredecessor(const VertexHandle vh, const ID id0, bool noBorder=false)
 	{
 		Scalar minDist = std::numeric_limits<Scalar>::max();
@@ -380,6 +394,14 @@ private:
 	bool onRegionBorder(const VH vh) const
 	{
 		return countAdjRegions(vh) > 1;
+	}
+
+	bool onRegionBorder(const FH fh) const
+	{
+		for (auto v_it = m_mesh.cfv_begin(fh), v_e = m_mesh.cfv_end(fh); v_it != v_e; ++v_it) {
+			if (onRegionBorder(*v_it)) return true;
+		}
+		return false;
 	}
 
 	bool onRegionBorder(const VH vh, const ID id0, const ID id1) const
