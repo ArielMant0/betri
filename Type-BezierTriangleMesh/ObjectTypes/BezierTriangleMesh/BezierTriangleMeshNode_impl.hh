@@ -85,7 +85,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	//return;
+	return;
 
 	float div = 1.0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (10.0 - 1.0)));
 

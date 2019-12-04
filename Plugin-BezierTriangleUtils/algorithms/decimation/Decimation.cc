@@ -247,10 +247,10 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 void Decimation::step()
 {
-	auto testit = m_q->begin();
-	for (size_t i = 0; i < 15 && testit != m_q->end(); ++i, ++testit) {
-		std::cerr << i << " " << priority(*testit) << std::endl;
-	}
+	//auto testit = m_q->begin();
+	//for (size_t i = 0; i < 15 && testit != m_q->end(); ++i, ++testit) {
+	//	std::cerr << i << " " << priority(*testit) << std::endl;
+	//}
 
 	VertexHandle vh = *m_q->begin();
 	m_q->erase(m_q->begin());
