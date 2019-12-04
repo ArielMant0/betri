@@ -534,6 +534,7 @@ private:
 	QImage checkerboard_image_;
 	GLuint checkerboard_idx_;
 	Texture2D controlPointTex_;
+	Texture2D texCoordTex_;
 	Texture2D checkerBoardTex_;
 
 	///////////////////////////////////////////////////////////////////////////

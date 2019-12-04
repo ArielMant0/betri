@@ -36,6 +36,7 @@ enum VIS_MODE : int
 	COLOR,
 	NORMAL,
 	DEPTH,
+	UV,
 	CURVATURE
 };
 

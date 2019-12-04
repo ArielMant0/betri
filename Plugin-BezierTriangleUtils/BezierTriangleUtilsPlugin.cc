@@ -254,6 +254,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	visComboBox->addItem(tr("Color"));
 	visComboBox->addItem(tr("Normal"));
 	visComboBox->addItem(tr("Depth"));
+	visComboBox->addItem(tr("UV"));
 	visComboBox->addItem(tr("Curvature"));
 
 	// hide/show the appropriate widgets
