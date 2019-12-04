@@ -10,6 +10,8 @@
 #include <ACG/Utils/VSToolsT.hh>
 #include <vector>
 
+#include <iostream>
+#include <fstream>
 #include <fstream> // TODO
 #include <functional> // TODO
 #include <regex> // TODO
@@ -641,12 +643,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING) {
 
 				// TODO this is a doublication
-				if (!controlPointTex_.is_valid())
+				if (!controlPointTex_.is_valid()) {
 					updateTexBuffers();
-
-				// TODO
-				if (true)
-					updateRaytracingFormula();
+				}
 
 				///////////////////////
 				// Additional States //
@@ -657,7 +656,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				// Set Shader //
 				////////////////
 				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
-				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
+				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/raytracing_gen_fs.glsl";
 
 				/////////////
 				// Defines //
@@ -1506,6 +1506,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption) // T
 		)
 		return;
 
+	updateRaytracingFormula(); // TODO
+
 	surfaceVBO_.del();
 	surfaceIBO_.del();
 
@@ -1645,8 +1647,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 				// https://stackoverflow.com/questions/53849/how-do-i-tokenize-a-string-in-c
 				size_t start = plusDelimiter.size(), end = 0, endPos = 0, endNeg = 0;
 
-				//std::cerr << "subformula " << subFormula << std::endl;
-				bool next = false;
+				bool next = subFormula.find(minusDelimiter, 0) < start;
 				while (endNeg != std::string::npos) {
 					endNeg = subFormula.find(minusDelimiter, start);
 					endPos = subFormula.find(plusDelimiter, start);
@@ -1699,6 +1700,20 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 				}
 
 				subFormula = tmpFormula;
+				/*
+				if (cpIndex == 3) {
+					std::cerr << "//////////////" << tmp << std::endl;
+					std::cerr << subFormula << "\n" << std::endl;
+
+					std::cerr << "Negative" << std::endl;
+					for (auto elem : negFormulaVec)
+						std::cerr << elem << std::endl;
+					std::cerr << "Positive" << std::endl;
+					for (auto elem : posFormulaVec)
+						std::cerr << elem << std::endl;
+					std::cerr << std::endl;
+				}
+				*/
 			}
 
 			//std::cerr << "form " << subFormula << std::endl;
@@ -1747,11 +1762,6 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 			? std::string::npos : end + minusDelimiter.size());
 		start = end;
 	}
-	/*
-	std::cerr << "\n\nstringVector" << std::endl;
-	for (auto s : theStringVector)
-		std::cerr << s << std::endl;
-	*/
 
 	std::vector<std::string> regexVec;
 	std::string myRegex;
@@ -1767,11 +1777,6 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 			regexVec.push_back(myRegex);
 		}
 	}
-	/*
-	std::cerr << "\n\nRegex" << std::endl;
-	for (auto s : regexVec) {
-		std::cerr << s << std::endl;
-	}*/
 
 	// TODO reserve oben auch
 	std::vector<std::string> qVec;
@@ -1801,21 +1806,127 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 
 	std::string combinedQString;
 	for (int stringIt = 0; stringIt != qVec.size(); stringIt++) {
-		combinedQString += "vec3 q_" + std::to_string(stringIt) + " =" + qVec[stringIt] + "\n";
+		combinedQString += "vec3 q_" + std::to_string(stringIt) + " =" + qVec[stringIt] + ";\n";
 	}
 
 	std::string combinedBuv = "B_uv =";
 	for (int stringIt = 0; stringIt != regexVec.size(); stringIt++) {
 		combinedBuv += " + q_" + std::to_string(stringIt) + regexVec[regexVec.size() - stringIt - 1] + "\n";
 	}
+	combinedBuv += ";"; // TODO
 
+	////////////////////////////////////
+	// Calculate partial derivate (s) //
+	////////////////////////////////////
+	// TODO reserve
+	std::vector<std::string> derivateVec;
+	std::string derivate;
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (i == 0) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (i >= 2) {
+				derivate += " * " + std::to_string(i);
+			}
+			for (int x = 0; x < i - 1; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	std::string dBs = "dBs =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dBs += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	dBs += ";"; // TODO
+
+	////////////////////////////////////
+	// Calculate partial derivate (t) //
+	////////////////////////////////////
+	derivateVec.clear();
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (j == 0) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (j >= 2) {
+				derivate += " * " + std::to_string(j);
+			}
+			for (int x = 0; x < i; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j - 1; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	std::string dBt = "dBt =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dBt += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	dBt += ";"; // TODO
+	
+	/*
 	std::cerr << "\n\nQs" << std::endl;
 	std::cerr << combinedQString << std::endl;
 
+	std::cerr << "\ndBs" << std::endl;
+	std::cerr << dBs << std::endl;
+
+	std::cerr << "\ndBt" << std::endl;
+	std::cerr << dBt << std::endl;
+
 	std::cerr << "\nBuv" << std::endl;
 	std::cerr << combinedBuv << std::endl;
+	*/
 
-	// TODO generate the derivates
+	///////////////////////////
+	// Write results to file //
+	///////////////////////////
+	// http://openflipper.org/Daily-Builds/Doc/Staging/Developer/a02657.html
+	// https://stackoverflow.com/questions/9505085/replace-a-line-in-text-file
+	std::string shaderDir = OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData();
+	std::ifstream filein(shaderDir + "/BezierTriangle/raytracing_template_fs.glsl");
+	std::ofstream fileout(shaderDir + "/BezierTriangle/raytracing_gen_fs.glsl");
+
+	if (!filein) {
+		std::cerr << "Error open filein!" << std::endl;
+		return;
+	}
+	if (!fileout) {
+		std::cerr << "Error open fileout!" << std::endl;
+		return;
+	}
+
+	std::string strTemp;
+	//bool found = false;
+	while (std::getline(filein, strTemp)) {
+		fileout << strTemp << "\n";
+		if (strTemp.find("BEGIN QS") != std::string::npos) {
+			fileout << combinedQString;
+		} else if (strTemp.find("BEGIN DBS") != std::string::npos) {
+			fileout << dBs;
+		} else if(strTemp.find("BEGIN DBT") != std::string::npos) {
+			fileout << dBt;
+		} else if (strTemp.find("BEGIN BUV") != std::string::npos) {
+			fileout << combinedBuv;
+		}
+	}
+
+	// TODO clear all vectors
 }
 
 // ControlNet -----------------------------------------------------------------
