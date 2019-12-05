@@ -415,6 +415,10 @@ private:
 		return r0 && r1;
 	}
 
+	bool addExtraSeed(FaceDijkstra &q);
+
+	void faceSP(FaceDijkstra &q);
+
 	void ensureReachable(const ID id0);
 
 	void vertexSP(VertexDijkstra &q);

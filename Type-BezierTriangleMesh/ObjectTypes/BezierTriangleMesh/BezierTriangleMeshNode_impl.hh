@@ -645,7 +645,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					updateTexBuffers();
 
 				// TODO
-				if (true)
+				if (false)
 					updateRaytracingFormula();
 
 				///////////////////////
@@ -1597,14 +1597,14 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	std::cerr << "formula 4" << std::endl;
 	std::cerr << formula << std::endl;
 
-	// Replace additional 1.0  
+	// Replace additional 1.0
 	std::regex replace_re4("1\\.0+\\s\\*\\s");
 	formula = std::regex_replace(formula, replace_re4, "");
 
 	std::cerr << "formula 6" << std::endl;
 	std::cerr << formula << std::endl;
 
-	// Replace additional 1.0  
+	// Replace additional 1.0
 	std::regex replace_re5("u");
 	formula = std::regex_replace(formula, replace_re5, "(1.0 - s - t)");
 
