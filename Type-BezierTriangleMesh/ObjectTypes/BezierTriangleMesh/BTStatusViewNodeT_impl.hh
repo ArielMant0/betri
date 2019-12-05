@@ -12,9 +12,9 @@
 #include "BTStatusViewNodeT.hh"
 #include <ACG/Scenegraph/DrawModes.hh>
 
-namespace ACG
+namespace betri
 {
-namespace SceneGraph
+namespace vis
 {
 
 //== IMPLEMENTATION ==========================================================
@@ -24,9 +24,9 @@ BTStatusViewNodeT<MeshT>::BTStatusViewNodeT (
     BaseNode* _parent,
     const std::string& _name,
     ACG::SceneGraph::SelectionNodeT<MeshT>* _statusNode,
-    ACG::SceneGraph::StatusNodeT<MeshT, AreaNodeMod<MeshT> >* _areaNode,
-    ACG::SceneGraph::StatusNodeT<MeshT, HandleNodeMod<MeshT> >* _handleNode,
-    ACG::SceneGraph::StatusNodeT<MeshT, FeatureNodeMod<MeshT> >* _featureNode
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTAreaNodeMod<MeshT> >* _areaNode,
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTHandleNodeMod<MeshT> >* _handleNode,
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTFeatureNodeMod<MeshT> >* _featureNode
 ) :
     BaseNode(_parent, _name),
     statusNode_(_statusNode),
@@ -41,27 +41,27 @@ BTStatusViewNodeT<MeshT>::BTStatusViewNodeT (
 //----------------------------------------------------------------------------
 
 template <class MeshT>
-void BTStatusViewNodeT<MeshT>::draw(GLState& _state, const DrawModes::DrawMode& _drawMode)
+void BTStatusViewNodeT<MeshT>::draw(ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawMode)
 {
     // extract all layers from drawmode
-    DrawModes::DrawMode singleLayers[4]; // polygon, edge, halfedge, point
+    ACG::SceneGraph::DrawModes::DrawMode singleLayers[4]; // polygon, edge, halfedge, point
 
     // remove default property layer
     for (int i = 0; i < 4; ++i)
         singleLayers[i].removeLayer(0u);
 
     for (unsigned int i = 0; i < _drawMode.getNumLayers(); ++i) {
-        const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
+        const ACG::SceneGraph::DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
         switch (props->primitive())
         {
-            case DrawModes::PRIMITIVE_POLYGON:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_POLYGON:
                 singleLayers[0].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_EDGE:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_EDGE:
                 singleLayers[1].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_HALFEDGE:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_HALFEDGE:
                 singleLayers[2].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_POINT:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_POINT:
                 singleLayers[3].setDrawModeProperties(props); break;
             default: break;
         }
@@ -72,13 +72,13 @@ void BTStatusViewNodeT<MeshT>::draw(GLState& _state, const DrawModes::DrawMode& 
     for (int i = 0; i < 4; ++i) {
 
         if (singleLayers[i].getNumLayers() == 0) {
-            DrawModes::DrawModeProperties defaultProps;
+            ACG::SceneGraph::DrawModes::DrawModeProperties defaultProps;
 
             switch (i) {
-                case 0: defaultProps.primitive(DrawModes::PRIMITIVE_POLYGON); break;
-                case 1: defaultProps.primitive(DrawModes::PRIMITIVE_EDGE); break;
-                case 2: defaultProps.primitive(DrawModes::PRIMITIVE_HALFEDGE); break;
-                case 3: defaultProps.primitive(DrawModes::PRIMITIVE_POINT); break;
+                case 0: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_POLYGON); break;
+                case 1: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_EDGE); break;
+                case 2: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_HALFEDGE); break;
+                case 3: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_POINT); break;
                 default: break;
             }
 
@@ -114,30 +114,30 @@ void BTStatusViewNodeT<MeshT>::draw(GLState& _state, const DrawModes::DrawMode& 
 
 template <class MeshT>
 void BTStatusViewNodeT<MeshT>::getRenderObjects(
-    IRenderer* _renderer,
-    GLState& _state,
-    const DrawModes::DrawMode& _drawMode,
-    const Material* _mat)
+    ACG::IRenderer* _renderer,
+    ACG::GLState& _state,
+    const ACG::SceneGraph::DrawModes::DrawMode& _drawMode,
+    const ACG::SceneGraph::Material* _mat)
 {
     // extract all layers from drawmode
 
-    DrawModes::DrawMode singleLayers[4]; // polygon, edge, halfedge, point
+    ACG::SceneGraph::DrawModes::DrawMode singleLayers[4]; // polygon, edge, halfedge, point
 
     // remove default property layer
     for (int i = 0; i < 4; ++i)
         singleLayers[i].removeLayer(0u);
 
     for (unsigned int i = 0; i < _drawMode.getNumLayers(); ++i) {
-        const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
+        const ACG::SceneGraph::DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
         switch (props->primitive()) {
-            case DrawModes::PRIMITIVE_POLYGON:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_POLYGON:
                 singleLayers[0].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_EDGE:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_EDGE:
                 singleLayers[1].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_HALFEDGE:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_HALFEDGE:
                 singleLayers[2].setDrawModeProperties(props); break;
-            case DrawModes::PRIMITIVE_POINT:
+            case ACG::SceneGraph::DrawModes::PRIMITIVE_POINT:
                 singleLayers[3].setDrawModeProperties(props); break;
             default: break;
         }
@@ -149,13 +149,13 @@ void BTStatusViewNodeT<MeshT>::getRenderObjects(
     for (int i = 0; i < 4; ++i) {
 
         if (singleLayers[i].getNumLayers() == 0) {
-            DrawModes::DrawModeProperties defaultProps;
+            ACG::SceneGraph::DrawModes::DrawModeProperties defaultProps;
 
             switch (i) {
-                case 0: defaultProps.primitive(DrawModes::PRIMITIVE_POLYGON); break;
-                case 1: defaultProps.primitive(DrawModes::PRIMITIVE_EDGE); break;
-                case 2: defaultProps.primitive(DrawModes::PRIMITIVE_HALFEDGE); break;
-                case 3: defaultProps.primitive(DrawModes::PRIMITIVE_POINT); break;
+                case 0: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_POLYGON); break;
+                case 1: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_EDGE); break;
+                case 2: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_HALFEDGE); break;
+                case 3: defaultProps.primitive(ACG::SceneGraph::DrawModes::PRIMITIVE_POINT); break;
                 default: break;
             }
 
@@ -180,7 +180,7 @@ void BTStatusViewNodeT<MeshT>::getRenderObjects(
 //----------------------------------------------------------------------------
 
 template <class MeshT>
-void BTStatusViewNodeT<MeshT>::enter( GLState& _state, const DrawModes::DrawMode& _drawmode )
+void BTStatusViewNodeT<MeshT>::enter(ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawmode )
 {
     statusNodeVis_ = statusNode_ && statusNode_->visible();
     areaNodeVis_ = areaNode_ && areaNode_->visible();
@@ -203,7 +203,7 @@ void BTStatusViewNodeT<MeshT>::enter( GLState& _state, const DrawModes::DrawMode
 //----------------------------------------------------------------------------
 
 template <class MeshT>
-void BTStatusViewNodeT<MeshT>::leave(GLState& _state, const DrawModes::DrawMode& _drawmode)
+void BTStatusViewNodeT<MeshT>::leave(ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawmode)
 {
     if (statusNodeVis_)
         statusNode_->show();

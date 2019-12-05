@@ -40,19 +40,19 @@ BSplineSurfaceObject::BSplineSurfaceObject() :
 }*/
 
 BTMeshObject::BTMeshObject(const BTMeshObject& _object) :
-    BaseObjectData(_object),
-    statusNode_(0),
-    areaNode_(0),
-    handleNode_(0),
-    featureNode_(0),
-    meshNode_(0),
-    textureNode_(0),
-    shaderNode_(0),
-    statusView_(0),
-    triangle_bsp_(0)
+	BaseObjectData(_object),
+	statusNode_(0),
+	areaNode_(0),
+	handleNode_(0),
+	featureNode_(0),
+	meshNode_(0),
+	textureNode_(0),
+	shaderNode_(0),
+	statusView_(0),
+	triangle_bsp_(0)
 {
-    init(_object.mesh_);
-    setName(name());
+	init(_object.mesh_);
+	setName(name());
 }
 
 /** Constructor for Mesh Objects. This object class gets a Separator Node giving
@@ -63,20 +63,20 @@ BTMeshObject::BTMeshObject(const BTMeshObject& _object) :
 *  objectDataType has to match the one of BezierTMesh ( see Types.hh::DataType )
 */
 BTMeshObject::BTMeshObject() :
-    BaseObjectData(),
-    mesh_(0),
-    statusNode_(0),
-    areaNode_(0),
-    handleNode_(0),
-    featureNode_(0),
-    meshNode_(0),
-    textureNode_(0),
-    shaderNode_(0),
-    statusView_(0),
-    triangle_bsp_(0)
+	BaseObjectData(),
+	mesh_(0),
+	statusNode_(0),
+	areaNode_(0),
+	handleNode_(0),
+	featureNode_(0),
+	meshNode_(0),
+	textureNode_(0),
+	shaderNode_(0),
+	statusView_(0),
+	triangle_bsp_(0)
 {
-    setDataType(DATA_BEZIER_TRIANGLE_MESH);
-    init();
+	setDataType(DATA_BEZIER_TRIANGLE_MESH);
+	init();
 }
 
 /** Destructor for Mesh Objects. The destructor deletes the mesh and all
@@ -84,33 +84,33 @@ BTMeshObject::BTMeshObject() :
 */
 BTMeshObject::~BTMeshObject()
 {
-    // Delete the data attached to this object ( this will remove all perObject data)
-    // Not the best way to do it but it will work.
-    // This is only necessary if people use references to the mesh below and
-    // they do something with the mesh in the destructor of their
-    // perObjectData.
-    deleteData();
+	// Delete the data attached to this object ( this will remove all perObject data)
+	// Not the best way to do it but it will work.
+	// This is only necessary if people use references to the mesh below and
+	// they do something with the mesh in the destructor of their
+	// perObjectData.
+	deleteData();
 
-    // Delete the Mesh only, if this object contains a mesh
-    if ( mesh_ != NULL)  {
-        delete mesh_;
-        mesh_ = NULL;
-    } else {
-        std::cerr << "Destructor error : Mesh already deleted" << std::endl;
-    }
+	// Delete the Mesh only, if this object contains a mesh
+	if (mesh_ != NULL) {
+		delete mesh_;
+		mesh_ = NULL;
+	} else {
+		std::cerr << "Destructor error : Mesh already deleted" << std::endl;
+	}
 
-    if ( triangle_bsp_ != 0 )
-        delete triangle_bsp_;
-    triangle_bsp_ = 0;
+	if (triangle_bsp_ != 0)
+		delete triangle_bsp_;
+	triangle_bsp_ = 0;
 
-    // No need to delete the scenegraph Nodes as this will be managed by baseplugin
-    areaNode_    = 0;
-    handleNode_  = 0;
-    featureNode_ = 0;
-    meshNode_    = 0;
-    textureNode_ = 0;
-    shaderNode_  = 0;
-    statusView_  = 0;
+	// No need to delete the scenegraph Nodes as this will be managed by baseplugin
+	areaNode_ = 0;
+	handleNode_ = 0;
+	featureNode_ = 0;
+	meshNode_ = 0;
+	textureNode_ = 0;
+	shaderNode_ = 0;
+	statusView_ = 0;
 }
 
 /** Cleanup Function for Mesh Objects. Deletes the contents of the whole object and
@@ -118,32 +118,32 @@ BTMeshObject::~BTMeshObject()
 */
 void BTMeshObject::cleanup()
 {
-    // Delete the Mesh only, if this object contains a mesh
-    if ( mesh_ != NULL) {
-        delete mesh_;
-        mesh_ = NULL;
-    } else {
-        std::cerr << "Cleanup error : Triangle Mesh already deleted" << std::endl;
-    }
+	// Delete the Mesh only, if this object contains a mesh
+	if (mesh_ != NULL) {
+		delete mesh_;
+		mesh_ = NULL;
+	} else {
+		std::cerr << "Cleanup error : Triangle Mesh already deleted" << std::endl;
+	}
 
-    if ( triangle_bsp_ != 0 )
-        delete triangle_bsp_;
-    triangle_bsp_ = 0;
+	if (triangle_bsp_ != 0)
+		delete triangle_bsp_;
+	triangle_bsp_ = 0;
 
-    BaseObjectData::cleanup();
+	BaseObjectData::cleanup();
 
-    statusNode_  = 0;
-    areaNode_    = 0;
-    handleNode_  = 0;
-    featureNode_ = 0;
-    textureNode_ = 0;
-    shaderNode_  = 0;
-    meshNode_    = 0;
-    statusView_  = 0;
+	statusNode_ = 0;
+	areaNode_ = 0;
+	handleNode_ = 0;
+	featureNode_ = 0;
+	textureNode_ = 0;
+	shaderNode_ = 0;
+	meshNode_ = 0;
+	statusView_ = 0;
 
 	setDataType(DATA_BEZIER_TRIANGLE_MESH);
 
-    init();
+	init();
 }
 
 //-----------------------------------------------------------------------------
@@ -159,124 +159,123 @@ BaseObject* BTMeshObject::copy()
 */
 void BTMeshObject::init(BezierTMesh* _mesh)
 {
-    if (_mesh == 0)
-        mesh_ = new BezierTMesh();
-    else
-        mesh_ = new BezierTMesh(*_mesh);
+	if (_mesh == 0)
+		mesh_ = new BezierTMesh();
+	else
+		mesh_ = new BezierTMesh(*_mesh);
 
-    // Prepare mesh and request required properties
-    mesh_->request_vertex_normals();
-    mesh_->request_face_normals();
-    mesh_->request_vertex_status();
-    mesh_->request_halfedge_status();
-    mesh_->request_face_status();
-    mesh_->request_edge_status();
-    //mesh_->request_vertex_colors();
-    //mesh_->request_face_colors();
+	// Prepare mesh and request required properties
+	mesh_->request_vertex_normals();
+	mesh_->request_face_normals();
+	mesh_->request_vertex_status();
+	mesh_->request_halfedge_status();
+	mesh_->request_face_status();
+	mesh_->request_edge_status();
+	//mesh_->request_vertex_colors();
+	//mesh_->request_face_colors();
 
 	// TODO
 	// request default properties
 	//mesh()->request_controlpoint_selections();
 	//mesh()->request_edge_selections();
 
-    // Only initialize scenegraph nodes when we initialized a gui!!
-    if (OpenFlipper::Options::nogui())
-        return;
+	// Only initialize scenegraph nodes when we initialized a gui!!
+	if (OpenFlipper::Options::nogui())
+		return;
 
-    // This should never happen!
-    if (manipulatorNode() == NULL)
-        std::cerr << "Error when creating Mesh Object! manipulatorNode is NULL!" << std::endl;
+	// This should never happen!
+	if (manipulatorNode() == NULL)
+		std::cerr << "Error when creating Mesh Object! manipulatorNode is NULL!" << std::endl;
 
 	if (materialNode() == NULL)
 		std::cerr << "Error when creating BSplineSurface Object! materialNode is NULL!" << std::endl;
 
-    textureNode_ = new ACG::SceneGraph::EnvMapNode(materialNode(),"NEW TextureNode for ", true, GL_LINEAR_MIPMAP_LINEAR );
-    shaderNode_  = new ACG::SceneGraph::ShaderNode(textureNode() , "NEW ShaderNode for ");
-    meshNode_    = new ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>(*mesh_, shaderNode_, "NEW BezierTriangleMeshNode");
+	textureNode_ = new ACG::SceneGraph::EnvMapNode(materialNode(), "NEW TextureNode for ", true, GL_LINEAR_MIPMAP_LINEAR);
+	shaderNode_ = new ACG::SceneGraph::ShaderNode(textureNode(), "NEW ShaderNode for ");
+	meshNode_ = new ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>(*mesh_, shaderNode_, "NEW BezierTriangleMeshNode");
 
-    QString shaderDir = OpenFlipper::Options::shaderDirStr() +
+	QString shaderDir = OpenFlipper::Options::shaderDirStr() +
 		OpenFlipper::Options::dirSeparator();
 
-    std::string shaderDirectory = std::string(shaderDir.toUtf8());
-    shaderNode_->setShaderDir(shaderDirectory);
+	std::string shaderDirectory = std::string(shaderDir.toUtf8());
+	shaderNode_->setShaderDir(shaderDirectory);
 
-    if(!OpenFlipper::Options::coreProfile())
-    {
-        if (QFile(shaderDir + "Phong/Vertex.glsl").exists() && QFile( shaderDir + "Phong/Fragment.glsl" ).exists())
-            shaderNode_->setShader(ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED, "Phong/Vertex.glsl", "Phong/Fragment.glsl" );
-        else
-            std::cerr << "Shader Files for Phong not found!" << std::endl;
-    }
+	if (!OpenFlipper::Options::coreProfile()) {
+		if (QFile(shaderDir + "Phong/Vertex.glsl").exists() && QFile(shaderDir + "Phong/Fragment.glsl").exists())
+			shaderNode_->setShader(ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED, "Phong/Vertex.glsl", "Phong/Fragment.glsl");
+		else
+			std::cerr << "Shader Files for Phong not found!" << std::endl;
+	}
 
-    // Node showing selection
-    statusNode_ = new ACG::SceneGraph::SelectionNodeT<BezierTMesh>(*mesh_, 0, "NEW StatusNode for mesh " );
-    statusNode_->set_point_size(4.0);
-    statusNode_->set_color(ACG::Vec4f(1.0f,0.0f,0.0f,1.0f));
-    statusNode_->set_base_color(ACG::Vec4f(1.0f,0.0f,0.0f,1.0f));
-    // Status nodes are handled specially by their BTStatusViewNodeT parent which
-    // is why they get a NONE draw mode.
-    statusNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
+	// Node showing selection
+	statusNode_ = new ACG::SceneGraph::SelectionNodeT<BezierTMesh>(*mesh_, 0, "NEW StatusNode for mesh ");
+	statusNode_->set_point_size(4.0);
+	statusNode_->set_color(ACG::Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+	statusNode_->set_base_color(ACG::Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+	// Status nodes are handled specially by their BTStatusViewNodeT parent which
+	// is why they get a NONE draw mode.
+	statusNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
 
-    // Node showing modeling region
-    areaNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, AreaNodeMod<BezierTMesh> >(*mesh_, 0, "NEW AreaNode for mesh ");
-    areaNode_->set_round_points(true);
-    areaNode_->enable_alpha_test(0.5);
-    areaNode_->set_point_size(7.0);
-    areaNode_->set_color(ACG::Vec4f(0.4f, 0.4f, 1.0f, 1.0f));
-    // Status nodes are handled specially by their BTStatusViewNodeT parent which
-    // is why they get a NONE draw mode.
-    areaNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
+	// Node showing modeling region
+	areaNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, betri::vis::BTAreaNodeMod<BezierTMesh> >(*mesh_, 0, "NEW AreaNode for mesh ");
+	areaNode_->set_round_points(true);
+	areaNode_->enable_alpha_test(0.5);
+	areaNode_->set_point_size(7.0);
+	areaNode_->set_color(ACG::Vec4f(0.4f, 0.4f, 1.0f, 1.0f));
+	// Status nodes are handled specially by their BTStatusViewNodeT parent which
+	// is why they get a NONE draw mode.
+	areaNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
 
-    // Node showing handle region
-    handleNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, HandleNodeMod<BezierTMesh> >(*mesh_, 0, "NEW HandleNode for mesh ");
-    handleNode_->set_round_points(true);
-    handleNode_->enable_alpha_test(0.5);
-    handleNode_->set_line_width(2.0);
-    handleNode_->set_point_size(7.0);
-    handleNode_->set_color(ACG::Vec4f(0.2f, 1.0f, 0.2f, 1.0f));
-    // Status nodes are handled specially by their BTStatusViewNodeT parent which
-    // is why they get a NONE draw mode.
-    handleNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
+	// Node showing handle region
+	handleNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, betri::vis::BTHandleNodeMod<BezierTMesh> >(*mesh_, 0, "NEW HandleNode for mesh ");
+	handleNode_->set_round_points(true);
+	handleNode_->enable_alpha_test(0.5);
+	handleNode_->set_line_width(2.0);
+	handleNode_->set_point_size(7.0);
+	handleNode_->set_color(ACG::Vec4f(0.2f, 1.0f, 0.2f, 1.0f));
+	// Status nodes are handled specially by their BTStatusViewNodeT parent which
+	// is why they get a NONE draw mode.
+	handleNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
 
-    // Node showing feature selection
-    featureNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, FeatureNodeMod<BezierTMesh> >(*mesh_, 0, "NEW FeatureNode for mesh ");
-    featureNode_->set_round_points(true);
-    featureNode_->enable_alpha_test(0.5);
-    featureNode_->set_line_width(2.0);
-    featureNode_->set_point_size(7.0);
-    featureNode_->set_color(ACG::Vec4f(1.0f, 0.2f, 1.0f, 1.0f));
-    featureNode_->set_base_color(ACG::Vec4f(1.0f, 0.2f, 1.0f, 1.0f));
-    // Status nodes are handled specially by their BTStatusViewNodeT parent which
-    // is why they get a NONE draw mode.
-    featureNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
+	// Node showing feature selection
+	featureNode_ = new ACG::SceneGraph::StatusNodeT<BezierTMesh, betri::vis::BTFeatureNodeMod<BezierTMesh> >(*mesh_, 0, "NEW FeatureNode for mesh ");
+	featureNode_->set_round_points(true);
+	featureNode_->enable_alpha_test(0.5);
+	featureNode_->set_line_width(2.0);
+	featureNode_->set_point_size(7.0);
+	featureNode_->set_color(ACG::Vec4f(1.0f, 0.2f, 1.0f, 1.0f));
+	featureNode_->set_base_color(ACG::Vec4f(1.0f, 0.2f, 1.0f, 1.0f));
+	// Status nodes are handled specially by their BTStatusViewNodeT parent which
+	// is why they get a NONE draw mode.
+	featureNode_->drawMode(ACG::SceneGraph::DrawModes::NONE);
 
 	// TODO
-    // Link the status nodes to the draw mesh of the mesh below them to reuse its buffers
-    //if (meshNode_) {
-    //    statusNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    featureNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    areaNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //    handleNode_->setDrawMesh(meshNode_->getDrawMesh());
-    //}
+	// Link the status nodes to the draw mesh of the mesh below them to reuse its buffers
+	//if (meshNode_) {
+	//    statusNode_->setDrawMesh(meshNode_->getDrawMesh());
+	//    featureNode_->setDrawMesh(meshNode_->getDrawMesh());
+	//    areaNode_->setDrawMesh(meshNode_->getDrawMesh());
+	//    handleNode_->setDrawMesh(meshNode_->getDrawMesh());
+	//}
 
-    // Node rendering selections in correct order
-    statusView_ = new ACG::SceneGraph::BTStatusViewNodeT<BezierTMesh>(
-        manipulatorNode(),
-        "NEW StatusViewNode for mesh ",
-        statusNode_,
-        areaNode_,
-        handleNode_,
-        featureNode_
-    );
+	// Node rendering selections in correct order
+	statusView_ = new BTStatusViewNodeT<BezierTMesh>(
+		manipulatorNode(),
+		"NEW StatusViewNode for mesh ",
+		statusNode_,
+		areaNode_,
+		handleNode_,
+		featureNode_
+	);
 
-    // make StatusViewNode parent of status nodes
-    statusNode_->set_parent(statusView_);
-    areaNode_->set_parent(statusView_);
-    handleNode_->set_parent(statusView_);
-    featureNode_->set_parent(statusView_);
+	// make StatusViewNode parent of status nodes
+	statusNode_->set_parent(statusView_);
+	areaNode_->set_parent(statusView_);
+	handleNode_->set_parent(statusView_);
+	featureNode_->set_parent(statusView_);
 
-    // Update all nodes
-    update();
+	// Update all nodes
+	update();
 }
 
 // ===============================================================================
@@ -288,35 +287,35 @@ void BTMeshObject::init(BezierTMesh* _mesh)
 */
 void BTMeshObject::setName(QString _name)
 {
-    BaseObjectData::setName(_name);
+	BaseObjectData::setName(_name);
 
-    // No update when gui is not active
-    if ( OpenFlipper::Options::nogui() )
-        return;
+	// No update when gui is not active
+	if (OpenFlipper::Options::nogui())
+		return;
 
-    std::string nodename = std::string("StatusNode for mesh " + _name.toUtf8());
-    statusNode_->name( nodename );
+	std::string nodename = std::string("StatusNode for mesh " + _name.toUtf8());
+	statusNode_->name(nodename);
 
-    nodename = std::string("AreaNode for mesh " + _name.toUtf8());
-    areaNode_->name( nodename );
+	nodename = std::string("AreaNode for mesh " + _name.toUtf8());
+	areaNode_->name(nodename);
 
-    nodename = std::string("HandleNode for mesh " + _name.toUtf8());
-    handleNode_->name( nodename );
+	nodename = std::string("HandleNode for mesh " + _name.toUtf8());
+	handleNode_->name(nodename);
 
-    nodename = std::string("FeatureNode for mesh " + _name.toUtf8());
-    featureNode_->name( nodename );
+	nodename = std::string("FeatureNode for mesh " + _name.toUtf8());
+	featureNode_->name(nodename);
 
-    nodename = std::string("TextureNode for mesh "+ _name.toUtf8());
-    textureNode_->name( nodename );
+	nodename = std::string("TextureNode for mesh " + _name.toUtf8());
+	textureNode_->name(nodename);
 
-    nodename = std::string("ShaderNode for mesh "+ _name.toUtf8());
-    shaderNode_->name( nodename );
+	nodename = std::string("ShaderNode for mesh " + _name.toUtf8());
+	shaderNode_->name(nodename);
 
-    nodename = std::string("BezierTriangleMeshNode for mesh " + _name.toUtf8());
-    meshNode_->name( nodename );
+	nodename = std::string("BezierTriangleMeshNode for mesh " + _name.toUtf8());
+	meshNode_->name(nodename);
 
-    nodename = std::string("StatusViewNode for mesh " + _name.toUtf8());
-    statusView_->name( nodename );
+	nodename = std::string("StatusViewNode for mesh " + _name.toUtf8());
+	statusView_->name(nodename);
 }
 
 // ===============================================================================
@@ -328,7 +327,7 @@ void BTMeshObject::setName(QString _name)
 */
 BezierTMesh* BTMeshObject::mesh()
 {
-    return mesh_;
+	return mesh_;
 }
 
 /** Get a const pointer to the object's mesh.
@@ -336,7 +335,7 @@ BezierTMesh* BTMeshObject::mesh()
 */
 const BezierTMesh* BTMeshObject::mesh() const
 {
-    return mesh_;
+	return mesh_;
 }
 
 /** Updates the visualization of the object. Calls BTMeshObject::updateGeometry,
@@ -345,36 +344,36 @@ const BezierTMesh* BTMeshObject::mesh() const
 */
 void BTMeshObject::update(UpdateType _type)
 {
-    // No update necessary if no gui
-    if (OpenFlipper::Options::nogui())
-        return;
+	// No update necessary if no gui
+	if (OpenFlipper::Options::nogui())
+		return;
 
-    PluginFunctions::setMainGLContext();
+	PluginFunctions::setMainGLContext();
 
-    if (_type.contains(UPDATE_ALL) || _type.contains(UPDATE_TOPOLOGY)) {
-        updateGeometry();
-        updateColor();
-        updateTopology();
-        updateSelection();
-        updateFeatures();
-        updateModelingRegions();
-        updateTexture();
-    } else {
-        if (_type.contains(UPDATE_GEOMETRY)) {
-            updateGeometry();
-        }
-        if (_type.contains(UPDATE_SELECTION)) {
-            updateSelection();
-            updateFeatures();
-            updateModelingRegions();
-        }
-        if (_type.contains(UPDATE_COLOR)) {
-            updateColor();
-        }
-        if (_type.contains(UPDATE_TEXTURE)) {
-            updateTexture();
-        }
-    }
+	if (_type.contains(UPDATE_ALL) || _type.contains(UPDATE_TOPOLOGY)) {
+		updateGeometry();
+		updateColor();
+		updateTopology();
+		updateSelection();
+		updateFeatures();
+		updateModelingRegions();
+		updateTexture();
+	} else {
+		if (_type.contains(UPDATE_GEOMETRY)) {
+			updateGeometry();
+		}
+		if (_type.contains(UPDATE_SELECTION)) {
+			updateSelection();
+			updateFeatures();
+			updateModelingRegions();
+		}
+		if (_type.contains(UPDATE_COLOR)) {
+			updateColor();
+		}
+		if (_type.contains(UPDATE_TEXTURE)) {
+			updateTexture();
+		}
+	}
 	/*
 	if (_type.contains(UPDATE_ALL))
 	{
@@ -411,68 +410,68 @@ void BTMeshObject::update(UpdateType _type)
 /** Updates the selection scenegraph nodes */
 void BTMeshObject::updateSelection()
 {
-    if (statusNode_) {
-        statusNode_->updateSelection();
-    }
+	if (statusNode_) {
+		statusNode_->updateSelection();
+	}
 }
 
 /** Updates the geometry information in the mesh scenegraph node */
 void BTMeshObject::updateGeometry()
 {
-    if (meshNode_) {
-        meshNode_->updateGeometry();
-        // Also update the selection nodes here.
-        // These nodes store their positions based on the mesh.
-        // So they would be at the wrong position afterwards
-        statusNode_->updateGeometry();
-        featureNode_->updateGeometry();
-        areaNode_->updateGeometry();
-        handleNode_->updateGeometry();
-    }
+	if (meshNode_) {
+		meshNode_->updateGeometry();
+		// Also update the selection nodes here.
+		// These nodes store their positions based on the mesh.
+		// So they would be at the wrong position afterwards
+		statusNode_->updateGeometry();
+		featureNode_->updateGeometry();
+		areaNode_->updateGeometry();
+		handleNode_->updateGeometry();
+	}
 
-    invalidateTriangleBsp();
+	invalidateTriangleBsp();
 }
 
 /** Updates the color information in the mesh scenegraph node */
 void BTMeshObject::updateColor()
 {
-    //if (meshNode_)
-    //    meshNode_->update_color();
+	//if (meshNode_)
+	//    meshNode_->update_color();
 }
 
 /** Updates the topology information in the mesh scenegraph node */
 void BTMeshObject::updateTopology()
 {
-    if (meshNode_) {
-        //meshNode_->update_topology();
-        statusNode_->updateTopology();
-        featureNode_->updateTopology();
-        areaNode_->updateTopology();
-        handleNode_->updateTopology();
-    }
-    invalidateTriangleBsp();
+	if (meshNode_) {
+		//meshNode_->update_topology();
+		statusNode_->updateTopology();
+		featureNode_->updateTopology();
+		areaNode_->updateTopology();
+		handleNode_->updateTopology();
+	}
+	invalidateTriangleBsp();
 }
 
 /** Updates the modeling regions scenegraph nodes */
 void BTMeshObject::updateModelingRegions()
 {
-    if ( areaNode_ && handleNode_ ) {
-        areaNode_->updateSelection();
-        handleNode_->updateSelection();
-    }
+	if (areaNode_ && handleNode_) {
+		areaNode_->updateSelection();
+		handleNode_->updateSelection();
+	}
 }
 
 /** Updates the modeling regions scenegraph nodes */
 void BTMeshObject::updateFeatures()
 {
-    if ( featureNode_ )
-        featureNode_->updateSelection();
+	if (featureNode_)
+		featureNode_->updateSelection();
 }
 
 /** Updates the modeling regions scenegraph nodes */
 void BTMeshObject::updateTexture()
 {
-    //meshNode_->update_textures();
+	//meshNode_->update_textures();
 }
 
 
@@ -481,74 +480,73 @@ void BTMeshObject::updateTexture()
 // ===============================================================================
 void BTMeshObject::setSelectionColor(const ACG::Vec4f& _color)
 {
-    if (statusNode_)
-    {
-        statusNode_->set_color(_color);
-        statusNode_->set_base_color(_color);
-    }
+	if (statusNode_) {
+		statusNode_->set_color(_color);
+		statusNode_->set_base_color(_color);
+	}
 }
 
 ACG::Vec4f BTMeshObject::selectionColor() const
 {
-    if (statusNode_)
-        return statusNode_->base_color();
-    else
-        return ACG::Vec4f(-1.f,-1.f,-1.f,-1.f);
+	if (statusNode_)
+		return statusNode_->base_color();
+	else
+		return ACG::Vec4f(-1.f, -1.f, -1.f, -1.f);
 }
 
 void BTMeshObject::setAreaColor(const ACG::Vec4f& _color)
 {
-    if (areaNode_)
-    {
-        areaNode_->set_color(_color);
-        areaNode_->set_base_color(_color);
-    }
+	if (areaNode_) {
+		areaNode_->set_color(_color);
+		areaNode_->set_base_color(_color);
+	}
 }
 
 ACG::Vec4f BTMeshObject::areaColor() const
 {
-    if (areaNode_)
-        return areaNode_->base_color();
-    else
-        return ACG::Vec4f(-1.f,-1.f,-1.f,-1.f);
+	if (areaNode_)
+		return areaNode_->base_color();
+	else
+		return ACG::Vec4f(-1.f, -1.f, -1.f, -1.f);
 }
 
 void BTMeshObject::setFeatureColor(const ACG::Vec4f& _color)
 {
-    if (featureNode_) {
-        featureNode_->set_color(_color);
-        featureNode_->set_base_color(_color);
-    }
+	if (featureNode_) {
+		featureNode_->set_color(_color);
+		featureNode_->set_base_color(_color);
+	}
 }
 
 ACG::Vec4f BTMeshObject::featureColor() const
 {
-    if (featureNode_)
-        return featureNode_->base_color();
-    else
-        return ACG::Vec4f(-1.f,-1.f,-1.f,-1.f);
+	if (featureNode_)
+		return featureNode_->base_color();
+	else
+		return ACG::Vec4f(-1.f, -1.f, -1.f, -1.f);
 }
 
 void BTMeshObject::setHandleColor(const ACG::Vec4f& _color)
 {
-    if (handleNode_) {
-        handleNode_->set_color(_color);
-        handleNode_->set_base_color(_color);
-    }
+	if (handleNode_) {
+		handleNode_->set_color(_color);
+		handleNode_->set_base_color(_color);
+	}
 }
 
 ACG::Vec4f BTMeshObject::handleColor() const
 {
-    if (handleNode_)
-        return handleNode_->base_color();
-    else
-        return ACG::Vec4f(-1.f,-1.f,-1.f,-1.f);
+	if (handleNode_)
+		return handleNode_->base_color();
+	else
+		return ACG::Vec4f(-1.f, -1.f, -1.f, -1.f);
 }
 
 /** Returns a pointer to the bezierTriangleMesh node
  * @return Pointer to the bezierTriangleMesh node
  */
-ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>* BTMeshObject::bezierTriangleMeshNode() {
+ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>* BTMeshObject::bezierTriangleMeshNode()
+{
 	return meshNode_;
 }
 
@@ -558,7 +556,7 @@ ACG::SceneGraph::BezierTriangleMeshNode<BezierTMesh>* BTMeshObject::bezierTriang
 */
 ACG::SceneGraph::EnvMapNode* BTMeshObject::textureNode()
 {
-    return textureNode_;
+	return textureNode_;
 }
 
 /** Returns a pointer to the shader node
@@ -566,79 +564,80 @@ ACG::SceneGraph::EnvMapNode* BTMeshObject::textureNode()
 */
 ACG::SceneGraph::ShaderNode* BTMeshObject::shaderNode()
 {
-    return shaderNode_;
+	return shaderNode_;
 }
 
 /** Shows or hides the selections on the object
  */
 void BTMeshObject::hideSelection(bool _hide)
 {
-    if (_hide) {
-        statusNode_->set_status( ACG::SceneGraph::BaseNode::HideNode );
-    } else {
-        statusNode_->set_status( ACG::SceneGraph::BaseNode::Active );
-    }
+	if (_hide) {
+		statusNode_->set_status(ACG::SceneGraph::BaseNode::HideNode);
+	} else {
+		statusNode_->set_status(ACG::SceneGraph::BaseNode::Active);
+	}
 }
 
 void BTMeshObject::hideFeatures(bool _hide)
 {
-    if (_hide) {
-        featureNode_->set_status(ACG::SceneGraph::BaseNode::HideNode);
-    } else {
-        featureNode_->set_status(ACG::SceneGraph::BaseNode::Active);
-    }
+	if (_hide) {
+		featureNode_->set_status(ACG::SceneGraph::BaseNode::HideNode);
+	} else {
+		featureNode_->set_status(ACG::SceneGraph::BaseNode::Active);
+	}
 }
 
-bool BTMeshObject::featuresVisible() {
-    return ( featureNode_->status() == ACG::SceneGraph::BaseNode::Active);
+bool BTMeshObject::featuresVisible()
+{
+	return (featureNode_->status() == ACG::SceneGraph::BaseNode::Active);
 }
 
 /** Shows or hides the areas on the object
  */
-void BTMeshObject::hideArea(StatusBits _bit, bool _hide)
+void BTMeshObject::hideArea(betri::vis::BTStatusBits _bit, bool _hide)
 {
-    ACG::SceneGraph::BaseNode::StatusMode status;
+	ACG::SceneGraph::BaseNode::StatusMode status;
 
-    if (_hide)
-        status = ACG::SceneGraph::BaseNode::HideNode;
-    else
-        status = ACG::SceneGraph::BaseNode::Active;
+	if (_hide)
+		status = ACG::SceneGraph::BaseNode::HideNode;
+	else
+		status = ACG::SceneGraph::BaseNode::Active;
 
-    if (_bit & AREA)
-        areaNode_->set_status(status);
-    if (_bit & HANDLEAREA)
-        handleNode_->set_status(status);
+	if (_bit & BT_AREA)
+		areaNode_->set_status(status);
+	if (_bit & BT_HANDLEAREA)
+		handleNode_->set_status(status);
 }
 
 bool BTMeshObject::selectionVisible()
 {
-    return ( statusNode_->status() == ACG::SceneGraph::BaseNode::Active );
+	return (statusNode_->status() == ACG::SceneGraph::BaseNode::Active);
 }
 
-bool BTMeshObject::areaVisible( StatusBits _bit )
+bool BTMeshObject::areaVisible(betri::vis::BTStatusBits _bit)
 {
-    bool status = true;
+	bool status = true;
 
-    if ( _bit & AREA )
-        status &= ( areaNode_->status()   == ACG::SceneGraph::BaseNode::Active );
+	if (_bit & BT_AREA)
+		status &= (areaNode_->status() == ACG::SceneGraph::BaseNode::Active);
 
-    if ( _bit & HANDLEAREA )
-        status &= ( handleNode_->status() == ACG::SceneGraph::BaseNode::Active );
+	if (_bit & BT_HANDLEAREA)
+		status &= (handleNode_->status() == ACG::SceneGraph::BaseNode::Active);
 
-    return status;
+	return status;
 }
 
 /** Get the Bounding box size of this object
  */
-void BTMeshObject::boundingBox( ACG::Vec3d& _bbMin , ACG::Vec3d& _bbMax )
+void BTMeshObject::boundingBox(ACG::Vec3d& _bbMin, ACG::Vec3d& _bbMax)
 {
-    if ( meshNode_ ) {
-        _bbMin = ACG::Vec3d(FLT_MAX, FLT_MAX, FLT_MAX);
-        _bbMax = ACG::Vec3d(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-        meshNode_->boundingBox(_bbMin,_bbMax);
-    } else {
-        std::cerr << "Error: Bounding box computation via Scenegraph not available without gui" << std::endl;
-    }
+	if (meshNode_) {
+		_bbMin = ACG::Vec3d(FLT_MAX, FLT_MAX, FLT_MAX);
+		_bbMax = ACG::Vec3d(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		meshNode_->boundingBox(_bbMin, _bbMax);
+	} else {
+		std::cerr << "Error: Bounding box computation via Scenegraph not available without gui" << std::endl;
+	}
 }
 
 // ===============================================================================
@@ -652,31 +651,30 @@ void BTMeshObject::boundingBox( ACG::Vec3d& _bbMin , ACG::Vec3d& _bbMax )
 */
 bool BTMeshObject::loadMesh(QString _filename)
 {
-    setFromFileName(_filename);
+	setFromFileName(_filename);
 
-    // call the local function to update names
-    setName(name());
+	// call the local function to update names
+	setName(name());
 
-    std::string filename = std::string( _filename.toUtf8());
+	std::string filename = std::string(_filename.toUtf8());
 
-    // load file
-    bool ok = OpenMesh::IO::read_mesh( (*mesh()) , filename);
-    if (!ok)
-    {
-        if (dataType() == typeId("TriangleMesh")) // TODO
-        std::cerr << "Main Application : Read error for Triangle Mesh at "<< filename << std::endl;
-        if (dataType() == typeId("PolyMesh"))
-        std::cerr << "Main Application : Read error for Poly Mesh\n";
-        return false;
-    }
+	// load file
+	bool ok = OpenMesh::IO::read_mesh((*mesh()), filename);
+	if (!ok) {
+		if (dataType() == typeId("TriangleMesh")) // TODO
+			std::cerr << "Main Application : Read error for Triangle Mesh at " << filename << std::endl;
+		if (dataType() == typeId("PolyMesh"))
+			std::cerr << "Main Application : Read error for Poly Mesh\n";
+		return false;
+	}
 
-    mesh()->update_normals();
+	mesh()->update_normals();
 
-    update();
+	update();
 
-    show();
+	show();
 
-    return true;
+	return true;
 }
 
 // ===============================================================================
@@ -690,26 +688,26 @@ bool BTMeshObject::loadMesh(QString _filename)
 */
 QString BTMeshObject::getObjectinfo()
 {
-    QString output;
+	QString output;
 
-    output += "========================================================================\n";
-    output += BaseObjectData::getObjectinfo();
+	output += "========================================================================\n";
+	output += BaseObjectData::getObjectinfo();
 
-    if (dataType(typeId("TriangleMesh"))) // TODO
-        output += "Object Contains Triangle Mesh : ";
+	if (dataType(typeId("TriangleMesh"))) // TODO
+		output += "Object Contains Triangle Mesh : ";
 
-    if (dataType(typeId("PolyMesh")))
-        output += "Object Contains Poly Mesh : ";
+	if (dataType(typeId("PolyMesh")))
+		output += "Object Contains Poly Mesh : ";
 
-    output += QString::number( mesh()->n_vertices() ) + " vertices, ";
-    output += QString::number( mesh()->n_edges() ) += " edges ";
-    output += QString::number( mesh()->n_faces() ) += " faces.\n";
+	output += QString::number(mesh()->n_vertices()) + " vertices, ";
+	output += QString::number(mesh()->n_edges()) += " edges ";
+	output += QString::number(mesh()->n_faces()) += " faces.\n";
 
 	// output += QString::number(splineSurface()->n_control_points_m()) + " control points in m direction, ";
 	// output += QString::number(splineSurface()->n_control_points_n()) + " control points in n direction, ";
 
-    output += "========================================================================\n";
-    return output;
+	output += "========================================================================\n";
+	return output;
 }
 
 // ===============================================================================
@@ -724,25 +722,25 @@ QString BTMeshObject::getObjectinfo()
 */
 bool BTMeshObject::picked(uint _node_idx)
 {
-    return (_node_idx == meshNode_->id());
+	return (_node_idx == meshNode_->id());
 }
 
 void BTMeshObject::enablePicking(bool _enable)
 {
-    if (OpenFlipper::Options::nogui())
-        return;
+	if (OpenFlipper::Options::nogui())
+		return;
 
-    meshNode_->enablePicking( _enable );
-    areaNode_->enablePicking( _enable );
-    handleNode_->enablePicking( _enable );
-    featureNode_->enablePicking( _enable );
-    textureNode_->enablePicking( _enable );
-    shaderNode_->enablePicking( _enable );
+	meshNode_->enablePicking(_enable);
+	areaNode_->enablePicking(_enable);
+	handleNode_->enablePicking(_enable);
+	featureNode_->enablePicking(_enable);
+	textureNode_->enablePicking(_enable);
+	shaderNode_->enablePicking(_enable);
 }
 
 bool BTMeshObject::pickingEnabled()
 {
-    return meshNode_->pickingEnabled();
+	return meshNode_->pickingEnabled();
 }
 
 /// Refine picking on triangle meshes
@@ -752,7 +750,8 @@ ACG::Vec3d BTMeshObject::refinePick(
 	const ACG::Vec3d _start,
 	const ACG::Vec3d _dir,
 	const unsigned int _targetIdx
-) {
+)
+{
 	if (_pickTarget == ACG::SceneGraph::PICK_FACE) {
 		// get picked face handle
 		BezierTMesh::FaceHandle fh = mesh()->face_handle(_targetIdx);
@@ -821,58 +820,58 @@ ACG::Vec3d BTMeshObject::refinePick(
 
 typename BTMeshObject::OMTriangleBSP* BTMeshObject::requestTriangleBsp()
 {
-    if (!dataType(typeId("TriangleMesh"))) {
-        std::cerr << "Bsps are only supported for triangle meshes." << std::endl;
-        return 0;
-    }
+	if (!dataType(typeId("TriangleMesh"))) {
+		std::cerr << "Bsps are only supported for triangle meshes." << std::endl;
+		return 0;
+	}
 
-    // Create the tree if needed.
-    if ( triangle_bsp_ == 0 ) {
-        // create Triangle BSP
-        triangle_bsp_ = new OMTriangleBSP( *mesh() );
+	// Create the tree if needed.
+	if (triangle_bsp_ == 0) {
+		// create Triangle BSP
+		triangle_bsp_ = new OMTriangleBSP(*mesh());
 
-        // build Triangle BSP
-        triangle_bsp_->reserve(mesh()->n_faces());
+		// build Triangle BSP
+		triangle_bsp_->reserve(mesh()->n_faces());
 
-        typename BezierTMesh::FIter f_it  = mesh()->faces_begin();
-        typename BezierTMesh::FIter f_end = mesh()->faces_end();
+		typename BezierTMesh::FIter f_it = mesh()->faces_begin();
+		typename BezierTMesh::FIter f_end = mesh()->faces_end();
 
-        for (; f_it!=f_end; ++f_it)
-        triangle_bsp_->push_back(*f_it);
+		for (; f_it != f_end; ++f_it)
+			triangle_bsp_->push_back(*f_it);
 
-        triangle_bsp_->build(10, 100); //max vertices per leaf 10, max depth 100
-    }
+		triangle_bsp_->build(10, 100); //max vertices per leaf 10, max depth 100
+	}
 
-    // return pointer to triangle bsp
-    return triangle_bsp_;
+	// return pointer to triangle bsp
+	return triangle_bsp_;
 }
 
 typename BTMeshObject::OMTriangleBSP* BTMeshObject::resetTriangleBsp()
 {
-    if (triangle_bsp_ != 0) {
-        delete triangle_bsp_;
-        triangle_bsp_ = 0;
-    }
+	if (triangle_bsp_ != 0) {
+		delete triangle_bsp_;
+		triangle_bsp_ = 0;
+	}
 
-    return requestTriangleBsp();
+	return requestTriangleBsp();
 }
 
 void BTMeshObject::invalidateTriangleBsp()
 {
-    if ( triangle_bsp_ != 0 ) {
-        delete triangle_bsp_;
-        triangle_bsp_ = 0;
-    }
+	if (triangle_bsp_ != 0) {
+		delete triangle_bsp_;
+		triangle_bsp_ = 0;
+	}
 }
 
 bool BTMeshObject::hasBsp() const
 {
-    return triangle_bsp_ != 0;
+	return triangle_bsp_ != 0;
 }
 
 BaseNode* BTMeshObject::primaryNode()
 {
-    return boundingBoxNode();
+	return boundingBoxNode();
 }
 
 #endif

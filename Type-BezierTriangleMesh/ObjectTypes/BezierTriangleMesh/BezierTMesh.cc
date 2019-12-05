@@ -73,11 +73,14 @@ void BezierTMesh::tessellate(size_t amount)
 	}
 
 	garbage_collection();
+
+	update_normals();
 }
 
 void BezierTMesh::tessellateToTrimesh(TriMesh &mesh, size_t amount)
 {
 	applyTessellation(&mesh, amount);
+	mesh.update_normals();
 }
 
 template <typename MeshT>
@@ -146,9 +149,9 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 		for (; pos3 < newHandleVector.size(); ) {
 			// bottom triangle
 			FaceHandle fh = mesh->add_face(
-				getHandle(newHandleVector[pos1]),
+				getHandle(newHandleVector[pos3]),
 				getHandle(newHandleVector[pos2]),
-				getHandle(newHandleVector[pos3])
+				getHandle(newHandleVector[pos1])
 			);
 			// Add the controllPoints to the face
 			//data(fh).points(data(face).points());
@@ -156,9 +159,9 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 			if (pos2 + 1 < border) {
 				// top triangle
 				fh = mesh->add_face(
-					getHandle(newHandleVector[pos2]),
+					getHandle(newHandleVector[pos3]),
 					getHandle(newHandleVector[pos3 + 1]),
-					getHandle(newHandleVector[pos3])
+					getHandle(newHandleVector[pos2])
 				);
 				// Add the controllPoints to the face
 				//data(fh).points(data(face).points());

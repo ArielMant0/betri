@@ -15,9 +15,9 @@
 
 //== CLASS DEFINITION =========================================================
 
-namespace ACG
+namespace betri
 {
-namespace SceneGraph
+namespace vis
 {
 
 template <class MeshT>
@@ -28,28 +28,28 @@ public:
         BaseNode* _parent,
         const std::string& _name,
         ACG::SceneGraph::SelectionNodeT<MeshT>* _statusNode,
-        ACG::SceneGraph::StatusNodeT<MeshT, AreaNodeMod<MeshT> >* _areaNode,
-        ACG::SceneGraph::StatusNodeT<MeshT, HandleNodeMod<MeshT> >* _handleNode,
-        ACG::SceneGraph::StatusNodeT<MeshT, FeatureNodeMod<MeshT> >* _featureNode
+        ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTAreaNodeMod<MeshT> >* _areaNode,
+        ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTHandleNodeMod<MeshT> >* _handleNode,
+        ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTFeatureNodeMod<MeshT> >* _featureNode
     );
 
     // BaseNode implementation
 
     ACG_CLASSNAME(BTStatusViewNodeT);
 
-    void draw(GLState& , const DrawModes::DrawMode& );
+    void draw(ACG::GLState& , const ACG::SceneGraph::DrawModes::DrawMode& );
 
-    void getRenderObjects(IRenderer* _renderer, GLState& _state , const DrawModes::DrawMode& _drawMode , const Material* _mat);
+    void getRenderObjects(ACG::IRenderer* _renderer, ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawMode , const ACG::SceneGraph::Material* _mat);
 
-    void enter(GLState& _state, const DrawModes::DrawMode& _drawmode);
-    void leave(GLState& _state, const DrawModes::DrawMode& _drawmode);
+    void enter(ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawmode);
+    void leave(ACG::GLState& _state, const ACG::SceneGraph::DrawModes::DrawMode& _drawmode);
 
 private:
 
     ACG::SceneGraph::SelectionNodeT<MeshT>*                       statusNode_;
-    ACG::SceneGraph::StatusNodeT<MeshT, AreaNodeMod<MeshT> >*     areaNode_;
-    ACG::SceneGraph::StatusNodeT<MeshT, HandleNodeMod<MeshT> >*   handleNode_;
-    ACG::SceneGraph::StatusNodeT<MeshT, FeatureNodeMod<MeshT> >*  featureNode_;
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTAreaNodeMod<MeshT> >*     areaNode_;
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTHandleNodeMod<MeshT> >*   handleNode_;
+    ACG::SceneGraph::StatusNodeT<MeshT, betri::vis::BTFeatureNodeMod<MeshT> >*  featureNode_;
 
     // visibility of nodes
     bool statusNodeVis_;
@@ -58,8 +58,8 @@ private:
     bool featureNodeVis_;
 };
 
-} // namespace SceneGraph
-} // namespace ACG
+} // namespace vis
+} // namespace betri
 
 //=============================================================================
 #if defined(INCLUDE_TEMPLATES) && !defined(BTSTATUSVIEWNODE_C)

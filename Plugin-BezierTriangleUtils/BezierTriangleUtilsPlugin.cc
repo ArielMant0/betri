@@ -383,26 +383,44 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	perfLayout->addWidget(endTestButton, 1, 0);
 	perfGroup->setLayout(perfLayout);
 
+	///////////////////////////////////////////////////////////////////////////
+	// Mesh-Attribute group
+	///////////////////////////////////////////////////////////////////////////
+	QGroupBox *subGroup = new QGroupBox(tr("Subdivision"));
+
+	QPushButton *applyTessTri = new QPushButton("Tessellate to TriMesh");
+	QPushButton *applyTess = new QPushButton("Tessellate Mesh");
+
+	connect(applyTessTri, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+		applyTessellation(true);
+	});
+	connect(applyTess, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+		applyTessellation(false);
+	});
+
+	QGridLayout *subLayout = new QGridLayout;
+	subLayout->addWidget(applyTess);
+	subLayout->addWidget(applyTessTri);
+	subGroup->setLayout(subLayout);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
 
-	QPushButton *applyTess = new QPushButton("Apply Tessellation");
-	connect(applyTess, SIGNAL(clicked()), this, SLOT(applyTessellation()));
-
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(voronoiGroup, 0, 0);
 	grid->addWidget(deciGroup, 1, 0);
 	grid->addWidget(testButton, 2, 0);
-	grid->addWidget(applyTess, 2, 1);
+	grid->addWidget(subGroup, 3, 0);
 
-	grid->addWidget(modeGroup, 3, 0);
-	grid->addWidget(tessGroup, 4, 0);
-	grid->addWidget(raytracingGroup, 5, 0);
-	grid->addWidget(visGroup, 6, 0);
-	grid->addWidget(attrGroup, 7, 0);
-	grid->addWidget(perfGroup, 8, 0);
+	grid->addWidget(modeGroup, 4, 0);
+	grid->addWidget(tessGroup, 5, 0);
+	grid->addWidget(raytracingGroup, 6, 0);
+	grid->addWidget(visGroup, 7, 0);
+	grid->addWidget(attrGroup, 8, 0);
+	grid->addWidget(perfGroup, 9, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Utils"), m_tool, toolIcon);
@@ -725,7 +743,7 @@ void BezierTriangleUtilsPlugin::callPartition()
 	}
 }
 
-void BezierTriangleUtilsPlugin::applyTessellation()
+void BezierTriangleUtilsPlugin::applyTessellation(bool toTriMesh)
 {
 	// init object iterator
 	PluginFunctions::ObjectIterator o_it(
@@ -753,14 +771,21 @@ void BezierTriangleUtilsPlugin::applyTessellation()
 
 			int tri_id = -1;
 
-			TriMeshObject* object(0);
+			if (toTriMesh) {
 
-			emit addEmptyObject(DATA_TRIANGLE_MESH, tri_id);
-			PluginFunctions::getObject(tri_id, object);
+				TriMeshObject* object(0);
 
-			mesh->tessellateToTrimesh(*object->mesh(), amount);
+				emit addEmptyObject(DATA_TRIANGLE_MESH, tri_id);
+				PluginFunctions::getObject(tri_id, object);
 
-			emit updatedObject(tri_id, UPDATE_ALL);
+				mesh->tessellateToTrimesh(*object->mesh(), amount);
+
+				emit updatedObject(tri_id, UPDATE_ALL);
+			} else {
+				mesh->tessellate(amount);
+
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+			}
 		}
 	}
 }

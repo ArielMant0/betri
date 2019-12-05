@@ -14,8 +14,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 namespace ACG
 {
-//namespace betri
-//{
 
 ///////////////////////////////////////////////////////////////////////////////
 // CLASS DEFINITION
@@ -34,9 +32,9 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 // Functions
 ///////////////////////////////////////////////////////////////////////////////
-public: 
-	explicit DrawBTMesh(BezierTMesh& _mesh) : 
-		DrawMeshT<BezierTMesh>(_mesh), 
+public:
+	explicit DrawBTMesh(BezierTMesh& _mesh) :
+		DrawMeshT<BezierTMesh>(_mesh),
 		bezierTriangleMesh_(_mesh),
 		rebuild_(REBUILD_FULL), // TODO before REBUILD_NONE
 
@@ -64,7 +62,7 @@ public:
 	// Add Object
 	///////////////////////////////////////////////////////////////////////////
 	void addTriRenderObjects(
-		IRenderer* _renderer, const RenderObject* _baseObj, 
+		IRenderer* _renderer, const RenderObject* _baseObj,
 		std::map<int, GLuint>* _textureMap, bool _nonindexed
 	);
 
@@ -113,9 +111,9 @@ public:
 	);
 
 	void writeVertexElement(
-		void* _dstBuf, 
-		size_t _vertex, size_t _stride, 
-		size_t _elementOffset, size_t _elementSize, 
+		void* _dstBuf,
+		size_t _vertex, size_t _stride,
+		size_t _elementOffset, size_t _elementSize,
 		const void* _elementData
 	);
 
@@ -177,7 +175,7 @@ private:
 	int surfaceIndexCount_;
 
 
-	/** 
+	/**
 	 * inverse vertex map: original OpenMesh vertex index -> one vertex index in vbo
 	 * this map is ambiguous and only useful for per vertex attributes rendering i.e. lines!
 	 */
