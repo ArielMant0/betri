@@ -13,7 +13,9 @@ in vec3 vRayDirection;
 flat in int index; // TODO name
 
 // Uniforms--------------------------------------------------------------------
-uniform sampler2D btriangles;
+uniform sampler2D controlPointTex;
+uniform sampler2D uvCoordTex;
+uniform sampler2D exampleTex;
 uniform mat4 viewMatrix;
 uniform vec3 campos;
 
@@ -27,21 +29,15 @@ struct btriangle {
 	vec3[CPSUM] cps;
 } bt;
 
-// TODO remove unnessessary informations
-// lambda - distances to the intersection on the ray
-// id - object index
 struct hitinfo {
-	vec2 lambda;
-	int id;
-	vec4 color;
-};
+	vec3 baryCoords;
+	vec3 normal;
+	vec3 position;
+} hit;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
-vec3 g_color = vec3(0.0);
-vec3 g_position = vec3(0.0);
-
 vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
 //vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
 
@@ -96,10 +92,8 @@ void reorder(vec3 ray_origin, vec3 ray_direction)
  *
  * @in origin Origin of the ray
  * @in dir Direction of the ray
- * @in box the btriangle to test against
- * @return A three component vector with the nearest intersection lambda (t) and u, v
  */
-vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
+void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 {
 	// TODO heavy on performance maybe not ordering but rather search for i min
 	reorder(ray_origin, ray_direction);
@@ -181,145 +175,22 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 		    abs(dot(normal_2, B_uv) + d_2) < d_error
 		)
 		{
-			//outFragment = vec4(vec3(float(j)/4.0), 1.0);
-			g_color = B_uv;
-			g_position = B_uv;
-
-		    return vec3(result, z);
-			/*
-			if (!found)
-			{
-				result_2 = vec3(result, z);
-				found = true;
-			}
-			else if (dot(ray_direction, result.x * bt.cp0 + result.y * bt.cp2 + z * bt.cp5) <
-				dot(ray_direction, result_2.x * bt.cp0 + result_2.y * bt.cp2 + result_2.z * bt.cp5)
-			)
-			{
-				//result_2 = vec3(result, z);
-				result_2 = vec3(-1.0);
-			}
-			*/
+			hit.baryCoords = vec3(result, z);
+			hit.position = B_uv;
+			hit.normal = normalize(cross(dBs, dBt));
+			return;
 		}
 	}
-
-	//if (found)
-	//	return vec3(result_2);
-
-	// discard;
-	//outFragment = vec4(0.0, 0.0, 1.0, 1.0);
-    return vec3(-1.0);
-}
-
-/**
- * Test all Boxes of the cubes texture against the ray that is given.
- *
- * @in origin Origin of the ray
- * @in dir Direction of the ray
- * @out hitinfo Outvariable - Information about the nearest and selected hit
- */
-bool intersectBTriangles(vec3 origin, vec3 dir, inout hitinfo info)
-{
-	float smallest = info.lambda.x;
-	bool found = false;
-	int y = index; // TODO
-
-	// TODO direkt construktor nehmen und mit texture stuff befüllen
-	for (int i = 0; i < bt.cps.length(); i++)
-	{
-		bt.cps[i] = texelFetch(btriangles, ivec2(i, y), 0).xyz;
-	}
-
-	vec3 lambda = intersectBTriangle(origin, dir);
-	/*if (lambda.x >= 0.0 && lambda.x <= 1.0 &&
-		lambda.y >= 0.0 && lambda.y <= 1.0 &&
-		lambda.z >= 0.0 && lambda.z <= 1.0
-	)*/
-	if (lambda.x > -0.5)
-	{
-		// TODO this are the barycentric coord (used for normal) but this should be the distance on the ray
-		info.lambda = lambda.xy;
-		info.id = y;
-		//smallest = lambda;
-		found = true;
-	}
-	return found;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Tracing
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * Trace a specific ray against all objects of the scene and color them
- * according to the Objectattributes.
- *
- * @in origin Origin of the ray
- * @in dir Direction of the ray
- * @return the color for this ray (pixel)
- */
-hitinfo trace(vec3 origin, vec3 dir)
-{
-	hitinfo hit = hitinfo(vec2(MAX_SCENE_BOUNDS), -1, vec4(0.0, 0.0, 0.0, 1.0));
-	if (intersectBTriangles(origin, dir, hit))
-	{
-		// TODO
-		//hit.color.rgb = texture(btriangles, vec2(0.0, hit.id)).rgb;
-		hit.color.rgb = vec3(1.0, 1.0, 1.0);
-		//hit.color.rgb = vec3(g_color);
-	}
-
-	return hit;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Normals
-///////////////////////////////////////////////////////////////////////////////
-
-vec3 calcNormal(vec3 ray_origin, vec3 ray_direction, hitinfo hit)
-{
-	// TODO refactor everything, this is a stupid doublication
-
-	int y = index; // TODO
-
-
-
-	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
-	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
-	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
-	vec3 q_4 = 2 * bt.cps[4] - 2 * bt.cps[2];
-	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
-	vec3 q_6 = bt.cps[2];
-
-
-	float s = hit.lambda.x;
-	float t = hit.lambda.y;
-
-	// Partial derivate by s
-	vec3 dBs = 2 * q_1 * s +
-		q_2 * t +
-		q_5;
-
-	// Partial derivate by t
-	vec3 dBt = q_2 * s +
-		2 * q_3 * t +
-		q_4;
-
-	return normalize(cross(dBs, dBt));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Curvature
 ///////////////////////////////////////////////////////////////////////////////
-
 // http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
 // http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node29.html
-vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal)
+vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction)
 {
 	// TODO refactor everything, this is a stupid doublication
-
-	int y = index; // TODO
-
 	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
 	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
 	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
@@ -328,8 +199,8 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal
 	vec3 q_6 = bt.cps[2];
 
 
-	float s = hit.lambda.x;
-	float t = hit.lambda.y;
+	float s = hit.baryCoords.x;
+	float t = hit.baryCoords.y;
 
 	// second partial derivate by s and s
 	vec3 dBss = 2 * q_1;
@@ -341,8 +212,8 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal
 	vec3 dBtt = 2 * q_3;
 
 	mat2 secFund = mat2(
-		dot(dBss, normal), dot(dBst, normal),
-		dot(dBst, normal), dot(dBtt, normal)
+		dot(dBss, hit.normal), dot(dBst, hit.normal),
+		dot(dBst, hit.normal), dot(dBtt, hit.normal)
 	);
 
 	float trace = secFund[0][0] + secFund[1][1];
@@ -357,7 +228,6 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction, hitinfo hit, vec3 normal
 ///////////////////////////////////////////////////////////////////////////////
 // Main
 ///////////////////////////////////////////////////////////////////////////////
-
 void main(void)
 {
 	// TODO var names
@@ -371,20 +241,46 @@ void main(void)
 	vec3 ray_direction = normalize(vec4(vRayDirection, 1.0).xyz - campos);
 	vec3 ray_origin = tmp;
 
-	hitinfo hit = trace(ray_origin, ray_direction);
-	vec4 color = hit.color;
-	vec4 sg_cColor = vec4(0.0);
-	vec3 sg_vPosOS = g_position; // TODO
+	///////////
+	// Setup //
+	///////////
+	hit = hitinfo(vec3(-1), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
 
-	if (hit.id > -1)
+	for (int i = 0; i < bt.cps.length(); i++)
 	{
+		bt.cps[i] = texelFetch(controlPointTex, ivec2(i, index), 0).xyz;
+	}
+
+	//////////////////////
+	// Get Intersection //
+	//////////////////////
+	intersectBTriangle(ray_origin, ray_direction);
+
+	if (hit.baryCoords.x > -0.5)
+	{
+		///////////////
+		// Get Color //
+		///////////////
+#ifdef TEXTURED
+		vec2 uv = texelFetch(uvCoordTex, ivec2(0, index), 0).xy * hit.baryCoords.x +
+			texelFetch(uvCoordTex, ivec2(1, index), 0).xy * hit.baryCoords.y +
+			texelFetch(uvCoordTex, ivec2(2, index), 0).xy * hit.baryCoords.z;
+		vec4 color = texture(exampleTex, uv);
+#else
+		vec4 color = vec4(0.0);
+#endif
+		vec4 sg_cColor = color;
+
+		///////////////////////
+		// Reset Depth Value //
+		///////////////////////
 		// https://community.khronos.org/t/playing-with-gl-fragdepth/57016/7
 		// https://stackoverflow.com/questions/10264949/glsl-gl-fragcoord-z-calculation-and-setting-gl-fragdepth
-		vec4 n_pos = g_mWVP * vec4(g_position, 1.0);
+		vec4 n_pos = g_mWVP * vec4(hit.position, 1.0);
 
 		float ndc_depth = n_pos.z / n_pos.w;
 
-		float far = gl_DepthRange.far; 
+		float far = gl_DepthRange.far;
 		float near = gl_DepthRange.near;
 		float depth = (((far-near) * ndc_depth) + near + far) / 2.0;
 // TODO why is this needed?
@@ -392,23 +288,29 @@ void main(void)
 		gl_FragDepth = depth;
 #endif
 
-		vec3 sg_vNormalOS = calcNormal(ray_origin, ray_direction, hit);
-#ifdef SG_OUTPUT_NORMAL
-		color.rgb = sg_vNormalOS;
-#endif
-#ifdef SG_OUTPUT_CURVATURE
-		color.rgb = calcCurvature(ray_origin, ray_direction, hit, sg_vNormalOS);
-#endif
+		////////////////
+		// Set Output //
+		////////////////
 #ifdef SG_OUTPUT_PHONGCOLOR
+		vec3 sg_vPosOS = hit.position;
+		vec3 sg_vNormalOS = hit.normal;
 		vec3 sg_vNormalVS = (g_mWV * vec4(sg_vNormalOS, 0.0)).xyz;
 		vec3 sg_vPosVS = (g_mWV * vec4(sg_vPosOS, 0.0)).xyz;
 		SG_FRAGMENT_LIGHTING
-		color *= sg_cColor;
+		color = sg_cColor;
+#endif
+#ifdef SG_OUTPUT_NORMAL
+		color.rgb = hit.normal;
 #endif
 #ifdef SG_OUTPUT_DEPTH
 		color.rgb = vec3(gl_FragDepth);
 #endif
-
+#ifdef SG_OUTPUT_UV
+		color.rg = uv;
+#endif
+#ifdef SG_OUTPUT_CURVATURE
+		color.rgb = calcCurvature(ray_origin, ray_direction);
+#endif
 		outFragment = vec4(color.rgb, 1.0);
 	} else {
 #ifdef SHOWBVOLUME
