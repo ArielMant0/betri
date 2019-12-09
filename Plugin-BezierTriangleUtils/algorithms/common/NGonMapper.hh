@@ -30,7 +30,7 @@ public:
 
 		const Scalar ru = 0.5; // ri / std::cos(M_PI / paths.size()); // outer radius
 		const Scalar angle = (2.0 * M_PI) / paths.size();
-		const Scalar sideLength = 2.0 * ru * std::sin(M_PI / paths.size());
+		const Scalar sideLen = 2.0 * ru * std::sin(M_PI / paths.size());
 		const Vec2 trans(ru, ru);
 
 		for (size_t i = 0; i < paths.size(); ++i) {
@@ -42,7 +42,7 @@ public:
 			Vec2 t = initialT;
 
 			// norm factor depends on the side length of the ngon and the path length
-			Scalar norm = sideLength / pathLength(path);
+			Scalar norm = sideLen / pathLength(path);
 			Point first = m_mesh.point(path->front());
 
 			size_t k = i < paths.size() - 1 ? i + 1 : 0u;
@@ -66,7 +66,8 @@ public:
 	}
 
 	Vec2 middle() override { return Vec2(0.33f, 0.33f); }
-	Vec2 middle(size_t n)
+
+	static Vec2 middle(size_t n)
 	{
 		switch (n) {
 			case 3: return middle();
@@ -74,13 +75,34 @@ public:
 		}
 	}
 
-	Vec2 corner(size_t index, size_t n)
+	static Scalar perimeter(size_t n)
+	{
+		return n * sideLength(n);
+	}
+
+	static Scalar sideLength(size_t n)
+	{
+		return std::sin(angle(n) / n);
+	}
+
+	static Scalar angle(size_t n)
+	{
+		return (2.0 * M_PI) / n;
+	}
+
+	static Vec2 corner(size_t index, size_t n)
+	{
+		const Scalar angle = (2.0 * M_PI) / n;
+
+		return cornerFromAngle(index*angle);
+	}
+
+	static Vec2 cornerFromAngle(Scalar angle)
 	{
 		const Scalar ru = 0.5; // outer radius
-		const Scalar angle = (2.0 * M_PI) / n;
 		const Vec2 trans(ru, ru);
 
-		return trans + Vec2(ru * std::cos(angle*index), ru * std::sin(angle*index));
+		return trans + Vec2(ru * std::cos(angle), ru * std::sin(angle));
 	}
 
 private:

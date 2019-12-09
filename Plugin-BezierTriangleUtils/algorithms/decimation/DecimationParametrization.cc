@@ -10,7 +10,7 @@ constexpr std::array<Vec2, 3> CORNER_UV = { { Vec2(0., 0.), Vec2(1., 0.), Vec2(0
 void DecimationParametrization::prepare()
 {
 	// note: we take the degree+1 so we always sample inside the triangle
-	m_sampleUVs = getRandomUVs(50, true);
+	m_sampleUVs = getRandomUVs(40, true);
 	//m_sampleUVs = getSampleUVs(6);
 
 	std::cerr << "calculated sample uvs:\n";
@@ -40,21 +40,64 @@ bool DecimationParametrization::solveLocal(
 
 	size_t n = m_mesh.valence(from);
 
-	//std::cerr << "parametrization with valence " << n << std::endl;
-
 	std::unordered_map<FaceHandle, NGonFace> faces;
-	std::unordered_map<FaceHandle, std::array<VertexHandle, 3>> vhs;
 	std::unordered_map<FaceHandle, NGonFace> facesOrig;
 
 	std::unordered_map<VertexHandle, Vec2> vToUV;
 
-	size_t idx = 0;
+	////////////////////////////////////////////////
+	// Calculate (u,v) coordinates
+	////////////////////////////////////////////////
 
-	vToUV.insert({ from, m_mapper.middle(n) });
-	// calculate uv coordinate of each 1-ring vertex
-	for (auto h_it = m_mesh.cvoh_ccwbegin(from); h_it != m_mesh.cvoh_ccwend(from); ++h_it) {
-		vToUV.insert({ m_mesh.to_vertex_handle(*h_it), m_mapper.corner(idx++, n) });
+	{
+		Scalar length(0.);
+
+		// accumulate perimeter length of 1-ring
+		Point prev = m_mesh.point(*m_mesh.cvv_ccwbegin(from));
+
+		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
+			Point tmp = m_mesh.point(*v_it);
+			length += (prev - tmp).norm();
+			prev = tmp;
+		}
+		length += (prev - m_mesh.point(*m_mesh.cvv_ccwbegin(from))).norm();
+
+		Scalar conv = M_PI * 2.0;
+		Scalar norm = 1.0 / length;
+		Scalar lens(0.);
+
+		Scalar midNorm(0.);
+		Point midPoint = m_mesh.point(from);
+
+		prev = m_mesh.point(*m_mesh.cvv_ccwbegin(from));
+		// set (u,v) coordinates for all boundary vertices
+		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
+
+			Point tmp = m_mesh.point(*v_it);
+			lens += (prev - tmp).norm();
+			prev = tmp;
+
+			midNorm += (midPoint - tmp).norm();
+
+			Scalar angle = lens * norm * conv;
+			// if (print) std::cerr << "\tangle = " << angle << '\n';
+
+			vToUV.insert({ *v_it, NGonMapper<Vec2>::cornerFromAngle(angle) });
+
+			//if (print) std::cerr << "\n\tvertex uv " << vToUV[*v_it] << "\n";
+		}
+		midNorm = 1.0 / midNorm;
+
+		Vec2 average(0.);
+
+		// set weighted position for interior vertex
+		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
+			average += vToUV[*v_it] * (midPoint - m_mesh.point(*v_it)).norm() * midNorm;
+		}
+		vToUV.insert({ from, average });
+		//if (print) std::cerr << "\tset middle to " << average << std::endl;
 	}
+
 
 	const auto area = [&](NGonFace &p) {
 		Scalar a = (p[1] - p[0]).norm();
@@ -69,29 +112,32 @@ bool DecimationParametrization::solveLocal(
 	unsigned int degree = m_mesh.degree();
 	unsigned int cpNum = pointsFromDegree(degree);
 
-	// calculate uv corners for each triangle *after* collapse
-	for (auto h_it = m_mesh.cvoh_ccwbegin(from); h_it != m_mesh.cvoh_ccwend(from); ++h_it, ++idx) {
+	////////////////////////////////////////////////
+	// Create blue/green triangles
+	////////////////////////////////////////////////
+	for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
 
-		auto next = std::next(h_it);
-		if (next == m_mesh.cvoh_ccwend(from)) {
-			next = m_mesh.cvoh_ccwbegin(from);
+		auto next = std::next(v_it);
+		if (next == m_mesh.cvv_ccwend(from)) {
+			next = m_mesh.cvv_ccwbegin(from);
 		}
 
-		VertexHandle v0 = m_mesh.to_vertex_handle(*h_it);
-		VertexHandle v1 = m_mesh.to_vertex_handle(*next);
+		VertexHandle v0 = *v_it;
+		VertexHandle v1 = *next;
 
-		FaceHandle f = m_mesh.face_handle(*h_it);
+		HalfedgeHandle hh = m_mesh.find_halfedge(from, v0);
+		FaceHandle f = m_mesh.face_handle(hh);
 		if (!m_mesh.adjToVertex(f, v1)) {
-			f = m_mesh.opposite_face_handle(*h_it);
-			assert(m_mesh.adjToVertex(f, v1));
+			f = m_mesh.opposite_face_handle(hh);
 		}
+		assert(m_mesh.adjToVertex(f, v1));
 
 		int c0 = m_mesh.cpCornerIndex(f, v0);
 		assert(c0 >= 0);
 		int c1 = m_mesh.cpCornerIndex(f, v1);
 		assert(c1 >= 0);
 
-		// correct order: 0 degree cpNum-1 (e.g. 0 2 5)
+		// correct order
 		VertexHandle v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : to);
 		VertexHandle v01 = c0 == 1 ? v0 : (c1 == 1 ? v1 : to);
 		VertexHandle v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : to);
@@ -101,29 +147,16 @@ bool DecimationParametrization::solveLocal(
 			// the face after the halfedge collapse
 			faces.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 			assert(std::isgreater(area(faces[f]), 0.));
-			//vhs.insert({ f, {v02, v01, v00} });
+			//if (print) std::cerr << "green face " << f << " area " << area(faces[f]) << '\n';
 		}
 
 		v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
 		v01 = c0 == 1 ? v0 : (c1 == 1 ? v1 : from);
 		v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : from);
 
-
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 		assert(std::isgreater(area(facesOrig[f]), 0.));
-
-		//std::cerr << "using\n\t" << m_mesh.point(v00) << "\n\t";
-		//std::cerr << m_mesh.point(v01) << "\n\t";
-		//std::cerr << m_mesh.point(v02) << "\n";
-
-		//auto it = m_mesh.cfv_begin(f);
-		//std::cerr << "face\n\t" << m_mesh.point(*it++) << "\n\t";
-		//std::cerr << m_mesh.point(*it++) << "\n\t";
-		//std::cerr << m_mesh.point(*it) << "\n";
-
-		//std::cerr << "cp\n\t" << m_mesh.data(f).controlPoint(0) << "\n\t";
-		//std::cerr << m_mesh.data(f).controlPoint(degree) << "\n\t";
-		//std::cerr << m_mesh.data(f).controlPoint(cpNum-1) << "\n\n";
+		//if (print) std::cerr << "blue face " << f << " area " << area(facesOrig[f]) << '\n';
 	}
 	assert(faces.size() == n - 2);
 
@@ -144,20 +177,12 @@ bool DecimationParametrization::solveLocal(
 	//	}
 	//}
 
-	if (print) {
-		std::cerr << "\nFROM " << m_mesh.point(from) << "\nTO ";
-		std::cerr << m_mesh.point(to) << '\n' << std::endl;
-	}
-
 	Vec2 checkTo0 = vToUV[to];
 	Point checkTo1 = m_mesh.point(to);
 
-	/**
-	 * for each face that remains:
-	 *	 - for a give number of sample uv points in a triangle
-	 *     - find target face
-	 *     - evaluate the face's surface at the given uv position and store that combination
-	 */
+	////////////////////////////////////////////////
+	// Sample triangles
+	////////////////////////////////////////////////
 	for (auto &pair : faces) {
 
 		// only calculate for remaining faces
@@ -175,12 +200,6 @@ bool DecimationParametrization::solveLocal(
 			// sample the target face at its uv position
 			fit.add(evalSurface(m_mesh.data(target).points(), faceBary, degree));
 
-			//if (facePos == checkTo0) {
-			//	//std::cerr << "CHECK TO:\t" << facePos << " = " << checkTo0 << "\n\t";
-			//	//std::cerr << fit.points.back() << " = " << checkTo1 << '\n';
-			//	assert((fit.points.back() - checkTo1).norm() < 0.0001);
-			//}
-
 			//if (print) {
 			//	std::cerr << "green face " << pair.first << '\n';
 			//	std::cerr << "blue face " << target << '\n';
@@ -194,15 +213,6 @@ bool DecimationParametrization::solveLocal(
 			//	std::cerr << "\ttest point " << testPoint << '\n';
 			//}
 		}
-
-		//if (print) {
-		//	std::cerr << fit.face << " has points\n\t";
-		//	std::cerr << m_mesh.point(vhs[fit.face][0]) << "\n\t" << m_mesh.point(vhs[fit.face][1]);
-		//	std::cerr << "\n\t" << m_mesh.point(vhs[fit.face][2]) << "\n";
-		//	std::cerr << " fit points\n\t";
-		//	std::cerr << fit.points[0] << "\n\t" << fit.points[1];
-		//	std::cerr << "\n\t" << fit.points[2] << "\n";
-		//}
 
 		fitColl.push_back(fit);
 	}
@@ -353,19 +363,6 @@ std::vector<Vec2> DecimationParametrization::getRandomUVs(size_t n, bool sampleU
 
 	}
 
-	//size_t edgeCount = (border-3) / 3;
-	//Scalar add = 1. / (edgeCount + 1);
-	//// always sample border vertices as well
-	//for (size_t i = 1; i <= edgeCount; ++i) {
-	//	uvs.push_back(Vec2(add * i, 0.));
-	//	uvs.push_back(Vec2(0., add * i));
-	//	uvs.push_back(Vec2(add * i, 1. - add * i));
-	//}
-	//uvs.push_back(Vec2(0., 0.));
-	//uvs.push_back(Vec2(1., 0.));
-	//uvs.push_back(Vec2(0., 1.));
-
-
 	return uvs;
 }
 
@@ -382,9 +379,9 @@ FaceHandle DecimationParametrization::findTargetFace(
 	for (auto &pair : faces) {
 		bary = bary2D(point, pair.second);
 		//std::cerr << "\tcalculated bary coords " << bary << '\n';
-		if (std::isgreaterequal(bary[0], positive) &&
-			std::isgreaterequal(bary[1], positive) &&
-			std::isgreaterequal(bary[2], positive)
+		if (std::isgreater(bary[0], positive) &&
+			std::isgreater(bary[1], positive) &&
+			std::isgreater(bary[2], positive)
 		) {
 			//std::cerr << "\tfound face " << pair.first << '\n';
 			faceBary[0] = std::min(1., std::max(0., bary[0]));
