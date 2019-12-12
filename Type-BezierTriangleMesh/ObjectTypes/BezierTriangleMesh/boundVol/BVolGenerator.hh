@@ -531,6 +531,117 @@ static void addPrismVolumeFromPoints(
 ///////////////////////////////////////////////////////////////////////////////
 // ConvexHull
 ///////////////////////////////////////////////////////////////////////////////
+// https://www.cs.jhu.edu/~misha/Spring16/06.pdf
+// Angle calculation
+// https://math.stackexchange.com/questions/878785/how-to-find-an-angle-in-range0-360-between-2-vectors
+// https://stackoverflow.com/questions/21483999/using-atan2-to-find-angle-between-two-vectors
+// since the points lie on a plane we can ignore one component?!
+static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	std::vector<size_t> convexHull;
+
+	// Search for biggest x as one of the points of the convex hull
+	
+	auto start = BezierTMesh::Point(-INFINITY);
+	auto last = BezierTMesh::Point(-INFINITY);
+
+	for (auto p : faceControlP) {
+		if (p[0] > start[0] || (p[0] >= start[0] && p[1] < start[1])) {
+			start = p;
+		}
+	}
+
+	for (auto p : faceControlP) {
+		if (p[0] > last[0] && (p[0] < start[0] || p[1] > start[1])) {
+			last = p;
+		}
+	}
+	
+	/*
+	// Bounding Plane
+	auto min = BezierTMesh::Point(std::numeric_limits<float>::max());
+	auto max = BezierTMesh::Point(-std::numeric_limits<float>::max());
+	for (auto p : faceControlP) {
+		if (p[0] < min[0])
+			min[0] = p[0];
+		else if (p[0] > max[0])
+			max[0] = p[0];
+		if (p[1] < min[1])
+			min[1] = p[1];
+		else if (p[1] > max[1])
+			max[1] = p[1];
+		if (p[2] < min[2])
+			min[2] = p[2];
+		else if (p[2] > max[2])
+			max[2] = p[2];
+	}
+
+	// TODO degree dependent
+	auto normal = normalize(cross(faceControlP[2] - faceControlP[0], faceControlP[faceControlP.size() - 1] - faceControlP[0]));
+	auto diag1 = max - min;
+	auto diag2 = cross(diag1, normal);
+
+	//std::cerr << "-----------------------------" << std::endl;
+	auto start = BezierTMesh::Point(min);
+	auto last = BezierTMesh::Point(std::numeric_limits<float>::max());
+	for (auto p : faceControlP) {
+		//std::cerr << p << " --- " << (min - p) << " --- " << (min - start) << std::endl;
+		if (length(min - p) > length(min - start))
+			start = p;
+	}
+	// TODO this could work too but direction is missing
+	//last = start + BezierTMesh::Point(-1.0, 1.0, 0.0);
+	last = start + normalize(diag2);
+	*/
+
+	/*
+	std::cerr << "\n min + max " << std::endl;
+	std::cerr << min << " " << max << std::endl;
+
+	std::cerr << "\n diag1 + diag2 + normal " << std::endl;
+	std::cerr << diag1 << " " << diag2 << " " << normal << std::endl;
+	
+	std::cerr << "\n start + last " << std::endl;
+	std::cerr << start << " " << last << std::endl;
+	*/
+
+	int itCount = 0;
+	size_t lastIndex = 0;
+	BezierTMesh::Point tmp;
+	BezierTMesh::Point pos = start;
+	// Search as long as there is no loop
+	do {
+		auto angleMax = 1.0;
+		auto vector1 = last - pos;
+		auto normVec1 = vector1;
+
+		for (size_t j = 0; j < faceControlP.size(); j++) {
+			auto pointNow = faceControlP.at(j);
+			auto vector2 = pointNow - pos;
+			auto normVec2 = vector2;
+
+			// If it is the same point continue
+			if (length(vector2) == 0.0)
+				continue;
+			auto angle = dot(normalize(normVec1), normalize(normVec2));
+			auto vector3 = tmp - pos;
+			if (angle < angleMax || (angle == angleMax && length(vector2) > length(vector3))) {
+				angleMax = angle;
+				tmp = pointNow;
+				lastIndex = j;
+			}
+		}
+		convexHull.push_back(lastIndex);
+		last = pos;
+		pos = tmp;
+		assert(itCount++ < faceControlP.size());
+	} while (pos != start);
+
+	assert(convexHull.size() <= faceControlP.size());
+
+	return convexHull;
+}
+
 // Quick Hull
 // http://algolist.ru/maths/geom/convhull/qhull3d.php
 // http://www.cogsci.rpi.edu/~destem/gamearch/quickhull.pdf
@@ -574,29 +685,44 @@ static void addConvexHullFromPoints(
 		points.push_back(p[2]);
 	}
 	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
+	std::vector<size_t> hull2;
+	if (qh.m_planar) {
+		hull2 = findConvexHull2D(faceControlP);
+	}
 
 	//////////////////
 	// Convert Mesh //
 	//////////////////
 	TriMesh reducedMesh;
-	for (auto v : hull.m_vertices) {
-		reducedMesh.add_vertex({ v.x, v.y, v.z });
-	}
+	if (qh.m_planar) {
+		std::vector<BezierTMesh::VertexHandle> vh;
+		for (auto index : hull2) {
+			auto v = faceControlP[index];
+			vh.push_back(reducedMesh.add_vertex({ v[0], v[1], v[2] }));
+		}
 
-	for (auto f : hull.m_faces) {
-		auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
-		auto he2 = hull.m_halfEdges[he1.m_next];
-		auto he3 = hull.m_halfEdges[he2.m_next];
-		TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
-		TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
-		TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
-		reducedMesh.add_face(vh1, vh2, vh3);
+		reducedMesh.add_face(vh);
+	} else {
+		for (auto v : hull.m_vertices) {
+			reducedMesh.add_vertex({ v.x, v.y, v.z });
+		}
+
+		for (auto f : hull.m_faces) {
+			auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
+			auto he2 = hull.m_halfEdges[he1.m_next];
+			auto he3 = hull.m_halfEdges[he2.m_next];
+			TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
+			TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
+			TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
+			reducedMesh.add_face(vh1, vh2, vh3);
+		}
 	}
 
 	//////////////////
 	// Setup Buffer //
 	//////////////////
-	const size_t boundingVolumeVCount = hull.m_vertices.size();
+	//const size_t boundingVolumeVCount = hull.m_vertices.size();
+	const size_t boundingVolumeVCount = faceControlP.size();
 
 	for (auto v : reducedMesh.vertices()) {
 		vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
@@ -613,6 +739,9 @@ static void addConvexHullFromPoints(
 		vboData[vboIndex++] = float(face_index);
 		vboData[vboIndex++] = 0.0;
 	}
+
+	// TODO das ist dämlich
+	vboIndex += 5 * (boundingVolumeVCount - reducedMesh.n_vertices());
 
 	for (auto f : reducedMesh.faces()) {
 		for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
@@ -824,70 +953,6 @@ std::cerr << std::endl;
 ///////////////////////////////////////////////////////////////////////////////
 // Bounding Billboard
 ///////////////////////////////////////////////////////////////////////////////
-// https://www.cs.jhu.edu/~misha/Spring16/06.pdf
-// Angle calculation
-// https://math.stackexchange.com/questions/878785/how-to-find-an-angle-in-range0-360-between-2-vectors
-// https://stackoverflow.com/questions/21483999/using-atan2-to-find-angle-between-two-vectors
-// since the points lie on a plane we can ignore one component?!
-static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &faceControlP)
-{
-	std::vector<size_t> convexHull;
-
-	// Search for biggest x as one of the points of the convex hull
-	auto start = BezierTMesh::Point(-INFINITY);
-	auto last = BezierTMesh::Point(-INFINITY);
-
-	for (auto p : faceControlP) {
-		if (p[0] > start[0] || (p[0] >= start[0] && p[1] < start[1])) {
-			start = p;
-		}
-	}
-
-	for (auto p : faceControlP) {
-		if (p[0] > last[0] && (p[0] < start[0] || p[1] > start[1])) {
-			last = p;
-		}
-	}
-
-	assert(start != last);
-	assert(BezierTMesh::Point(-INFINITY) != last);
-
-	int itCount = 0;
-	size_t lastIndex = 0;
-	BezierTMesh::Point tmp;
-	BezierTMesh::Point pos = start;
-	// Search as long as there is no loop
-	do {
-		auto angleMax = 1.0;
-		auto vector1 = last - pos;
-		auto normVec1 = vector1;
-
-		for (size_t j = 0; j < faceControlP.size(); j++) {
-			auto pointNow = faceControlP.at(j);
-			auto vector2 = pointNow - pos;
-			auto normVec2 = vector2;
-
-			// If it is the same point continue
-			if (length(vector2) < 0.001)
-				continue;
-			auto angle = dot(normalize(normVec1), normalize(normVec2));
-			auto vector3 = tmp - pos;
-			if (angle < angleMax || (angle == angleMax && length(vector2) > length(vector3))) {
-				angleMax = angle;
-				tmp = pointNow;
-				lastIndex = j;
-			}
-		}
-		convexHull.push_back(lastIndex);
-		last = pos;
-		pos = tmp;
-		assert(itCount++ < faceControlP.size());
-	} while (pos != start);
-
-	assert(convexHull.size() <= faceControlP.size());
-
-	return convexHull;
-}
 
 static void addBoundingBillboardFromPoints(
 	const int controlPointsPerFace,

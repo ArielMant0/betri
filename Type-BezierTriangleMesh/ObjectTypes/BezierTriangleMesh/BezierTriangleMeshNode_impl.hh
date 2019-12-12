@@ -7,6 +7,7 @@
 #include <ACG/GL/gl.hh>
 #include <ACG/GL/GLError.hh>
 #include <ACG/GL/IRenderer.hh>
+#include <ACG/GL/Benchmarker.hh>
 #include <ACG/Utils/VSToolsT.hh>
 #include <vector>
 
@@ -218,6 +219,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
+	// https://github.com/progschj/OpenGL-Examples/blob/master/10queries_conditional_render.cpp
+	// https://community.khronos.org/t/how-to-measure-timing-in-opengl/61544/22
+	// https://stackoverflow.com/questions/28530798/how-to-make-a-basic-fps-counter
 	std::clock_t start = std::clock();
 
 	// TODO this should propably be done differently
@@ -249,6 +253,11 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		updateKnotVectorSelectionTexture(_state);
 
 	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+	if (Benchmarker::instance()->active()) 
+		renderOption = Benchmarker::instance()->renderMode();
+	if (Benchmarker::instance()->update())
+		invalidateSurfaceMesh_ = true;
+
 	size_t layer = 0;
 	for (size_t i = 0; i < _drawMode.getNumLayers(); ++i) {
 		if (_drawMode.getLayer(i)->primitive() == DrawModes::PRIMITIVE_POLYGON)
@@ -281,6 +290,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		//ACG::GLState::cullFace(GL_BACK);
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
 		if (betri::option(betri::BezierOption::CULL_FACES)) {
+			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
 			_state.cullFace(GL_BACK);
 		}
@@ -1482,6 +1492,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
 	surfaceDecl_.clear();
 	if (!surfaceDecl_.getNumElements()) {
 		int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
+		if (Benchmarker::instance()->active()) // TODO
+			renderOption = Benchmarker::instance()->renderMode();
 
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 		// TODO the normal is not needed for raytracing but i was not able to remove it from the shader
@@ -2516,6 +2528,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 
 	// TODO different bounding volumes
 	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
+	if (Benchmarker::instance()->active())
+		bVolume = Benchmarker::instance()->bVolume();
+	/*
+	// TODO
+	std::cerr << Benchmarker::instance()->active() << " "
+		<< Benchmarker::instance()->renderMode()
+		<< Benchmarker::instance()->bVolume() << std::endl;*/
 
 	int numVerts;
 	int numIndices;

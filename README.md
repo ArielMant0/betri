@@ -39,3 +39,25 @@ click on "yes all", "okay", sth like that
 
 If you simply changed a file you can just build the project the file is in again (or even ALL BUILD)
 if you're unceratin which one to build
+
+## Benchmarking
+
+In order to benchmark the rendering via the interface provided in the plugin,
+you need to edit the **IRenderer.cc** located in **libs_required/ACG/GL**.
+
+Inside the method
+```c++
+void IRenderer::drawObject(ACG::RenderObject* _obj)
+```
+
+you need to surround the part you want to measure (e. g. `glDrawElementsInstanced`).
+
+```c++
+// start the benchmarking process
+Benchmarker::instance()->startFrame()
+
+// parts you want to measure
+
+// end the benchmarking process
+Benchmarker::instance()->endFrame()
+```

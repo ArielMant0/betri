@@ -8,7 +8,7 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-
+#include <qcheckbox.h>
 #include <qlineedit.h> // TODO
 #include <qpushbutton.h> // TODO
 
@@ -48,6 +48,8 @@ private:
 	std::map<int, int> m_steps, m_target;
 
 	BaseObjectData *ctrl_obj;
+
+	std::vector<QCheckBox*> perfCheckboxes;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Signals
