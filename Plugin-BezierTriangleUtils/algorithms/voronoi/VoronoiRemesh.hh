@@ -358,6 +358,14 @@ private:
 		return false;
 	}
 
+	bool nextToSeed(const FaceHandle fh) const
+	{
+		for (auto f_it = m_mesh.cff_begin(fh), f_e = m_mesh.cff_end(fh); f_it != f_e; ++f_it) {
+			if (isSeed(*f_it)) return true;
+		}
+		return false;
+	}
+
 	VH minPredecessor(const VertexHandle vh, const ID id0, bool noBorder=false)
 	{
 		Scalar minDist = std::numeric_limits<Scalar>::max();
