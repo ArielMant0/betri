@@ -1606,8 +1606,8 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 						? std::string::npos : end + plusDelimiter.size()
 					);
 					next = endNeg < endPos;
-				}				
-				
+				}
+
 				/*
 				for (auto s : negFormulaVec) {
 					std::cerr << "Neg: " << tmp << " -> " << s << std::endl;
@@ -1670,7 +1670,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	// http://www.cplusplus.com/reference/regex/ECMAScript/
 	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
 
-	// Replace additional 1.0  
+	// Replace additional 1.0
 	std::regex replace_re0("1\\.0+\\s\\*\\s");
 	formula = std::regex_replace(formula, replace_re0, "");
 
@@ -1689,7 +1689,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 	size_t start = 0, end = 0;
 	while (end != std::string::npos) {
 		end = std::min(
-			formula.find(minusDelimiter, start + minusDelimiter.size()), 
+			formula.find(minusDelimiter, start + minusDelimiter.size()),
 			formula.find(plusDelimiter, start + minusDelimiter.size())
 		);
 
@@ -1728,7 +1728,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 		for (int stringIt = 0; stringIt != theStringVector.size(); stringIt++) {
 			if (theStringVector[stringIt].find(regexVec[iter], 0) != std::string::npos) {
 				theStringVector[stringIt].erase(
-					theStringVector[stringIt].end() - regexVec[iter].size(), 
+					theStringVector[stringIt].end() - regexVec[iter].size(),
 					theStringVector[stringIt].end()
 				);
 				tmp += theStringVector[stringIt];
@@ -1818,7 +1818,7 @@ void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
 			dBt += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
 	}
 	dBt += ";"; // TODO
-	
+
 	/*
 	std::cerr << "\n\nQs" << std::endl;
 	std::cerr << combinedQString << std::endl;
