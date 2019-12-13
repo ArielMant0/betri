@@ -41,6 +41,8 @@ public:
 
 	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true);
 
+	void untwistControlPoints(const FaceHandle fh);
+
 	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
 	{
 		FaceHandle fh = TriConnectivity::add_face(vhs);
@@ -203,7 +205,7 @@ private:
 
 	template <typename MeshT>
 	void applyTessellation(MeshT *mesh, size_t amount);
-	
+
 	void addCPsToFace(const FaceHandle f);
 
 	void splitRivara(const HalfedgeHandle he, const VertexHandle vh, bool copy=false);

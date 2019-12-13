@@ -38,10 +38,6 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 		}
 	}
 
-	//assert(cp_vec[0] == point(vh0));
-	//assert(cp_vec[m_degree] == point(vh1));
-	//assert(cp_vec.back() == point(vh2));
-
 	data(f).points(cp_vec);
 }
 
@@ -220,6 +216,81 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 
 	cp0.edgePoints(fi0, ti0, m_degree, p0);
 	cp1.edgePoints(fi1, ti1, m_degree, p1);
+}
+
+void BezierTMesh::untwistControlPoints(const FaceHandle fh)
+{
+	auto &cp = data(fh);
+
+	// for each pair of edges
+	for (auto h_it = cfh_begin(fh), h_e = cfh_end(fh); h_it != h_e; ++h_it) {
+
+		VertexHandle from = from_vertex_handle(*h_it);
+		VertexHandle to0 = to_vertex_handle(*h_it);
+
+		int fi0 = 2 - cpCornerIndex(fh, to0);
+		int ti0 = 2 - cpCornerIndex(fh, from);
+		std::vector<Point> p0 = cp.edgePoints(fi0, ti0, m_degree);
+
+		// only need the other vertex, since they share one
+		VertexHandle to1 = to_vertex_handle(next_halfedge_handle(*h_it));
+
+		int fi1 = 2 - cpCornerIndex(fh, to0);
+		int ti1 = 2 - cpCornerIndex(fh, to1);
+		std::vector<Point> p1 = cp.edgePoints(fi1, ti1, m_degree);
+
+		bool update = false;
+		// for each pair of control points (except start and end)
+		// so we always end up checking degree-1 points (edge has degree+1 points)
+		for (int i = 1; i < m_degree; ++i) {
+
+			// define plane that divides space between the pair of points
+			Point normal = (p0[i] - p1[i]).normalize();
+			Point middle = p0[i] * 0.5 + p1[i] * 0.5;
+
+			// check if points switch side of plane (only necessary for one)
+			Scalar prevDist0 = (p0[i - 1] - middle) | normal;
+			Scalar pointDist0 = (p0[i] - middle) | normal;
+
+			Scalar prevDist1 = (p1[i - 1] - middle) | normal;
+			Scalar pointDist1 = (p1[i] - middle) | normal;
+
+			// switch -> shift both vertices
+			if (std::signbit(prevDist0) != std::signbit(pointDist0) &&
+				std::signbit(prevDist1) != std::signbit(pointDist1)) {
+				p0[i] -= normal * pointDist0 * 1.001;
+				p1[i] -= normal * pointDist1 * 1.001;
+
+				//Point tmp = p0[i];
+				//p0[i] = p1[i];
+				//p1[i] = tmp;
+
+				update = true;
+			}
+		}
+
+		// assign new control points if they changed
+		if (update) {
+			//request_vertex_colors();
+			//set_color(from, { 1.f, 0.f, 0.f, 1.f });
+			//set_color(to0, { 1.f, 0.f, 0.f, 1.f });
+			//set_color(to1, { 1.f, 0.f, 0.f, 1.f });
+
+			cp.edgePoints(fi0, ti0, m_degree, p0);
+
+			FaceHandle f0 = opposite_face_handle(*h_it);
+			int fi00 = 2 - cpCornerIndex(f0, to0);
+			int ti00 = 2 - cpCornerIndex(f0, from);
+			data(f0).edgePoints(fi00, ti00, m_degree, p0);
+
+			cp.edgePoints(fi1, ti1, m_degree, p1);
+
+			FaceHandle f1 = opposite_face_handle(next_halfedge_handle(*h_it));
+			int fi10 = 2 - cpCornerIndex(f1, to0);
+			int ti10 = 2 - cpCornerIndex(f1, to1);
+			data(f1).edgePoints(fi10, ti10, m_degree, p1);
+		}
+	}
 }
 
 void BezierTMesh::splitFaceDyadical(
