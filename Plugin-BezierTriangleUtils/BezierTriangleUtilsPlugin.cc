@@ -748,7 +748,7 @@ void BezierTriangleUtilsPlugin::applyTessellation(bool toTriMesh)
 {
 	// init object iterator
 	PluginFunctions::ObjectIterator o_it(
-		PluginFunctions::TARGET_OBJECTS,
+		PluginFunctions::SOURCE_OBJECTS,
 		DATA_BEZIER_TRIANGLE_MESH
 	);
 

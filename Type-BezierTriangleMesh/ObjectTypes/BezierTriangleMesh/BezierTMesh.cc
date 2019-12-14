@@ -92,7 +92,8 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 
 	const auto getHandle = [&](Point p) {
 		auto viter = std::find_if(mesh->vertices_begin(), mesh->vertices_end(), [&](VertexHandle vh) {
-			return (mesh->point(vh) - p).norm() < 0.0001;
+			//return (mesh->point(vh) - p).norm() < 0.0001;
+			return mesh->point(vh) == p;
 		});
 
 		if (viter != mesh->vertices_end()) {
@@ -153,8 +154,6 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 				getHandle(newHandleVector[pos2]),
 				getHandle(newHandleVector[pos1])
 			);
-			// Add the controllPoints to the face
-			//data(fh).points(data(face).points());
 
 			if (pos2 + 1 < border) {
 				// top triangle
@@ -163,8 +162,6 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 					getHandle(newHandleVector[pos3 + 1]),
 					getHandle(newHandleVector[pos2])
 				);
-				// Add the controllPoints to the face
-				//data(fh).points(data(face).points());
 			}
 
 			if (pos2 + 1 == border) {
