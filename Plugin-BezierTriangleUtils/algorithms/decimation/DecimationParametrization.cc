@@ -69,9 +69,13 @@ bool DecimationParametrization::solveLocal(
 		Scalar midNorm(0.);
 		Point midPoint = m_mesh.point(from);
 
+		Scalar acc(0.);
+		std::unordered_map<EdgeHandle, Scalar> cotans;
+
 		prev = m_mesh.point(*m_mesh.cvv_ccwbegin(from));
+		auto h_it = m_mesh.cvoh_begin(from);
 		// set (u,v) coordinates for all boundary vertices
-		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
+		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it, ++h_it) {
 
 			Point tmp = m_mesh.point(*v_it);
 			lens += (prev - tmp).norm();
@@ -79,23 +83,52 @@ bool DecimationParametrization::solveLocal(
 
 			midNorm += (midPoint - tmp).norm();
 
+			{
+				Scalar cotanWeight = 0.0;
+
+				// Compute cotangent edge weights
+
+				HalfedgeHandle h0 = *h_it;
+				VertexHandle v0 = m_mesh.to_vertex_handle(h0);
+				Point p0 = m_mesh.point(v0);
+
+				HalfedgeHandle h1 = m_mesh.opposite_halfedge_handle(h0);
+				Point p1 = midPoint;
+
+				HalfedgeHandle h2 = m_mesh.next_halfedge_handle(h0);
+				Point p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+				Point d0 = (p0 - p2).normalize();
+				Point d1 = (p1 - p2).normalize();
+				cotanWeight += 1.0 / tan(acos(d0 | d1));
+
+				h2 = m_mesh.next_halfedge_handle(h1);
+				p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+				d0 = (p0 - p2).normalize();
+				d1 = (p1 - p2).normalize();
+				cotanWeight += 1.0 / tan(acos(d0 | d1));
+
+				acc += cotanWeight;
+				cotans.insert({ m_mesh.edge_handle(h0), cotanWeight });
+			}
+
 			Scalar angle = lens * norm * conv;
-			// if (print) std::cerr << "\tangle = " << angle << '\n';
 
 			vToUV.insert({ *v_it, NGonMapper<Vec2>::cornerFromAngle(angle) });
-
-			//if (print) std::cerr << "\n\tvertex uv " << vToUV[*v_it] << "\n";
 		}
 		midNorm = 1.0 / midNorm;
 
 		Vec2 average(0.);
 
 		// set weighted position for interior vertex
-		for (auto v_it = m_mesh.cvv_ccwbegin(from); v_it != m_mesh.cvv_ccwend(from); ++v_it) {
-			average += vToUV[*v_it] * (midPoint - m_mesh.point(*v_it)).norm() * midNorm;
+		for (auto hh_it = m_mesh.cvoh_begin(from); hh_it != m_mesh.cvoh_end(from); ++hh_it) {
+
+			// percentage edge length
+			// average += vToUV[*v_it] * (midPoint - m_mesh.point(*v_it)).norm() * midNorm;
+
+			// cotan weights
+			average += vToUV[m_mesh.to_vertex_handle(*hh_it)] * cotans[m_mesh.edge_handle(*hh_it)];
 		}
-		vToUV.insert({ from, average });
-		//if (print) std::cerr << "\tset middle to " << average << std::endl;
+		vToUV.insert({ from, average * (1.0 / acc) });
 	}
 
 
