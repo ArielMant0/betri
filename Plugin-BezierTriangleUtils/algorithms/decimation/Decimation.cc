@@ -72,15 +72,15 @@ void Decimation::calculateError(const HalfedgeHandle hh)
 	}
 }
 
-void Decimation::updateError(const HalfedgeHandle hh)
+void Decimation::updateError(const HalfedgeHandle hh, const Scalar add)
 {
 	//std::cerr << "update hh " << hh << " prio: " << priority(hh);
 	bool legal = isCollapseLegal(hh);
+
 	if (priority(hh) != -1.0 && legal) {
 		// "simulate collapse" -> fit all 1-Ring faces -> use max error
 		Scalar error = fit(hh, false);
-		assert(std::isgreaterequal(error, 0.));
-		priority(hh) = priority(hh) + error;
+		priority(hh) = error != -1.0 ? add + error : -1.0;
 	} else {
 		// halfedges that result in an illegal collapse have a priority of -1
 		priority(hh) = -1.0;
@@ -247,11 +247,6 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 void Decimation::step()
 {
-	//auto testit = m_q->begin();
-	//for (size_t i = 0; i < 15 && testit != m_q->end(); ++i, ++testit) {
-	//	std::cerr << i << " " << priority(*testit) << std::endl;
-	//}
-
 	VertexHandle vh = *m_q->begin();
 	m_q->erase(m_q->begin());
 
@@ -262,8 +257,10 @@ void Decimation::step()
 	VertexHandle from = m_mesh.from_vertex_handle(hh);
 	VertexHandle to = m_mesh.to_vertex_handle(hh);
 
+	const Scalar collapseError = priority(hh);
+
 	// perform collapse
-	if (isCollapseLegal(hh)) {
+	if (collapseError != -1.0) {
 		FaceHandle f0 = m_mesh.face_handle(hh);
 		FaceHandle f1 = m_mesh.opposite_face_handle(hh);
 
@@ -280,13 +277,12 @@ void Decimation::step()
 		for (auto f_it = m_mesh.cvf_begin(from), f_end = m_mesh.cvf_end(from);
 			f_it != f_end; ++f_it
 		) {
-			// TODO: this is quite a lot of halfedges
 			if (*f_it != f0 && *f_it != f1) {
 				//m_mesh.set_color(*f_it, { 0.f, 0.75f, 0.25f, 1.f });
 				faces.push_back(*f_it);
 			}
 		}
-		std::cerr << "collapsing halfedge " << hh << " with error " << priority(hh) << '\n';
+		std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
 		// fit remaining faces (and apply update)
 		fit(hh, true);
 
@@ -299,12 +295,17 @@ void Decimation::step()
 		// remove vertex from q since it counts as deleted now
 		m_q->erase(from);
 
-
 		for (VertexHandle vh : oneRingV) {
 			for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
 				oneRing.insert(*h_it);
 			}
 		}
+		// only updating error for these halfedges makes results look real shit
+		/*for (FaceHandle fh : faces) {
+			for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
+				oneRing.insert(*h_it);
+			}
+		}*/
 
 		// make faces "match" again
 		std::set<EdgeHandle> visited;
@@ -326,19 +327,12 @@ void Decimation::step()
 		// recalculate the error first, so we know all incident halfedges
 		// are updated before updating the queue
 		for (HalfedgeHandle he : oneRing) {
-			updateError(he);
+			updateError(he, collapseError);
 		}
 		// update queue (reinsert the vertex)
 		for (VertexHandle vh : oneRingV) {
 			enqueueVertex(vh);
 		}
-
-		// TODO: why is q not sorted?
-		//assert(std::is_sorted(m_q->begin(), m_q->end(), [&](const VertexHandle &v0, const VertexHandle &v1) {
-		//	Scalar p0 = priority(v0), p1 = priority(v1);
-		//	// std::set needs UNIQUE keys -> handle equal priorities
-		//	return p0 == p1 ? v0.idx() < v1.idx() : p0 < p1;
-		//}));
 	}
 }
 
@@ -354,7 +348,7 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 	// parametrize to n-gon
 	if (!m_param.solveLocal(from, to, fitColls, apply)) {
 		debugCancel("parametrization failed");
-		return 0.;
+		return -1.0;
 	}
 
 	Scalar maxError = 0., error = 0.;
@@ -364,7 +358,7 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 		// fit all surrounding faces
 		if (!m_fit.solveLocal(fitColls[i], error, apply)) {
 			debugCancel("fitting failed");
-			return 0.;
+			return -1.0;
 		}
 		// store max error
 		maxError = std::max(error, maxError);

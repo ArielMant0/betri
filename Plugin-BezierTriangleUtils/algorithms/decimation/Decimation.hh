@@ -102,7 +102,7 @@ private:
 
 	void calculateErrors();
 	void calculateError(const HalfedgeHandle he);
-	void updateError(const HalfedgeHandle he);
+	void updateError(const HalfedgeHandle he, const Scalar add);
 
 	HalfedgeHandle& target(const VertexHandle vh) { return m_mesh.property(m_target, vh); }
 
