@@ -149,10 +149,11 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl, si
 }
 
 // should be called once to allow for stepwise execution
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors)
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool untwist, bool useColors)
 {
 	auto remesher = getVoronoiObject(object, ctrl, count);
 	remesher->useColors(useColors);
+	remesher->untwist(untwist);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -163,12 +164,10 @@ void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
 
 	if (remesher->useColors()) {
 		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-			ACG::SceneGraph::DrawModes::WIREFRAME
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 		);
 		ctrl->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-			ACG::SceneGraph::DrawModes::WIREFRAME
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 		);
 	}
 }
@@ -211,12 +210,10 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 	mesh->garbage_collection();
 
 	object->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-		ACG::SceneGraph::DrawModes::WIREFRAME
+		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 	);
 	ctrl->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-		ACG::SceneGraph::DrawModes::WIREFRAME
+		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 	);
 }
 
@@ -275,12 +272,17 @@ Decimation* getDecimationObject(BaseObjectData *object)
 	return decimator;
 }
 
-bool decimation(BaseObjectData *object, size_t complexity, bool steps)
+bool decimation(BaseObjectData *object, size_t complexity, bool steps, bool untwist)
 {
-	bool done = getDecimationObject(object)->decimate(complexity, steps);
+	auto decimator = getDecimationObject(object);
+	decimator->untwist(untwist);
+
+	bool done = decimator->decimate(complexity, steps);
+
 	if (done) {
 		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
 	}
+
 	return done;
 }
 

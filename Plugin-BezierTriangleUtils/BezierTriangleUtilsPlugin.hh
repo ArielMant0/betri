@@ -8,9 +8,9 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-
 #include <qlineedit.h> // TODO
 #include <qpushbutton.h> // TODO
+#include <qcheckbox.h>
 
 class BezierTriangleUtilsPlugin : public QObject,
 	BaseInterface,
@@ -44,6 +44,7 @@ private:
 	QWidget *m_tool;
 	QLineEdit *echoLineEdit; // TODO
 	std::vector<QPushButton*> m_voronoiSteps;
+	std::array<QCheckBox*, 2> m_untwist;
 
 	std::map<int, int> m_steps, m_target;
 

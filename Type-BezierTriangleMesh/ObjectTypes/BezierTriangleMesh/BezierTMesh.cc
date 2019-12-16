@@ -260,21 +260,12 @@ void BezierTMesh::untwistControlPoints(const FaceHandle fh)
 				std::signbit(prevDist1) != std::signbit(pointDist1)) {
 				p0[i] -= normal * pointDist0 * 1.001;
 				p1[i] -= normal * pointDist1 * 1.001;
-
-				//Point tmp = p0[i];
-				//p0[i] = p1[i];
-				//p1[i] = tmp;
-
 				update = true;
 			}
 		}
 
 		// assign new control points if they changed
 		if (update) {
-			//request_vertex_colors();
-			//set_color(from, { 1.f, 0.f, 0.f, 1.f });
-			//set_color(to0, { 1.f, 0.f, 0.f, 1.f });
-			//set_color(to1, { 1.f, 0.f, 0.f, 1.f });
 
 			cp.edgePoints(fi0, ti0, m_degree, p0);
 

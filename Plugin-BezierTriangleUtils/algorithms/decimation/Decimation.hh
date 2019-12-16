@@ -18,7 +18,8 @@ public:
 		m_q(nullptr),
 		m_param(mesh),
 		m_fit(mesh),
-		m_cancel(false)
+		m_cancel(false),
+		m_untwist(true)
     {
 		prepare();
 		// create priority q
@@ -38,6 +39,8 @@ public:
 
     bool decimate(size_t complexity=0, bool stepwise=false);
 
+	void untwist(bool use) { m_untwist = use; }
+	bool untwist() const { return m_untwist; }
 
 private:
 
@@ -166,7 +169,7 @@ private:
 	DecimationParametrization m_param;
 
 	std::string m_errors;
-	bool m_cancel;
+	bool m_cancel, m_untwist;
 
 	// desired complexity and current vertex count
 	size_t m_complexity, m_nverts;

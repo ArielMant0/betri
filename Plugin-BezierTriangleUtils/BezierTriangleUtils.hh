@@ -13,7 +13,7 @@ enum class TestOptions
 
 void randomMeshUV(BezierTMesh &mesh);
 
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors);
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool untwist, bool useColors);
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
 
@@ -27,7 +27,7 @@ void voronoiSmooth(BaseObjectData *object, BaseObjectData *ctrl);
 
 void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
 
-bool decimation(BaseObjectData *object, size_t complexity, bool steps);
+bool decimation(BaseObjectData *object, size_t complexity, bool steps, bool untwist);
 
 bool test(TestOptions which, BezierTMesh *mesh=nullptr);
 

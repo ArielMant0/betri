@@ -1513,8 +1513,10 @@ void VoronoiRemesh::smooth()
 		m_ctrl.interpolateEdgeControlPoints(edge, true);
 	}
 
-	for (FH face : m_ctrl.faces()) {
-		m_ctrl.untwistControlPoints(face);
+	if (m_untwist) {
+		for (FH face : m_ctrl.faces()) {
+			m_ctrl.untwistControlPoints(face);
+		}
 	}
 }
 

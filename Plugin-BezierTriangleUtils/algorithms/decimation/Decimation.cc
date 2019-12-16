@@ -101,7 +101,7 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 		if (isCollapseLegal(*voh_it)) {
 			prio = priority(*voh_it);
 
-			if (prio >= 0.0 && prio < min_prio) {
+			if (std::isgreaterequal(prio, 0.0) && std::isless(prio, min_prio)) {
 				min_prio = prio;
 				min_hh = *voh_it;
 			}
@@ -116,8 +116,6 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 
 	// update queue
 	if (min_hh.is_valid()) {
-		//std::cerr << "update vertex " << vh << " prio " << min_prio << " halfedge ";
-		//std::cerr << min_hh << " with prio " << priority(min_hh) << std::endl;
 		target(vh) = min_hh;
 		priority(vh) = min_prio;
 		m_q->insert(vh);
@@ -201,6 +199,9 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 		}
 	}
 
+	std::cerr << __FUNCTION__ << "\n\ttarget complexity: " << m_complexity;
+	std::cerr << "\n\tqueue size: " << m_q->size() << std::endl;
+
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
 		step();
@@ -210,6 +211,9 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 		// in case we only want to do a single step
 		if (stepwise) break;
 	}
+
+	std::cerr << "\treached complexity: " << m_nverts;
+	std::cerr << "\n\tqueue size: " << m_q->size();
 
 	done = m_nverts <= m_complexity || m_q->empty();
 
@@ -223,21 +227,14 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 	m_mesh.garbage_collection();
 
-	//if (false && !done && stepwise) {
-	//
-	//	m_q->clear();
-	//	//delete m_q;
+	if (!done && stepwise) {
 
-	//	//m_mesh.get_property_handle(m_hprio, "halfedgeprioprop");
-	//	//m_mesh.get_property_handle(m_target, "vertextargetprop");
+		m_q->clear();
 
-	//	//VertexCmp cmp(m_mesh, m_hprio, m_target);
-	//	//m_q = new std::set<VertexHandle, VertexCmp>(cmp);
-
-	//	for (HalfedgeHandle hh : m_mesh.halfedges()) {
-	//		enqueueVertex(m_mesh.from_vertex_handle(hh));
-	//	}
-	//}
+		for (VertexHandle vh : m_mesh.vertices()) {
+			enqueueVertex(vh);
+		}
+	}
 
 	// update normals
 	m_mesh.update_normals();
@@ -259,80 +256,91 @@ void Decimation::step()
 
 	const Scalar collapseError = priority(hh);
 
+	if (collapseError == -1.0) return;
+
 	// perform collapse
-	if (collapseError != -1.0) {
-		FaceHandle f0 = m_mesh.face_handle(hh);
-		FaceHandle f1 = m_mesh.opposite_face_handle(hh);
+	FaceHandle f0 = m_mesh.face_handle(hh);
+	FaceHandle f1 = m_mesh.opposite_face_handle(hh);
 
-		// store one-ring
-		std::vector<FaceHandle> faces;
-		std::set<HalfedgeHandle> oneRing;
-		std::set<VertexHandle> oneRingV;
+	// store one-ring
+	std::vector<FaceHandle> faces;
+	std::set<HalfedgeHandle> oneRing;
+	std::set<VertexHandle> oneRingV;
 
-		for (auto v_it = m_mesh.cvv_begin(from); v_it != m_mesh.cvv_end(from); ++v_it) {
-			oneRingV.insert(*v_it);
+	for (auto v_it = m_mesh.cvv_begin(from); v_it != m_mesh.cvv_end(from); ++v_it) {
+		oneRingV.insert(*v_it);
+	}
+
+	// storing neighbors beforehand is easier
+	for (auto f_it = m_mesh.cvf_begin(from), f_end = m_mesh.cvf_end(from);
+		f_it != f_end; ++f_it
+	) {
+		if (*f_it != f0 && *f_it != f1) {
+			//m_mesh.set_color(*f_it, { 0.f, 0.75f, 0.25f, 1.f });
+			faces.push_back(*f_it);
 		}
+	}
+	std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
+	// fit remaining faces (and apply update)
+	fit(hh, true);
 
-		// storing neighbors beforehand is easier
-		for (auto f_it = m_mesh.cvf_begin(from), f_end = m_mesh.cvf_end(from);
-			f_it != f_end; ++f_it
+	if (debugCancel()) {
+		return;
+	}
+
+	// collapse halfedge
+	m_mesh.collapse(hh);
+
+	for (VertexHandle vh : oneRingV) {
+		for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
+			oneRing.insert(*h_it);
+		}
+	}
+	// only updating error for these halfedges makes results look real shit
+	/*for (FaceHandle fh : faces) {
+		for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
+			oneRing.insert(*h_it);
+		}
+	}*/
+
+	// make faces "match" again
+	std::set<EdgeHandle> visited;
+	std::set<FaceHandle> otherFaces(faces.begin(), faces.end());
+
+	for (size_t i = 0; i < faces.size(); ++i) {
+		for (auto h_it = m_mesh.cfh_begin(faces[i]), h_end = m_mesh.cfh_end(faces[i]);
+			h_it != h_end; ++h_it
 		) {
-			if (*f_it != f0 && *f_it != f1) {
-				//m_mesh.set_color(*f_it, { 0.f, 0.75f, 0.25f, 1.f });
-				faces.push_back(*f_it);
+			EdgeHandle edge = m_mesh.edge_handle(*h_it);
+			if (visited.find(edge) == visited.end()) {
+				m_mesh.interpolateEdgeControlPoints(edge, true);
+				visited.insert(edge);
+			}
+
+			if (otherFaces.find(m_mesh.opposite_face_handle(*h_it)) == otherFaces.end()) {
+				otherFaces.insert(m_mesh.opposite_face_handle(*h_it));
 			}
 		}
-		std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
-		// fit remaining faces (and apply update)
-		fit(hh, true);
+		m_mesh.update_normal(faces[i]);
+	}
 
-		if (debugCancel()) {
-			return;
+	if (m_untwist) {
+		for (FaceHandle fh : otherFaces) {
+			m_mesh.untwistControlPoints(fh);
 		}
+	}
 
-		// collapse halfedge
-		m_mesh.collapse(hh);
-		// remove vertex from q since it counts as deleted now
-		m_q->erase(from);
+	// now we have one less vertex
+	--m_nverts;
 
-		for (VertexHandle vh : oneRingV) {
-			for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
-				oneRing.insert(*h_it);
-			}
-		}
-		// only updating error for these halfedges makes results look real shit
-		/*for (FaceHandle fh : faces) {
-			for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
-				oneRing.insert(*h_it);
-			}
-		}*/
-
-		// make faces "match" again
-		std::set<EdgeHandle> visited;
-
-		for (size_t i = 0; i < faces.size(); ++i) {
-			for (auto e_it = m_mesh.cfe_begin(faces[i]), e_end = m_mesh.cfe_end(faces[i]);
-				e_it != e_end; ++e_it
-			) {
-				if (visited.find(*e_it) == visited.end()) {
-					m_mesh.interpolateEdgeControlPoints(*e_it, true);
-					visited.insert(*e_it);
-				}
-			}
-		}
-
-		// now we have one less vertex
-		--m_nverts;
-
-		// recalculate the error first, so we know all incident halfedges
-		// are updated before updating the queue
-		for (HalfedgeHandle he : oneRing) {
-			updateError(he, collapseError);
-		}
-		// update queue (reinsert the vertex)
-		for (VertexHandle vh : oneRingV) {
-			enqueueVertex(vh);
-		}
+	// recalculate the error first, so we know all incident halfedges
+	// are updated before updating the queue
+	for (HalfedgeHandle he : oneRing) {
+		updateError(he, collapseError);
+	}
+	// update queue (reinsert the vertex)
+	for (VertexHandle vh : oneRingV) {
+		enqueueVertex(vh);
 	}
 }
 

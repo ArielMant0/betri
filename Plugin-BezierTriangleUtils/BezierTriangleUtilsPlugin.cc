@@ -8,7 +8,6 @@
 #include <qlabel.h>
 #include <qspinbox.h>
 #include <qdoublespinbox>
-#include <qcheckbox.h>
 #include <qinputdialog.h>
 
 //#include <OpenFlipper/common/UpdateType.hh>
@@ -59,6 +58,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	m_voronoiSteps.push_back(dualButton);
 	m_voronoiSteps.push_back(fittingButton);
 
+	m_untwist[0] = new QCheckBox(tr("untwist"));
+
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
 	voronoiLayout->addWidget(patitionButton, 1, 0, 2, 1);
@@ -66,6 +67,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualButton, 2, 1, 1, 1);
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(smoothButton, 3, 0, 1, 3);
+	voronoiLayout->addWidget(m_untwist[0], 4, 0);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	QPushButton *testButton = new QPushButton(tr("Start Test"));
@@ -81,9 +83,12 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *deciStepButton = new QPushButton(tr("Decimation Step"));
 	connect(deciStepButton, SIGNAL(clicked()), this, SLOT(callDecimationStep()));
 
+	m_untwist[1] = new QCheckBox(tr("untwist"));
+
 	QGridLayout *deciLayout = new QGridLayout;
 	deciLayout->addWidget(deciButton, 0, 0);
 	deciLayout->addWidget(deciStepButton, 1, 0);
+	deciLayout->addWidget(m_untwist[1], 2, 0);
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -565,21 +570,29 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 			"Voronoi Meshing",
 			"Please enter the minimum number of seeds: ",
 			// value, min value
-			minValue, std::min(minValue,10),
+			minValue, 0,
 			// max value, steps
 			meshObj->mesh()->n_faces(), 1, &ok
 		);
 
 		if (ok) {
-			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, m_untwist[0]->isChecked(), true);
 			betri::voronoiRemesh(*o_it, ctrl_obj);
-			emit log(LOGINFO, "Performed Voronoi Remeshing!");
+
+			BezierTMesh *cMesh = ctrlMeshObj->mesh();
+
+			emit log(LOGINFO, "# --------------------------- #");
+			emit log(LOGINFO, "# Performed Voronoi Remeshing!");
+			emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
+			emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
+			emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
+			emit log(LOGINFO, "# --------------------------- #");
 
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 			emit updatedObject(ctrl_id, UPDATE_ALL);
 
 			meshObj->hide();
-			ctrlMeshObj->mesh()->setRenderable();
+			cMesh->setRenderable();
 			ctrlMeshObj->show();
 		}
 	}
@@ -661,10 +674,17 @@ void BezierTriangleUtilsPlugin::callFitting()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-		betri::voronoiFitting(*o_it, ctrl_obj);
-		emit log(LOGINFO, "Performed Fitting!");
+		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
-		ctrlMeshObj->mesh()->setRenderable();
+		betri::voronoiFitting(*o_it, ctrl_obj);
+		emit log(LOGINFO, "# --------------------------- #");
+		emit log(LOGINFO, "# Performed Fitting!");
+		emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
+		emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
+		emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
+		emit log(LOGINFO, "# --------------------------- #");
+
+		cMesh->setRenderable();
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
 		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
@@ -726,13 +746,13 @@ void BezierTriangleUtilsPlugin::callPartition()
 			"Voronoi Meshing",
 			"Please enter the minimum number of seeds: ",
 			// value, min value
-			minValue, std::min(minValue, 10),
+			minValue, 0,
 			// max value, steps
 			meshObj->mesh()->n_faces(), 1, &ok
 		);
 
 		if (ok) {
-			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, m_untwist[0]->isChecked(), true);
 			betri::voronoiPartition(*o_it, ctrl_obj);
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
@@ -867,8 +887,13 @@ void BezierTriangleUtilsPlugin::callDecimation()
 		}
 
 		if (okay) {
-			betri::decimation(meshObj, m_target[meshId], false);
-			emit log(LOGINFO, "Performed Decimation (DONE)!");
+			betri::decimation(meshObj, m_target[meshId], false, m_untwist[1]->isChecked());
+			emit log(LOGINFO, "# --------------------------- #");
+			emit log(LOGINFO, "# Performed Decimation (DONE)!");
+			emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
+			emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
+			emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
+			emit log(LOGINFO, "# --------------------------- #");
 
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
@@ -909,9 +934,23 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 		}
 
 		if (okay) {
-			const bool done = betri::decimation(meshObj, m_target[meshId], true);
+			const bool done = betri::decimation(
+				meshObj,
+				m_target[meshId],
+				true,
+				m_untwist[1]->isChecked()
+			);
+
 			if (done) {
-				emit log(LOGINFO, "Performed Decimation Step (DONE)!");
+				BezierTMesh *mesh = meshObj->mesh();
+
+				emit log(LOGINFO, "# --------------------------- #");
+				emit log(LOGINFO, "# Performed Decimation (DONE)!");
+				emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
+				emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
+				emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
+				emit log(LOGINFO, "# --------------------------- #");
+
 			} else {
 				emit log(LOGINFO, "Performed Decimation Step!");
 			}
