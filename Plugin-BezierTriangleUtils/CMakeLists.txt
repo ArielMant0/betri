@@ -5,3 +5,7 @@ openflipper_plugin (
     INSTALLDATA Icons
     TYPES BEZIERTRIANGLEMESH TRIANGLEMESH
 )
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    add_compile_definitions(BEZIER_DEBUG)
+endif()

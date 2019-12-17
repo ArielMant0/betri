@@ -128,7 +128,7 @@ const char * VODName()
 	return "VORONOIREMESH_PER_OBJECT_DATA";
 }
 
-VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl, size_t count=0)
+VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	// initialize PerObjectData if not done yet
 	if (!object->hasObjectData(VODName())) {
@@ -137,7 +137,7 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl, si
 		BezierTMesh* ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
 
 		// initialize per object data
-		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh, count));
+		object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
 	}
 
 	// get feature lines object
@@ -151,7 +151,8 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl, si
 // should be called once to allow for stepwise execution
 void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool untwist, bool useColors)
 {
-	auto remesher = getVoronoiObject(object, ctrl, count);
+	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->minPartition(count);
 	remesher->useColors(useColors);
 	remesher->untwist(untwist);
 }
@@ -201,9 +202,10 @@ bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)
 	return done;
 }
 
-void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
+void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl, bool untwist)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
+	remesher->untwist(untwist);
 	remesher->fitting();
 
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
@@ -228,7 +230,7 @@ void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
 	BezierTMesh *ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
 
-	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh, 0));
+	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
 	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
 		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
 	);
@@ -272,15 +274,26 @@ Decimation* getDecimationObject(BaseObjectData *object)
 	return decimator;
 }
 
-bool decimation(BaseObjectData *object, size_t complexity, bool steps, bool untwist)
+void decimationInit(BaseObjectData *object, size_t complexity, bool color)
+{
+	auto decimator = getDecimationObject(object);
+	decimator->initialize(complexity);
+	decimator->useColors(color);
+
+	if (color) {
+		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
+	}
+}
+
+bool decimation(BaseObjectData *object, bool steps, bool untwist)
 {
 	auto decimator = getDecimationObject(object);
 	decimator->untwist(untwist);
 
-	bool done = decimator->decimate(complexity, steps);
+	bool done = decimator->decimate(steps);
 
-	if (done) {
-		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
+	if (decimator->useColors()) {
+		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
 	}
 
 	return done;

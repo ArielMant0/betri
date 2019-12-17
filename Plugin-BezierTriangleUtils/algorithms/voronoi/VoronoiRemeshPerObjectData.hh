@@ -9,11 +9,7 @@ class VoronoiRemeshPerObjectData : public PerObjectData
 
 public:
 
-	VoronoiRemeshPerObjectData(
-		BezierTMesh& mesh,
-		BezierTMesh &ctrl,
-		size_t count
-	) : m_remesher(mesh, ctrl, count) {}
+	VoronoiRemeshPerObjectData(BezierTMesh& mesh, BezierTMesh &ctrl) : m_remesher(mesh, ctrl) {}
 
 	virtual ~VoronoiRemeshPerObjectData() {}
 

@@ -59,6 +59,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	m_voronoiSteps.push_back(fittingButton);
 
 	m_untwist[0] = new QCheckBox(tr("untwist"));
+	m_colors[0] = new QCheckBox(tr("use colors"));
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
@@ -68,6 +69,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(smoothButton, 3, 0, 1, 3);
 	voronoiLayout->addWidget(m_untwist[0], 4, 0);
+	voronoiLayout->addWidget(m_colors[0], 5, 0);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	QPushButton *testButton = new QPushButton(tr("Start Test"));
@@ -78,17 +80,22 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *deciGroup = new QGroupBox(tr("Decimation"));
 
-	QPushButton *deciButton = new QPushButton(tr("Decimation"));
+	QPushButton *deciInitButton = new QPushButton(tr("Intialize Decimation"));
+	connect(deciInitButton, SIGNAL(clicked()), this, SLOT(callDecimationInit()));
+	QPushButton *deciButton = new QPushButton(tr("Full Decimation"));
 	connect(deciButton, SIGNAL(clicked()), this, SLOT(callDecimation()));
-	QPushButton *deciStepButton = new QPushButton(tr("Decimation Step"));
+	QPushButton *deciStepButton = new QPushButton(tr("Step Decimation"));
 	connect(deciStepButton, SIGNAL(clicked()), this, SLOT(callDecimationStep()));
 
 	m_untwist[1] = new QCheckBox(tr("untwist"));
+	m_colors[1] = new QCheckBox(tr("use colors"));
 
 	QGridLayout *deciLayout = new QGridLayout;
-	deciLayout->addWidget(deciButton, 0, 0);
-	deciLayout->addWidget(deciStepButton, 1, 0);
-	deciLayout->addWidget(m_untwist[1], 2, 0);
+	deciLayout->addWidget(deciInitButton, 0, 0);
+	deciLayout->addWidget(deciButton, 1, 0);
+	deciLayout->addWidget(deciStepButton, 2, 0);
+	deciLayout->addWidget(m_untwist[1], 3, 0);
+	deciLayout->addWidget(m_colors[1], 4, 0);
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -676,7 +683,7 @@ void BezierTriangleUtilsPlugin::callFitting()
 
 		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
-		betri::voronoiFitting(*o_it, ctrl_obj);
+		betri::voronoiFitting(*o_it, ctrl_obj, m_untwist[0]->isChecked());
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Fitting!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
@@ -856,6 +863,40 @@ void BezierTriangleUtilsPlugin::testAlgorithm()
 	}
 }
 
+void BezierTriangleUtilsPlugin::callDecimationInit()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+		BezierTMesh *mesh = meshObj->mesh();
+
+		bool okay = false;
+
+		int meshId = meshObj->id();
+		int target = QInputDialog::getInt(
+			m_tool,
+			"Decimation Meshing",
+			"Please enter target complexity: ",
+			// value, min value
+			mesh->n_vertices(), 10,
+			// max value, steps
+			mesh->n_vertices(), 1, &okay
+		);
+
+		if (okay) {
+			betri::decimationInit(meshObj, target, m_colors[1]->isChecked());
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
+	}
+}
+
 void BezierTriangleUtilsPlugin::callDecimation()
 {
 	// init object iterator
@@ -869,35 +910,15 @@ void BezierTriangleUtilsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
-		bool okay = true;
+		betri::decimation(meshObj, false, m_untwist[1]->isChecked());
+		emit log(LOGINFO, "# --------------------------- #");
+		emit log(LOGINFO, "# Performed Decimation (DONE)!");
+		emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
+		emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
+		emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
+		emit log(LOGINFO, "# --------------------------- #");
 
-		int meshId = meshObj->id();
-		auto data = m_target.find(meshId);
-
-		if (data == m_target.end()) {
-			m_target[meshId] = QInputDialog::getInt(
-				m_tool,
-				"Decimation Meshing",
-				"Please enter target complexity: ",
-				// value, min value
-				mesh->n_vertices(), 10,
-				// max value, steps
-				mesh->n_vertices(), 1, &okay
-			);
-		}
-
-		if (okay) {
-			betri::decimation(meshObj, m_target[meshId], false, m_untwist[1]->isChecked());
-			emit log(LOGINFO, "# --------------------------- #");
-			emit log(LOGINFO, "# Performed Decimation (DONE)!");
-			emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
-			emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
-			emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
-			emit log(LOGINFO, "# --------------------------- #");
-
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
-		}
-		m_target.erase(meshId);
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
 	}
 }
 
@@ -914,48 +935,24 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
-		bool okay = true;
+		const bool done = betri::decimation(
+			meshObj,
+			true,
+			m_untwist[1]->isChecked()
+		);
 
-		int meshId = meshObj->id();
-		auto data = m_target.find(meshId);
-
-		if (data == m_target.end()) {
+		if (done) {
 			BezierTMesh *mesh = meshObj->mesh();
 
-			m_target[meshId] = QInputDialog::getInt(
-				m_tool,
-				"Decimation Meshing",
-				"Please enter target complexity: ",
-				// value, min value
-				mesh->n_vertices(), 10,
-				// max value, steps
-				mesh->n_vertices(), 1, &okay
-			);
-		}
+			emit log(LOGINFO, "# --------------------------- #");
+			emit log(LOGINFO, "# Performed Decimation (DONE)!");
+			emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
+			emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
+			emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
+			emit log(LOGINFO, "# --------------------------- #");
 
-		if (okay) {
-			const bool done = betri::decimation(
-				meshObj,
-				m_target[meshId],
-				true,
-				m_untwist[1]->isChecked()
-			);
-
-			if (done) {
-				BezierTMesh *mesh = meshObj->mesh();
-
-				emit log(LOGINFO, "# --------------------------- #");
-				emit log(LOGINFO, "# Performed Decimation (DONE)!");
-				emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
-				emit log(LOGINFO, tr("# Edges: %1").arg(mesh->n_edges()));
-				emit log(LOGINFO, tr("# Faces: %1").arg(mesh->n_faces()));
-				emit log(LOGINFO, "# --------------------------- #");
-
-			} else {
-				emit log(LOGINFO, "Performed Decimation Step!");
-			}
 		} else {
-			m_target.erase(meshId);
+			emit log(LOGINFO, "Performed Decimation Step!");
 		}
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);

@@ -1,5 +1,7 @@
 #include "Decimation.hh"
 
+#include <OpenFlipper/libs_required/ACG/Utils/ColorCoder.hh>
+
 namespace betri
 {
 
@@ -31,28 +33,30 @@ void Decimation::cleanup()
 
 void Decimation::calculateErrors()
 {
-	Scalar minError = std::numeric_limits<Scalar>::max(),
-		maxError = 0.,
-		avgError = 0.;
+	m_minError = std::numeric_limits<Scalar>::max();
+	m_maxError = 0;
+	m_avgError = 0.;
 
 	size_t count = 0;
 
 	m_mesh.update_face_normals();
 
 	for (HalfedgeHandle hh : m_mesh.halfedges()) {
+
 		calculateError(hh);
 		Scalar error = priority(hh);
-		if (error != -1.) {
-			maxError = std::max(maxError, error);
-			minError = std::min(minError, error);
-			avgError += error;
+
+		if (error != -1.0) {
+			m_maxError = std::max(m_maxError, error);
+			m_minError = std::min(m_minError, error);
+			m_avgError += error;
 			count++;
 		}
 	}
-	avgError = avgError / count;
+	m_avgError /= count;
 
-	std::cerr << "calcluated errors:\n\tmin: " << minError << "\n\tmax: " << maxError;
-	std::cerr << "\n\tavg: " << avgError << std::endl;
+	std::cerr << "calcluated errors:\n\tmin: " << m_minError << "\n\tmax: " << m_maxError;
+	std::cerr << "\n\tavg: " << m_avgError << std::endl;
 
 	for (VertexHandle vh : m_mesh.vertices()) {
 		priority(vh) = -1.0;
@@ -61,20 +65,12 @@ void Decimation::calculateErrors()
 
 void Decimation::calculateError(const HalfedgeHandle hh)
 {
-	if (isCollapseLegal(hh)) {
-		// "simulate collapse" -> fit all 1-Ring faces -> use max error
-		Scalar error = fit(hh, false);
-		assert(std::isgreaterequal(error, 0.));
-		priority(hh) = error;
-	} else {
-		// halfedges that result in an illegal collapse have a priority of -1
-		priority(hh) = -1.0;
-	}
+	// "simulate collapse" -> fit all 1-Ring faces -> use max error
+	priority(hh) = isCollapseLegal(hh) ? fit(hh, false) : -1.0;
 }
 
 void Decimation::updateError(const HalfedgeHandle hh, const Scalar add)
 {
-	//std::cerr << "update hh " << hh << " prio: " << priority(hh);
 	bool legal = isCollapseLegal(hh);
 
 	if (priority(hh) != -1.0 && legal) {
@@ -85,7 +81,6 @@ void Decimation::updateError(const HalfedgeHandle hh, const Scalar add)
 		// halfedges that result in an illegal collapse have a priority of -1
 		priority(hh) = -1.0;
 	}
-	//std::cerr << " -> " << priority(hh) << "(legal ? " << legal << ")\n";
 }
 
 void Decimation::enqueueVertex(const VertexHandle vh)
@@ -98,13 +93,11 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 	for (auto voh_it = m_mesh.voh_begin(vh), voh_end = m_mesh.voh_end(vh);
 		voh_it != voh_end; ++voh_it) {
 
-		if (isCollapseLegal(*voh_it)) {
-			prio = priority(*voh_it);
+		prio = priority(*voh_it);
 
-			if (std::isgreaterequal(prio, 0.0) && std::isless(prio, min_prio)) {
-				min_prio = prio;
-				min_hh = *voh_it;
-			}
+		if (prio != -1.0 && prio < min_prio) {
+			min_prio = prio;
+			min_hh = *voh_it;
 		}
 	}
 
@@ -118,6 +111,7 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 	if (min_hh.is_valid()) {
 		target(vh) = min_hh;
 		priority(vh) = min_prio;
+		assert(min_prio != -1.0);
 		m_q->insert(vh);
 	}
 }
@@ -128,14 +122,6 @@ bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
 	VertexHandle v0 = m_mesh.from_vertex_handle(hh);
 	VertexHandle v1 = m_mesh.to_vertex_handle(hh);
 
-	// collect faces
-	FaceHandle fl = m_mesh.face_handle(hh);
-	FaceHandle fr = m_mesh.opposite_face_handle(hh);
-
-	// backup point positions
-	const Point p0 = m_mesh.point(v0);
-	const Point p1 = m_mesh.point(v1);
-
 	// topological test
 	if (!m_mesh.is_collapse_ok(hh)) {
 		return false;
@@ -145,62 +131,110 @@ bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
 		return false;
 	}
 
-	bool collapseOK = true;
+	return true;
 
-	 // simulate collapse
-	m_mesh.set_point(v0, p1);
+	//// collect faces
+	//FaceHandle fl = m_mesh.face_handle(hh);
+	//FaceHandle fr = m_mesh.face_handle(m_mesh.opposite_halfedge_handle(hh));
 
-	// check for flipping normals
-	double c(1.0);
-	const double min_cos(cos(0.25 * M_PI));
+	//// backup point positions
+	//const Point p0 = m_mesh.point(v0);
+	//const Point p1 = m_mesh.point(v1);
 
-	for (auto vf_it(m_mesh.cvf_begin(v0)), vf_end(m_mesh.cvf_end(v0)); vf_it != vf_end; ++vf_it) {
-		// dont check triangles that would be deleted anyway
-		if ((*vf_it != fl) && (*vf_it != fr)) {
+	//// simulate collapse
+	//m_mesh.set_point(v0, p1);
 
-			Point n0 = m_mesh.normal(*vf_it);
-			Point n1 = m_mesh.calc_face_normal(*vf_it);
-			// check wether normal flips due to collapse
-			if ((c = (n0 | n1)) < min_cos) {
-				break;
-			}
-		}
-	}
+	//bool collapseOK = true;
 
-	// undo simulation changes
-	m_mesh.set_point(v0, p0);
+	//// check for flipping normals
+	//double c(1.0);
+	//const double min_cos(0.);//cos(0.5 * M_PI));
 
-	if (c < min_cos) {
-		collapseOK = false;
-	}
+	//for (auto vf_it(m_mesh.cvf_begin(v0)), vf_end(m_mesh.cvf_end(v0)); vf_it != vf_end; ++vf_it) {
+	//	// dont check triangles that would be deleted anyway
+	//	if ((*vf_it != fl) && (*vf_it != fr)) {
 
-	// return the result of the collapse simulation
-	return collapseOK;
+	//		TriMesh::Point n0 = m_mesh.normal(*vf_it);
+	//		TriMesh::Point n1 = m_mesh.calc_face_normal(*vf_it);
+	//		// check wether normal flips due to collapse
+	//		if ((c = (n0 | n1)) < min_cos) {
+	//			collapseOK = false;
+	//			break;
+	//		}
+	//	}
+	//}
+
+	//// undo simulation changes
+	//m_mesh.set_point(v0, p0);
+
+	//// return the result of the collapse simulation
+	//return collapseOK;
 }
 
-bool Decimation::decimate(size_t complexity, bool stepwise)
+void Decimation::calcErrorStatistics()
 {
-	// only set first time this is called
-	m_complexity = complexity == 0 ? m_complexity : complexity;
+	m_minError = std::numeric_limits<Scalar>::max();
+	m_maxError = 0.0;
+	m_avgError = 0.0;
 
-	bool done = m_nverts <= m_complexity;
+	for (VertexHandle vh : m_mesh.vertices()) {
+		Scalar prio = priority(vh);
+		if (prio != -1.0) {
+			m_minError = std::min(m_minError, prio);
+			m_maxError = std::max(m_maxError, prio);
+			m_avgError += prio;
+		}
+	}
+}
+
+void Decimation::setColorsFromError()
+{
+	ACG::ColorCoder coder(m_minError, m_maxError, false);
+
+	Scalar prio;
+	Color black(0.f, 0.f, 0.f, 1.f);
+
+	for (VertexHandle vh : m_mesh.vertices()) {
+		prio = priority(vh);
+		m_mesh.set_color(vh, prio != -1.0 ? coder.color_float4_raw(prio) : black);
+	}
+}
+
+void Decimation::initialize(size_t complexity)
+{
+	// only set one time before decimation is called
+	m_complexity = complexity == 0 ? m_complexity : complexity;
+	m_nverts = m_mesh.n_vertices();
 
 	// build priority queue...
-	if (m_q->empty() && !done) {
+	m_q->clear();
 
-		// prepare fitting by telling it barycentric coordinates used for surface sampling
-		m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
-		// calculate fitting errors
-		calculateErrors();
+	// prepare fitting by telling it barycentric coordinates used for surface sampling
+	m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
+	// calculate fitting errors
+	calculateErrors();
 
-		// fill queue
-		for (VertexHandle vh : m_mesh.vertices()) {
-			enqueueVertex(vh);
-		}
+	// fill queue
+	for (VertexHandle vh : m_mesh.vertices()) {
+		enqueueVertex(vh);
 	}
 
 	std::cerr << __FUNCTION__ << "\n\ttarget complexity: " << m_complexity;
 	std::cerr << "\n\tqueue size: " << m_q->size() << std::endl;
+
+	if (m_useColors) {
+		// get vertex colors if we dont have any
+		if (!m_mesh.has_vertex_colors()) {
+			m_mesh.request_vertex_colors();
+		}
+
+		setColorsFromError();
+	}
+}
+
+bool Decimation::decimate(bool stepwise)
+{
+	bool done = m_nverts <= m_complexity;
 
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
@@ -217,23 +251,25 @@ bool Decimation::decimate(size_t complexity, bool stepwise)
 
 	done = m_nverts <= m_complexity || m_q->empty();
 
-	// only update when we're done
-	if (done) {
-		m_q->clear();
-		// reset parameters to avoid buggy behaviour on next round
-		m_nverts = m_mesh.n_vertices();
-		m_complexity = m_nverts;
-	}
-
 	m_mesh.garbage_collection();
 
 	if (!done && stepwise) {
 
+		// queue has to be updated since vertex handles change
+		// TODO: try using q over pointers to be able to use garbage_collection(...)
+		//		 with retaining vertex handles
 		m_q->clear();
 
 		for (VertexHandle vh : m_mesh.vertices()) {
 			enqueueVertex(vh);
 		}
+	}
+
+	// update error statistics
+	calcErrorStatistics();
+
+	if (m_useColors) {
+		setColorsFromError();
 	}
 
 	// update normals
@@ -296,12 +332,6 @@ void Decimation::step()
 			oneRing.insert(*h_it);
 		}
 	}
-	// only updating error for these halfedges makes results look real shit
-	/*for (FaceHandle fh : faces) {
-		for (auto h_it = m_mesh.cfh_begin(fh); h_it != m_mesh.cfh_end(fh); ++h_it) {
-			oneRing.insert(*h_it);
-		}
-	}*/
 
 	// make faces "match" again
 	std::set<EdgeHandle> visited;
@@ -321,7 +351,6 @@ void Decimation::step()
 				otherFaces.insert(m_mesh.opposite_face_handle(*h_it));
 			}
 		}
-		m_mesh.update_normal(faces[i]);
 	}
 
 	if (m_untwist) {
@@ -348,7 +377,6 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 {
 	// source and target vertex
 	VertexHandle from = m_mesh.from_vertex_handle(hh), to = m_mesh.to_vertex_handle(hh);
-	size_t valence = m_mesh.valence(from);
 
 	// stores all 3D points and corresponding uv's per face
 	std::vector<FitCollection> fitColls;
@@ -361,7 +389,7 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 
 	Scalar maxError = 0., error = 0.;
 
-	assert(fitColls.size() == valence - 2);
+	assert(fitColls.size() == m_mesh.valence(from) - 2);
 	for (size_t i = 0; i < fitColls.size(); ++i) {
 		// fit all surrounding faces
 		if (!m_fit.solveLocal(fitColls[i], error, apply)) {

@@ -2,6 +2,7 @@
 #include "ShortestPath.hh"
 
 #include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>
+#include <OpenMesh/Core/Utils/PropertyManager.hh>
 
 namespace betri
 {
@@ -34,7 +35,7 @@ public:
 		BezierTMesh &ctrl,
 		size_t minPartition = 10u,
 		bool colors = true,
-		bool copy = false
+		bool copy = true
 	) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
@@ -88,6 +89,9 @@ public:
 
 	void untwist(bool doit) { m_untwist = doit; }
 	bool untwist() const { return m_untwist; }
+
+	void minPartition(size_t part) { m_minPartition = part; }
+	size_t minPartition() const { return m_minPartition; }
 
 private:
 
@@ -208,11 +212,10 @@ private:
 	void grow(FaceDijkstra &q, const FH face, const FH predFace=FH(), Scalar distance=0.0)
 	{
 		id(face) = !predFace.is_valid() ? m_seeds.size() - 1 : id(predFace);
-		if (m_useColors) {
-			m_mesh.set_color(face, m_colors[id(face)]);
-		}
+		setColor(face, m_colors[id(face)]);
 		pred(face) = predFace;
-		if (predFace.is_valid()) assert(face != pred(pred(face)));
+
+		assert(!predFace.is_valid() || face != pred(pred(face)));
 
 		auto pair = FQElem(dist(face), face);
 		auto it = q.find(pair);
@@ -264,7 +267,7 @@ private:
 		// reduce alpha so seed faces are visible
 		Color c = m_colors[id(f)];
 		c[3] = 0.5f;
-		m_mesh.set_color(f, c);
+		setColor(f, c);
 
 		P p1 = m_mesh.calc_face_centroid(f);
 		for (auto he = m_mesh.fh_begin(f); he != m_mesh.fh_end(f); ++he) {
@@ -330,8 +333,7 @@ private:
 		return m_seedVerts[id(vh)] == vh;
 	}
 
-	FH findDelaunayFace(ID r0, ID r1, ID r2)
-	{
+	FH findDelaunayFace(ID r0, ID r1, ID r2) {
 		for (FH f : m_ctrl.faces()) {
 			if (ttv(f).isRegion(r0, r1, r2)) {
 				return f;
@@ -370,7 +372,7 @@ private:
 		return false;
 	}
 
-	VH minPredecessor(const VertexHandle vh, const ID id0, bool noBorder=false)
+	VH minPredecessor(const VertexHandle vh, bool noBorder=false)
 	{
 		Scalar minDist = std::numeric_limits<Scalar>::max();
 		VH minPred;
@@ -438,6 +440,34 @@ private:
 	void findShortestPath(const VH vh, const ID id0);
 
 	void setShortestPath(const VH vh);
+
+	void setColor(VH vh, const Color &color) const
+	{
+		if (useColors()) {
+			m_mesh.set_color(vh, color);
+		}
+	}
+
+	void setColor(HH hh, const Color &color) const
+	{
+		if (useColors()) {
+			m_mesh.set_color(hh, color);
+		}
+	}
+
+	void setColor(EH eh, const Color &color) const
+	{
+		if (useColors()) {
+			m_mesh.set_color(eh, color);
+		}
+	}
+
+	void setColor(FH fh, const Color &color) const
+	{
+		if (useColors()) {
+			m_mesh.set_color(fh, color);
+		}
+	}
 
 	// -------------------------------------------------------------- //
 	// member variables

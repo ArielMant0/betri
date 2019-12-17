@@ -19,7 +19,8 @@ public:
 		m_param(mesh),
 		m_fit(mesh),
 		m_cancel(false),
-		m_untwist(true)
+		m_untwist(false),
+		m_useColors(true)
     {
 		prepare();
 		// create priority q
@@ -37,43 +38,21 @@ public:
 		}
     }
 
-    bool decimate(size_t complexity=0, bool stepwise=false);
+	void initialize(size_t complexity);
+
+    bool decimate(bool stepwise=false);
 
 	void untwist(bool use) { m_untwist = use; }
 	bool untwist() const { return m_untwist; }
+
+	void useColors(bool use) { m_useColors = use; }
+	bool useColors() const { return m_useColors; }
 
 private:
 
 	//-----------------------------------------------//
 	// compare functor for priority queue
 	//-----------------------------------------------//
-	//struct VertexCmp
-	//{
-	//	BezierTMesh *m_mesh;
-	//	OpenMesh::HPropHandleT<Scalar> &m_prio;
-	//	OpenMesh::VPropHandleT<HalfedgeHandle> &m_target;
-
-	//	VertexCmp(
-	//		BezierTMesh &mesh,
-	//		OpenMesh::HPropHandleT<Scalar> &prio,
-	//		OpenMesh::VPropHandleT<HalfedgeHandle> &target
-	//	) : m_mesh(&mesh), m_prio(prio), m_target(target) {}
-
-	//	Scalar priority(const VertexHandle vh) const
-	//	{
-	//		HalfedgeHandle h = m_mesh->property(m_target, vh);
-	//		return h.is_valid() ? m_mesh->property(m_prio, h) : -1.0;
-	//	}
-
-	//	bool operator()(const VertexHandle v0, const VertexHandle v1) const
-	//	{
-	//		assert(m_mesh != nullptr);
-	//		Scalar p0 = priority(v0), p1 = priority(v1);
-	//		// std::set needs UNIQUE keys -> handle equal priorities
-	//		return p0 == p1 ? v0.idx() < v1.idx() : p0 < p1;
-	//	}
-	//};
-
 	struct VertexCmp
 	{
 		BezierTMesh *m_mesh;
@@ -114,11 +93,6 @@ private:
 	bool isCollapseLegal(const HalfedgeHandle hh);
 
 	Scalar& priority(const HalfedgeHandle hh) { return m_mesh.property(m_hprio, hh); }
-	//Scalar priority(const VertexHandle vh)
-	//{
-	//	HalfedgeHandle h = target(vh);
-	//	return h.is_valid() ? m_mesh.property(m_hprio, h) : -1.0;
-	//}
 	Scalar& priority(const VertexHandle vh) { return m_mesh.property(m_vprio, vh); }
 
 	Scalar calcVertexPriority(const VertexHandle vh)
@@ -135,6 +109,9 @@ private:
 
 		return min;
 	}
+
+	void calcErrorStatistics();
+	void setColorsFromError();
 
 	void debugCancel(const char *msg)
 	{
@@ -169,10 +146,13 @@ private:
 	DecimationParametrization m_param;
 
 	std::string m_errors;
-	bool m_cancel, m_untwist;
+	bool m_cancel, m_untwist, m_useColors;
 
 	// desired complexity and current vertex count
 	size_t m_complexity, m_nverts;
+
+	// error statistics
+	Scalar m_minError, m_avgError, m_maxError;
 
 	// queue
 	std::set<VertexHandle, VertexCmp> *m_q;

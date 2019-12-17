@@ -28,7 +28,7 @@ class BezierTriangleUtilsPlugin : public QObject,
 
 public:
 
-	BezierTriangleUtilsPlugin() : m_tool(0), m_steps(), m_target() {}
+	BezierTriangleUtilsPlugin() : m_tool(0), m_steps() {}
 
 	~BezierTriangleUtilsPlugin() {};
 
@@ -45,8 +45,9 @@ private:
 	QLineEdit *echoLineEdit; // TODO
 	std::vector<QPushButton*> m_voronoiSteps;
 	std::array<QCheckBox*, 2> m_untwist;
+	std::array<QCheckBox*, 2> m_colors;
 
-	std::map<int, int> m_steps, m_target;
+	std::map<int, int> m_steps;
 
 	BaseObjectData *ctrl_obj;
 
@@ -106,6 +107,7 @@ private slots:
 	void applyTessellation(bool toTriMesh);
 
 	// decimation meshing functions
+	void callDecimationInit();
 	void callDecimation();
 	void callDecimationStep();
 

@@ -72,6 +72,7 @@ struct VertexToTri
 	{
 		face = f;
 		id1 = f.idx();
+		id2 = -1;
 	}
 
 	void setBorder(ID i1, ID i2)
