@@ -19,9 +19,9 @@ namespace betri
 // TODO this is accesseable without by betri::AABB
 enum boundingVolumeType
 {
-	AABB = 0,
-	PrismVolume = 1,
-	BoundingTetraeder = 2,
+	BoundingTetraeder = 0,
+	AABB = 1,
+	PrismVolume = 2,
 	ConvexHull = 3,
 	BoundingMesh = 4,
 	BoundingBillboard = 5
@@ -38,6 +38,10 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 	constexpr int bBoardTriangles = 4; // TODO
 
 	switch (bVolume) {
+		case boundingVolumeType::BoundingTetraeder:
+			numVerts = 4;
+			numIndices = tetraederTriangles * indicesPerTriangle;
+			break;
 		case boundingVolumeType::AABB:
 			numVerts = 8;
 			numIndices = AABBTriangles * indicesPerTriangle;
@@ -45,10 +49,6 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 		case boundingVolumeType::PrismVolume:
 			numVerts = 6;
 			numIndices = prismTriangles * indicesPerTriangle;
-			break;
-		case boundingVolumeType::BoundingTetraeder:
-			numVerts = 4;
-			numIndices = tetraederTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::ConvexHull:
 			numVerts = 6; // TODO 

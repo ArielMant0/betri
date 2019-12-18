@@ -38,12 +38,16 @@ struct hitinfo {
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
-vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
-//vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
+#if POSITIONS == 4
+	vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
+#else
+	vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Functions
 ///////////////////////////////////////////////////////////////////////////////
+#if POSITIONS == 4
 void reorder(vec3 ray_origin, vec3 ray_direction)
 {
 	float dist = 0.0;
@@ -81,6 +85,7 @@ void reorder(vec3 ray_origin, vec3 ray_direction)
 		tmp[i+1] = k2;
 	}
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Beziertriangle Intersect
@@ -95,15 +100,19 @@ void reorder(vec3 ray_origin, vec3 ray_direction)
  */
 void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 {
+#if POSITIONS == 4
 	// TODO heavy on performance maybe not ordering but rather search for i min
 	reorder(ray_origin, ray_direction);
+#endif
 
 	// TODO
 	// Get perpendicular ray by switching coords
 	//vec3 normal_1 = ray_direction.zyx;
-	vec3 normal_1 = cross(ray_direction, vec3(-1.0));
-	vec3 normal_2 = cross(ray_direction, normal_1);
+	// TODO normalize
+	vec3 normal_1 = normalize(cross(ray_direction, vec3(-1.0)));
+	vec3 normal_2 = normalize(cross(ray_direction, normal_1));
 	// TODO warum tun wir das?
+	// distance to startpoint
 	float d_1 = -dot(normal_1, ray_origin);
 	float d_2 = -dot(normal_2, ray_origin);
 

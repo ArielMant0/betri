@@ -86,7 +86,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
 {
 	// TODO: rene/franzis toggle !!!
-	return;
+	//return;
 
 	float div = 1.0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (10.0 - 1.0)));
 
@@ -2569,6 +2569,21 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 		}
 
 		switch (bVolume) {
+			case betri::boundingVolumeType::BoundingTetraeder:
+			{
+				// TODO is this the correct way to call this?
+				betri::addBoundingTetraederFromPoints(
+					controlPointsPerFace,
+					grad(),
+					vboIndex,
+					iboIndex,
+					face_index,
+					vboData,
+					iboData,
+					cpArray
+				);
+				break;
+			}
 			case betri::boundingVolumeType::AABB:
 			{
 				// TODO is this the correct way to call this?
@@ -2587,21 +2602,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			{
 				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
-					controlPointsPerFace,
-					grad(),
-					vboIndex,
-					iboIndex,
-					face_index,
-					vboData,
-					iboData,
-					cpArray
-				);
-				break;
-			}
-			case betri::boundingVolumeType::BoundingTetraeder:
-			{
-				// TODO is this the correct way to call this?
-				betri::addBoundingTetraederFromPoints(
 					controlPointsPerFace,
 					grad(),
 					vboIndex,

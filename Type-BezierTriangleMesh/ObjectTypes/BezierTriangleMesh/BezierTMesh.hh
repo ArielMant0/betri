@@ -13,7 +13,7 @@ public:
 	BezierTMesh() :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
 		m_render(false),
-		m_degree(2)
+		m_degree(1)
 	{
 		//request_edge_colors();
 		//request_vertex_colors();

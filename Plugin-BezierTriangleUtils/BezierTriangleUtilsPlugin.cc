@@ -184,9 +184,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QLabel *boundVLabel = new QLabel(tr("Use BoundingVolume:"));
 	QComboBox *boundVComboBox = new QComboBox;
 	//boundVComboBox->addItem(tr("NONE"));
+	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
-	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
 	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
@@ -384,11 +384,20 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 			if ((perfCheckboxes[5])->isChecked()) {
 				result |= int(ACG::Benchmarker::RENDER_MODE::RAYCHULL);
 			}
+			if (false) { // TODO
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYMESH);
+			}
 			if ((perfCheckboxes[6])->isChecked()) {
 				result |= int(ACG::Benchmarker::RENDER_MODE::RAYBILLB);
 			}
 			ACG::Benchmarker::instance()->active(true);
 			ACG::Benchmarker::instance()->renderMode(result);
+			if (false) {
+				ACG::Benchmarker::instance()->occlQuery(false);
+			}
+			if (false) {
+				ACG::Benchmarker::instance()->average(false);
+			}
 		}
 	);
 
