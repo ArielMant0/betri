@@ -14,21 +14,13 @@ public:
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
 		m_render(false),
 		m_degree(3)
-	{
-		//request_edge_colors();
-		//request_vertex_colors();
-		//request_face_colors();
-	}
+	{}
 
 	BezierTMesh(const BezierTMesh &other) :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(other),
 		m_render(other.m_render),
 		m_degree(other.m_degree)
-	{
-		//request_edge_colors();
-		//request_vertex_colors();
-		//request_face_colors();
-	}
+	{}
 
 	void degreeElevation(FaceHandle fh);
 

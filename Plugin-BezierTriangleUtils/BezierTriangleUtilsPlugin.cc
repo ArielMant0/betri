@@ -197,9 +197,9 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QLabel *boundVLabel = new QLabel(tr("Use BoundingVolume:"));
 	QComboBox *boundVComboBox = new QComboBox;
 	//boundVComboBox->addItem(tr("NONE"));
+	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
 	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
 	boundVComboBox->addItem(tr("PRISM"));
-	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
 	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
@@ -348,51 +348,81 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *perfGroup = new QGroupBox(tr("Performace Tester"));
 
-	QPushButton *startTestButton = new QPushButton(tr("Start"));
-	QPushButton *endTestButton = new QPushButton(tr("End"));
+	QPushButton *startTestButton = new QPushButton(tr("Do it"));
+	QLabel *framecountLabel = new QLabel(tr("Framecount:"));
+	QSpinBox *framecountSpinBox = new QSpinBox;
+	framecountSpinBox->setRange(1, 1000);
 
-	int result;
+	QCheckBox *cpuBox = new QCheckBox("CPU");
+	perfCheckboxes.push_back(cpuBox);
+	QCheckBox *gpuBox = new QCheckBox("GPU");
+	perfCheckboxes.push_back(gpuBox);
+	QCheckBox *rTetraBox = new QCheckBox("Ray-Tetra");
+	perfCheckboxes.push_back(rTetraBox);
+	QCheckBox *rBoxBox = new QCheckBox("Ray-AABB");
+	perfCheckboxes.push_back(rBoxBox);
+	QCheckBox *rPrismBox = new QCheckBox("Ray-Prism");
+	perfCheckboxes.push_back(rPrismBox);
+	QCheckBox *rHullBox = new QCheckBox("Ray-CHull");
+	perfCheckboxes.push_back(rHullBox);
+	QCheckBox *rBillBox = new QCheckBox("Ray-Billb");
+	perfCheckboxes.push_back(rBillBox);
 
+	// Random unrelated links yay
 	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/classBaseInterface.html#ace0d6b943ce94f48c40e8c0e17a8413e
+	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
+	// http://openflipper.org/Documentation/latest/a14811.html#baseInterfaceSceneUpdateNotification
+	// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
 	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
+			int result = 0;
+			if (ACG::Benchmarker::instance()->active())
+				return;
 
-		std::cerr << "\nREDRAW DISABLED " << OpenFlipper::Options::redrawDisabled() << std::endl;
-		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::sceneGraphUpdatesBlocked() << std::endl;
-		std::cerr << "\nREDRAW loadingSettings " << OpenFlipper::Options::examinerWidgets() << std::endl;
-
-
-		std::clock_t start = std::clock();
-		int frames = 6000;
-
-		std::cerr << frames << std::endl;
-
-		for (int i = 0; i < frames; i++) {
-			// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
-			// http://openflipper.org/Documentation/latest/a14811.html#baseInterfaceSceneUpdateNotification
-			// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
-			//emit BaseInterface::updateView();
-			emit updateView();
-			//BaseInterface::updatedObject(-1);
-			//BaseInterface::nodeVisibilityChanged(-1);
-
-			// qtbaseviewer.cc frame_time_
-			// http://www.openflipper.org/media/Documentation/OpenFlipper-1.1/classACG_1_1QtWidgets_1_1QtBaseViewer.html
-			//auto bla = PluginFunctions::getRootNode();
-			//bla->draw(ACG::GLState(), ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
-			//bla->updateGL();
+			if ((perfCheckboxes[0])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::CPU);
+			}
+			if ((perfCheckboxes[1])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::GPU);
+			}
+			if ((perfCheckboxes[2])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYTETRA);
+			}
+			if ((perfCheckboxes[3])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYAABB);
+			}
+			if ((perfCheckboxes[4])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYPRISM);
+			}
+			if ((perfCheckboxes[5])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYCHULL);
+			}
+			if (false) { // TODO
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYMESH);
+			}
+			if ((perfCheckboxes[6])->isChecked()) {
+				result |= int(ACG::Benchmarker::RENDER_MODE::RAYBILLB);
+			}
+			ACG::Benchmarker::instance()->active(true);
+			ACG::Benchmarker::instance()->renderMode(result);
+			if (false) {
+				ACG::Benchmarker::instance()->occlQuery(false);
+			}
+			if (false) {
+				ACG::Benchmarker::instance()->average(false);
+			}
 		}
-
-		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-
-		std::cerr << "duration: " << duration << " " << (frames/duration) << '\n';
-		result = int(frames / duration);
-	}
 	);
 
 	QGridLayout *perfLayout = new QGridLayout;
 	perfLayout->addWidget(startTestButton, 0, 0);
-	perfLayout->addWidget(endTestButton, 1, 0);
+	perfLayout->addWidget(cpuBox, 1, 0);
+	perfLayout->addWidget(gpuBox, 2, 0);
+	perfLayout->addWidget(rTetraBox, 3, 0);
+	perfLayout->addWidget(rBoxBox, 4, 0);
+	perfLayout->addWidget(rPrismBox, 5, 0);
+	perfLayout->addWidget(rHullBox, 6, 0);
+	perfLayout->addWidget(rBillBox, 7, 0);
 	perfGroup->setLayout(perfLayout);
 
 	///////////////////////////////////////////////////////////////////////////

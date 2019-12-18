@@ -107,9 +107,11 @@ vec3 intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 	// TODO
 	// Get perpendicular ray by switching coords
 	//vec3 normal_1 = ray_direction.zyx;
+	// TODO normalize
 	vec3 normal_1 = cross(ray_direction, vec3(-1.0));
 	vec3 normal_2 = cross(ray_direction, normal_1);
 	// TODO warum tun wir das?
+	// distance to startpoint
 	float d_1 = -dot(normal_1, ray_origin);
 	float d_2 = -dot(normal_2, ray_origin);
 

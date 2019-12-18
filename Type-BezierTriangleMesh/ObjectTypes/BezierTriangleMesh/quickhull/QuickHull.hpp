@@ -73,10 +73,12 @@ namespace quickhull {
 
 	template<typename FloatType>
 	class QuickHull {
+	public: // TODO
+		bool m_planar;
+	private:
 		using vec3 = Vector3<FloatType>;
 
 		FloatType m_epsilon, m_epsilonSquared, m_scale;
-		bool m_planar;
 		std::vector<vec3> m_planarPointCloudTemp;
 		VertexDataSource<FloatType> m_vertexData;
 		MeshBuilder<FloatType> m_mesh;
@@ -238,10 +240,14 @@ namespace quickhull {
 
 		// Find indices of extreme values (max x, min x, max y, min y, max z, min z) for the given point cloud
 		std::array<size_t,6> getExtremeValues() {
-			std::array<size_t, 6> outIndices{ 0,0,0,0,0,0 };
-			FloatType extremeVals[6] = { m_vertexData[0].x,m_vertexData[0].x,m_vertexData[0].y,m_vertexData[0].y,m_vertexData[0].z,m_vertexData[0].z };
+			std::array<size_t, 6> outIndices{ 0, 0, 0, 0, 0, 0 };
+			FloatType extremeVals[6] = { 
+				m_vertexData[0].x, m_vertexData[0].x, 
+				m_vertexData[0].y, m_vertexData[0].y,
+				m_vertexData[0].z, m_vertexData[0].z 
+			};
 			const size_t vCount = m_vertexData.size();
-			for (size_t i = 1;i < vCount;i++) {
+			for (size_t i = 1; i < vCount; i++) {
 				const Vector3<FloatType>& pos = m_vertexData[i];
 				if (pos.x > extremeVals[0]) {
 					extremeVals[0] = pos.x;
@@ -271,7 +277,7 @@ namespace quickhull {
 		// Compute scale of the vertex data.
 		FloatType getScale(const std::array<size_t,6>& extremeValues) {
 			FloatType s = 0;
-			for (size_t i = 0;i < 6;i++) {
+			for (size_t i = 0; i < 6; i++) {
 				const FloatType* v = (const FloatType*)(&m_vertexData[extremeValues[i]]);
 				v += i / 2;
 				auto a = std::abs(*v);
@@ -305,7 +311,7 @@ namespace quickhull {
 
 			// Init face stack with those faces that have points assigned to them
 			m_faceList.clear();
-			for (size_t i = 0;i < 4;i++) {
+			for (size_t i = 0; i < 4; i++) {
 				auto& f = m_mesh.m_faces[i];
 				if (f.m_pointsOnPositiveSide && f.m_pointsOnPositiveSide->size() > 0) {
 					m_faceList.push_back(i);
@@ -604,18 +610,15 @@ namespace quickhull {
 		//   eps: minimum distance to a plane to consider a point being on positive side of it (for a point cloud with scale 1)
 		// Returns:
 		//   Convex hull of the point cloud as a mesh object with half edge structure.
-		HalfEdgeMesh<FloatType, size_t> getConvexHullAsMesh(const FloatType* vertexData,
-															size_t vertexCount,
-															bool CCW,
-															FloatType eps = defaultEps<FloatType>()) {
+		HalfEdgeMesh<FloatType, size_t> getConvexHullAsMesh(
+			const FloatType* vertexData,
+			size_t vertexCount,
+			bool CCW,
+			FloatType eps = defaultEps<FloatType>()
+		) {
 			VertexDataSource<FloatType> vertexDataSource((const vec3*)vertexData, vertexCount);
 			buildMesh(vertexDataSource, CCW, false, eps);
 			return HalfEdgeMesh<FloatType, size_t>(m_mesh, m_vertexData);
-		}
-
-		void getConvexHullAsMesh2()
-		{
-
 		}
 
 		// Get diagnostics about last generated convex hull
