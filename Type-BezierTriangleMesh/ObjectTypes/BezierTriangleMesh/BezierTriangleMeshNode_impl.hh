@@ -253,7 +253,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		updateKnotVectorSelectionTexture(_state);
 
 	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
-	if (Benchmarker::instance()->active()) 
+	if (Benchmarker::instance()->active())
 		renderOption = Benchmarker::instance()->renderMode();
 	if (Benchmarker::instance()->update())
 		invalidateSurfaceMesh_ = true;
@@ -2021,8 +2021,8 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 
 		// write counter
 		int elementOffset = 0;
-		for (auto &face : bezierTriangleMesh_.faces()) {
-			auto faceControlP = bezierTriangleMesh_.data(face);
+		for (FaceHandle face : bezierTriangleMesh_.faces()) {
+			auto &faceControlP = bezierTriangleMesh_.data(face);
 			Point cp;
 			for (int i = 0; i < controlPointsPerFace; i++) {
 				cp = faceControlP.controlPoint(i);

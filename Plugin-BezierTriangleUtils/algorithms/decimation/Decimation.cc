@@ -383,7 +383,7 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 
 	// parametrize to n-gon
 	if (!m_param.solveLocal(from, to, fitColls, apply)) {
-		debugCancel("parametrization failed");
+		//debugCancel("parametrization failed");
 		return -1.0;
 	}
 

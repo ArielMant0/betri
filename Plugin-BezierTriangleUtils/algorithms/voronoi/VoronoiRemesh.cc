@@ -281,8 +281,6 @@ void VoronoiRemesh::assignInnerVertices()
 				comb();
 			}
 
-			if (!ctrlFace.is_valid()) continue;
-
 			assert(ctrlFace.is_valid());
 			assert(!assigned[ctrlFace]);
 

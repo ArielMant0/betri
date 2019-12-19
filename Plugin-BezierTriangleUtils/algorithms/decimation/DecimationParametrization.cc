@@ -163,12 +163,14 @@ bool DecimationParametrization::solveLocal(
 		if (!m_mesh.adjToVertex(f, v1)) {
 			f = m_mesh.opposite_face_handle(hh);
 		}
-		assert(m_mesh.adjToVertex(f, v1));
+
+		if (!m_mesh.adjToVertex(f, v1)) return false;
 
 		int c0 = m_mesh.cpCornerIndex(f, v0);
-		assert(c0 >= 0);
+		if (c0 < 0) return false;
+
 		int c1 = m_mesh.cpCornerIndex(f, v1);
-		assert(c1 >= 0);
+		if (c1 < 0) return false;
 
 		// correct order
 		VertexHandle v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : to);
@@ -180,7 +182,6 @@ bool DecimationParametrization::solveLocal(
 			// the face after the halfedge collapse
 			faces.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 			assert(std::isgreater(area(faces[f]), 0.));
-			//if (print) std::cerr << "green face " << f << " area " << area(faces[f]) << '\n';
 		}
 
 		v00 = c0 == 0 ? v0 : (c1 == 0 ? v1 : from);
@@ -189,26 +190,9 @@ bool DecimationParametrization::solveLocal(
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 		assert(std::isgreater(area(facesOrig[f]), 0.));
-		//if (print) std::cerr << "blue face " << f << " area " << area(facesOrig[f]) << '\n';
 	}
-	assert(faces.size() == n - 2);
 
-	//if (print) {
-	//	for (auto &stuff : facesOrig) {
-	//		std::cerr << "face " << stuff.first << "\n\toriginal (blue):\n";
-	//		for (auto &pair : stuff.second) {
-	//			std::cerr << "\t\t" << pair << "\n";
-	//		}
-
-	//		if (stuff.first != f0 && stuff.first != f1) {
-	//			auto &other = faces[stuff.first];
-	//			std::cerr << "\tnew (green):\n";
-	//			for (auto &pair : other) {
-	//				std::cerr << "\t\t" << pair << "\n";
-	//			}
-	//		}
-	//	}
-	//}
+	if (faces.size() != n - 2) return false;
 
 	Vec2 checkTo0 = vToUV[to];
 	Point checkTo1 = m_mesh.point(to);
@@ -229,22 +213,9 @@ bool DecimationParametrization::solveLocal(
 			Vec2 facePos = trianglePoint(uv, pair.second);
 			// find the non-collapsed face in which this uv point lies
 			FaceHandle target = findTargetFace(facePos, faceBary, facesOrig);
-			assert(target.is_valid());
+			if (!target.is_valid()) return false;
 			// sample the target face at its uv position
 			fit.add(evalSurface(m_mesh.data(target).points(), faceBary, degree));
-
-			//if (print) {
-			//	std::cerr << "green face " << pair.first << '\n';
-			//	std::cerr << "blue face " << target << '\n';
-			//	std::cerr << "\tgreen uv " << uv << '\n';
-			//	std::cerr << "\tblue uv " << faceBary << '\n';
-			//	std::cerr << "\ttriangle point " << facePos << '\n';
-			//	std::cerr << "\tsurface point " << fit.points.back() << '\n';
-
-			//	auto ps = facesOrig[target];
-			//	auto testPoint = trianglePoint(Vec2(faceBary[0], faceBary[1]), ps);
-			//	std::cerr << "\ttest point " << testPoint << '\n';
-			//}
 		}
 
 		fitColl.push_back(fit);

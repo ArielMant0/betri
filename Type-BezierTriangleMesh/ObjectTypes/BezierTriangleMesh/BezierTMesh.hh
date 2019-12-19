@@ -14,13 +14,27 @@ public:
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
 		m_render(false),
 		m_degree(3)
-	{}
+	{
+		if (!has_face_normals()) {
+			request_face_normals();
+		}
+		if (!has_vertex_normals()) {
+			request_vertex_normals();
+		}
+	}
 
 	BezierTMesh(const BezierTMesh &other) :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(other),
 		m_render(other.m_render),
 		m_degree(other.m_degree)
-	{}
+	{
+		if (!has_face_normals()) {
+			request_face_normals();
+		}
+		if (!has_vertex_normals()) {
+			request_vertex_normals();
+		}
+	}
 
 	void degreeElevation(FaceHandle fh);
 
