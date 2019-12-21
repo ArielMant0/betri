@@ -61,6 +61,19 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 		rhsz[i] = fitColl[i][2];
 	}
 
+	if (apply) {
+		auto &cp = m_mesh.data(face);
+		for (size_t i = 0; i < cpNum; ++i) {
+			Point p = cp.controlPoint(i);
+			resultX[i] = p[0];
+			resultY[i] = p[1];
+			resultZ[i] = p[2];
+		}
+	}
+
+	// fix edge control points for the edge
+	// that lies on the 1-ring boundary
+
 	for (size_t row = 0; row < matSize; ++row) {
 
 		Vec2 uv = m_samples[row];
@@ -87,13 +100,29 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 	if (success) {
 
 		error = 0.;
-		auto &cp = m_mesh.data(face);
 
 		if (apply) {
+
+			Point zero(0.0);
+
+			auto &cp = m_mesh.data(face);
 			// set control points
 			for (size_t i = 0; i < cpNum; ++i) {
 				Point p(resultX[i], resultY[i], resultZ[i]);
-				cp.controlPoint(i, p);
+				if (cp.controlPoint(i) == zero) {
+					cp.controlPoint(i, p);
+				}
+			}
+
+			// set control points for adj faces (only those for the incident edge)
+			for (auto h_it = m_mesh.cfh_begin(face), h_e = m_mesh.cfh_end(face);
+				h_it != h_e; ++h_it
+			) {
+				m_mesh.copyEdgeControlPoints(
+					face,
+					m_mesh.opposite_face_handle(*h_it),
+					*h_it
+				);
 			}
 
 			// calculate errors

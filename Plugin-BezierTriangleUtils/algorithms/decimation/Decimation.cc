@@ -239,8 +239,14 @@ bool Decimation::decimate(bool stepwise)
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
 		step();
-		if (debugCancel())
+		if (debugCancel()) {
+
+			m_mesh.garbage_collection();
+			// update normals
+			m_mesh.update_normals();
+
 			return true;
+		}
 
 		// in case we only want to do a single step
 		if (stepwise) break;
@@ -316,16 +322,15 @@ void Decimation::step()
 			faces.push_back(*f_it);
 		}
 	}
+	
 	std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
+
 	// fit remaining faces (and apply update)
 	fit(hh, true);
 
 	if (debugCancel()) {
 		return;
 	}
-
-	// collapse halfedge
-	m_mesh.collapse(hh);
 
 	for (VertexHandle vh : oneRingV) {
 		for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
@@ -334,30 +339,30 @@ void Decimation::step()
 	}
 
 	// make faces "match" again
-	std::set<EdgeHandle> visited;
-	std::set<FaceHandle> otherFaces(faces.begin(), faces.end());
+	//std::set<EdgeHandle> visited;
+	//std::set<FaceHandle> otherFaces(faces.begin(), faces.end());
 
-	for (size_t i = 0; i < faces.size(); ++i) {
-		for (auto h_it = m_mesh.cfh_begin(faces[i]), h_end = m_mesh.cfh_end(faces[i]);
-			h_it != h_end; ++h_it
-		) {
-			EdgeHandle edge = m_mesh.edge_handle(*h_it);
-			if (visited.find(edge) == visited.end()) {
-				m_mesh.interpolateEdgeControlPoints(edge, true);
-				visited.insert(edge);
-			}
+	//for (size_t i = 0; i < faces.size(); ++i) {
+	//	for (auto h_it = m_mesh.cfh_begin(faces[i]), h_end = m_mesh.cfh_end(faces[i]);
+	//		h_it != h_end; ++h_it
+	//	) {
+	//		EdgeHandle edge = m_mesh.edge_handle(*h_it);
+	//		if (visited.find(edge) == visited.end()) {
+	//			m_mesh.interpolateEdgeControlPoints(edge, true);
+	//			visited.insert(edge);
+	//		}
 
-			if (otherFaces.find(m_mesh.opposite_face_handle(*h_it)) == otherFaces.end()) {
-				otherFaces.insert(m_mesh.opposite_face_handle(*h_it));
-			}
-		}
-	}
+	//		if (otherFaces.find(m_mesh.opposite_face_handle(*h_it)) == otherFaces.end()) {
+	//			otherFaces.insert(m_mesh.opposite_face_handle(*h_it));
+	//		}
+	//	}
+	//}
 
-	if (m_untwist) {
-		for (FaceHandle fh : otherFaces) {
-			m_mesh.untwistControlPoints(fh);
-		}
-	}
+	//if (false && m_untwist) {
+	//	for (FaceHandle fh : otherFaces) {
+	//		m_mesh.untwistControlPoints(fh);
+	//	}
+	//}
 
 	// now we have one less vertex
 	--m_nverts;
@@ -387,9 +392,50 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 		return -1.0;
 	}
 
+	assert(fitColls.size() == m_mesh.valence(from) - 2);
+
+	if (apply) {
+		// collapse halfedge
+		m_mesh.collapse(hh);
+	}
+
+	size_t cpNum = pointsFromDegree(m_mesh.degree());
+
+	const auto isOuterFace = [&](FaceHandle fh) {
+
+		auto iter = std::find_if(fitColls.begin(), fitColls.end(),
+			[&](const FitCollection &fit) {
+				return fit.face == fh;
+			}
+		);
+
+		return iter == fitColls.end();
+	};
+
+	if (apply) {
+		for (size_t i = 0; i < fitColls.size(); ++i) {
+
+			FaceHandle face = fitColls[i].face;
+
+			// set all control points to zero except for corners
+			m_mesh.setControlPointsFromCorners(face, cpNum);
+
+			auto it = m_mesh.cfh_begin(face);
+			for (auto end = m_mesh.cfh_end(face); it != end; ++it) {
+				if (isOuterFace(m_mesh.opposite_face_handle(*it))) {
+					// set edge control points of outer edge
+					m_mesh.copyEdgeControlPoints(
+						m_mesh.opposite_face_handle(*it),
+						face,
+						*it
+					);
+				}
+			}
+		}
+	}
+
 	Scalar maxError = 0., error = 0.;
 
-	assert(fitColls.size() == m_mesh.valence(from) - 2);
 	for (size_t i = 0; i < fitColls.size(); ++i) {
 		// fit all surrounding faces
 		if (!m_fit.solveLocal(fitColls[i], error, apply)) {
