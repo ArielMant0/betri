@@ -149,12 +149,11 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 }
 
 // should be called once to allow for stepwise execution
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool untwist, bool useColors)
+void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
 	remesher->useColors(useColors);
-	remesher->untwist(untwist);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -202,10 +201,9 @@ bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)
 	return done;
 }
 
-void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl, bool untwist)
+void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
-	remesher->untwist(untwist);
 	remesher->fitting();
 
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
@@ -285,10 +283,10 @@ void decimationInit(BaseObjectData *object, size_t complexity, bool color)
 	}
 }
 
-bool decimation(BaseObjectData *object, bool steps, bool untwist)
+bool decimation(BaseObjectData *object, bool steps, bool interpolate)
 {
 	auto decimator = getDecimationObject(object);
-	decimator->untwist(untwist);
+	decimator->interpolate(interpolate);
 
 	bool done = decimator->decimate(steps);
 

@@ -20,7 +20,12 @@ public:
 
 	void setBarycentricCoords(std::vector<Vec2> &bary);
 
-	bool solveLocal(FitCollection &fitColl, Scalar &error, const bool apply);
+	bool solveLocal(
+		FitCollection &fitColl,
+		Scalar &error,
+		const bool apply,
+		const bool interpolate
+	);
 
 	static bool test(BezierTMesh *mesh);
 

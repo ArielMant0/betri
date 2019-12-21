@@ -44,7 +44,7 @@ private:
 	QWidget *m_tool;
 	QLineEdit *echoLineEdit; // TODO
 	std::vector<QPushButton*> m_voronoiSteps;
-	std::array<QCheckBox*, 2> m_untwist;
+	std::array<QCheckBox*, 2> m_flags;
 	std::array<QCheckBox*, 2> m_colors;
 
 	std::map<int, int> m_steps;

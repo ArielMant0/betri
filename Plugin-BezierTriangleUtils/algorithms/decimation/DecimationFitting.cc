@@ -19,8 +19,12 @@ bool DecimationFitting::solve()
 	return true;
 }
 
-bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const bool apply)
-{
+bool DecimationFitting::solveLocal(
+	FitCollection &fitColl,
+	Scalar &error,
+	const bool apply,
+	const bool interpolate
+) {
 	FaceHandle face = fitColl.face;
 
 	size_t degree = m_mesh.degree();
@@ -61,7 +65,7 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 		rhsz[i] = fitColl[i][2];
 	}
 
-	if (apply) {
+	if (apply && !interpolate) {
 		auto &cp = m_mesh.data(face);
 		for (size_t i = 0; i < cpNum; ++i) {
 			Point p = cp.controlPoint(i);
@@ -109,7 +113,7 @@ bool DecimationFitting::solveLocal(FitCollection &fitColl, Scalar &error, const 
 			// set control points
 			for (size_t i = 0; i < cpNum; ++i) {
 				Point p(resultX[i], resultY[i], resultZ[i]);
-				if (cp.controlPoint(i) == zero) {
+				if (interpolate || cp.controlPoint(i) == zero) {
 					cp.controlPoint(i, p);
 				}
 			}

@@ -43,7 +43,6 @@ public:
 		m_copy(copy),
 		m_debugCancel(false),
 		m_useBaseMesh(false),
-		m_untwist(true),
 		m_vertexIdx(0u),
 		m_minPartition(minPartition),
 		m_colors(),
@@ -86,9 +85,6 @@ public:
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
-
-	void untwist(bool doit) { m_untwist = doit; }
-	bool untwist() const { return m_untwist; }
 
 	void minPartition(size_t part) { m_minPartition = part; }
 	size_t minPartition() const { return m_minPartition; }
@@ -479,7 +475,7 @@ private:
 
 	std::string m_errorMsg;
 
-	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh, m_untwist;
+	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
 	ACG::HaltonColors m_colGen;
 

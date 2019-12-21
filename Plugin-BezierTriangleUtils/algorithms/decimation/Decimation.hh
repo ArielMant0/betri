@@ -19,7 +19,7 @@ public:
 		m_param(mesh),
 		m_fit(mesh),
 		m_cancel(false),
-		m_untwist(false),
+		m_interpolate(false),
 		m_useColors(true)
     {
 		prepare();
@@ -42,8 +42,8 @@ public:
 
     bool decimate(bool stepwise=false);
 
-	void untwist(bool use) { m_untwist = use; }
-	bool untwist() const { return m_untwist; }
+	void interpolate(bool use) { m_interpolate = use; }
+	bool interpolate() const { return m_interpolate; }
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
@@ -146,7 +146,7 @@ private:
 	DecimationParametrization m_param;
 
 	std::string m_errors;
-	bool m_cancel, m_untwist, m_useColors;
+	bool m_cancel, m_interpolate, m_useColors;
 
 	// desired complexity and current vertex count
 	size_t m_complexity, m_nverts;

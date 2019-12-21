@@ -21,7 +21,6 @@ void voronoiInit(
 	BaseObjectData *object,
 	BaseObjectData *ctrl,
 	size_t count,
-	bool untwist,
 	bool useColors
 );
 
@@ -31,7 +30,7 @@ void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl);
 
 bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
 
-void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl, bool untwist);
+void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
 void voronoiSmooth(BaseObjectData *object, BaseObjectData *ctrl);
 
@@ -43,7 +42,7 @@ void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
 
 void decimationInit(BaseObjectData *object, size_t complexity, bool color=true);
 
-bool decimation(BaseObjectData *object, bool steps, bool untwist);
+bool decimation(BaseObjectData *object, bool steps, bool interpolate);
 
 //////////////////////////////////////////
 // tests

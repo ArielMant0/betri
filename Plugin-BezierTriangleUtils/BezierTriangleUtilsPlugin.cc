@@ -58,8 +58,8 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	m_voronoiSteps.push_back(dualButton);
 	m_voronoiSteps.push_back(fittingButton);
 
-	m_untwist[0] = new QCheckBox(tr("untwist"));
 	m_colors[0] = new QCheckBox(tr("use colors"));
+	m_colors[0]->setChecked(true); // default
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
@@ -68,8 +68,7 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualButton, 2, 1, 1, 1);
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(smoothButton, 3, 0, 1, 3);
-	voronoiLayout->addWidget(m_untwist[0], 4, 0);
-	voronoiLayout->addWidget(m_colors[0], 5, 0);
+	voronoiLayout->addWidget(m_colors[0], 4, 0);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	QPushButton *testButton = new QPushButton(tr("Start Test"));
@@ -87,15 +86,15 @@ void BezierTriangleUtilsPlugin::initializePlugin()
 	QPushButton *deciStepButton = new QPushButton(tr("Step Decimation"));
 	connect(deciStepButton, SIGNAL(clicked()), this, SLOT(callDecimationStep()));
 
-	m_untwist[1] = new QCheckBox(tr("untwist"));
+	m_flags[1] = new QCheckBox(tr("interpolate"));
 	m_colors[1] = new QCheckBox(tr("use colors"));
 
 	QGridLayout *deciLayout = new QGridLayout;
 	deciLayout->addWidget(deciInitButton, 0, 0);
 	deciLayout->addWidget(deciButton, 1, 0);
 	deciLayout->addWidget(deciStepButton, 2, 0);
-	deciLayout->addWidget(m_untwist[1], 3, 0);
-	deciLayout->addWidget(m_colors[1], 4, 0);
+	deciLayout->addWidget(m_colors[1], 3, 0);
+	deciLayout->addWidget(m_flags[1], 4, 0);
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -613,7 +612,7 @@ void BezierTriangleUtilsPlugin::callVoronoi()
 		);
 
 		if (ok) {
-			betri::voronoiInit(*o_it, ctrl_obj, seedCount, m_untwist[0]->isChecked(), true);
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
 			betri::voronoiRemesh(*o_it, ctrl_obj);
 
 			BezierTMesh *cMesh = ctrlMeshObj->mesh();
@@ -713,7 +712,7 @@ void BezierTriangleUtilsPlugin::callFitting()
 
 		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
-		betri::voronoiFitting(*o_it, ctrl_obj, m_untwist[0]->isChecked());
+		betri::voronoiFitting(*o_it, ctrl_obj);
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Fitting!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
@@ -789,7 +788,7 @@ void BezierTriangleUtilsPlugin::callPartition()
 		);
 
 		if (ok) {
-			betri::voronoiInit(*o_it, ctrl_obj, seedCount, m_untwist[0]->isChecked(), true);
+			betri::voronoiInit(*o_it, ctrl_obj, seedCount, true);
 			betri::voronoiPartition(*o_it, ctrl_obj);
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
@@ -940,7 +939,7 @@ void BezierTriangleUtilsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
-		betri::decimation(meshObj, false, m_untwist[1]->isChecked());
+		betri::decimation(meshObj, false, m_flags[1]->isChecked());
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Decimation (DONE)!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));
@@ -968,7 +967,7 @@ void BezierTriangleUtilsPlugin::callDecimationStep()
 		const bool done = betri::decimation(
 			meshObj,
 			true,
-			m_untwist[1]->isChecked()
+			m_flags[1]->isChecked()
 		);
 
 		if (done) {
