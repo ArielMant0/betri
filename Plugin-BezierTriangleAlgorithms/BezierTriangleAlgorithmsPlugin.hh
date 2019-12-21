@@ -8,7 +8,11 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-class BezierTriangleUtilsPlugin : public QObject,
+#include <qlineedit.h> // TODO
+#include <qpushbutton.h> // TODO
+#include <qcheckbox.h>
+
+class BezierTriangleAlgorithmsPlugin : public QObject,
 	BaseInterface,
 	ToolboxInterface,
 	LoggingInterface,
@@ -20,24 +24,29 @@ class BezierTriangleUtilsPlugin : public QObject,
 	Q_INTERFACES(LoggingInterface)
 	Q_INTERFACES(LoadSaveInterface)
 
-	Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-BezierTriangleUtils")
+	Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-BezierTriangleAlgorithms")
 
 public:
 
-	BezierTriangleUtilsPlugin() : m_tool(0) {}
+	BezierTriangleAlgorithmsPlugin() : m_tool(0) {}
 
-	~BezierTriangleUtilsPlugin() {};
+	~BezierTriangleAlgorithmsPlugin() {};
 
-	QString name() { return QString("BezierTriangleUtilsPlugin"); };
+	QString name() { return QString("BezierTriangleAlgorithmsPlugin"); };
 
 	QString description()
 	{
-		return QString("Utility functions for Bezier triangles");
+		return QString("Construct Bezier triangle meshes from triangle meshes");
 	};
 
 private:
 
 	QWidget *m_tool;
+	std::vector<QPushButton*> m_voronoiSteps;
+	std::array<QCheckBox*, 2> m_flags;
+	std::array<QCheckBox*, 2> m_colors;
+
+	BaseObjectData *ctrl_obj;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Signals
@@ -65,6 +74,19 @@ private slots:
 
 	void initializePlugin() override;
 
-	void applyTessellation(bool toTriMesh);
+	// voronoi meshing functions
+	void callVoronoi();
+	void callPartition();
+	void callDualStep();
+	void callDual();
+	void callFitting();
+	void callSmooth();
+
+	void testAlgorithm();
+
+	// decimation meshing functions
+	void callDecimationInit();
+	void callDecimation();
+	void callDecimationStep();
 
 };

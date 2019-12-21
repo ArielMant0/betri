@@ -8,7 +8,11 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-class BezierTriangleUtilsPlugin : public QObject,
+#include <qlineedit.h> // TODO
+#include <qpushbutton.h> // TODO
+#include <qcheckbox.h>
+
+class BezierTriangleRenderingPlugin : public QObject,
 	BaseInterface,
 	ToolboxInterface,
 	LoggingInterface,
@@ -20,24 +24,27 @@ class BezierTriangleUtilsPlugin : public QObject,
 	Q_INTERFACES(LoggingInterface)
 	Q_INTERFACES(LoadSaveInterface)
 
-	Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-BezierTriangleUtils")
+	Q_PLUGIN_METADATA(IID "org.OpenFlipper.Plugins.Plugin-BezierTriangleRendering")
 
 public:
 
-	BezierTriangleUtilsPlugin() : m_tool(0) {}
+	BezierTriangleRenderingPlugin() : m_tool(0) {}
 
-	~BezierTriangleUtilsPlugin() {};
+	~BezierTriangleRenderingPlugin() {};
 
-	QString name() { return QString("BezierTriangleUtilsPlugin"); };
+	QString name() { return QString("BezierTriangleRenderingPlugin"); };
 
 	QString description()
 	{
-		return QString("Utility functions for Bezier triangles");
+		return QString("Manage rendering settings for Bezier Triangles");
 	};
 
 private:
 
 	QWidget *m_tool;
+	QLineEdit *echoLineEdit; // TODO
+
+	std::vector<QCheckBox*> perfCheckboxes;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Signals
@@ -59,12 +66,26 @@ signals:
 ///////////////////////////////////////////////////////////////////////////////
 public slots:
 
-	QString version() { return QString("1.0.0"); };
+	QString version() { return QString("1.0.0");
+	};
 
 private slots:
 
 	void initializePlugin() override;
 
-	void applyTessellation(bool toTriMesh);
+	// option setting function
+	void setTessType(int);
+	void setTessAmount(int);
+	void setTessMode(int);
+	void setBoundVType(int);
+	void setVisulisationType(int);
+
+	// TODO wirklich nötig?
+	void setBError(int);
+	void setDError(int);
+	void setNewtonIt(int);
+
+	void setCulling(bool);
+	void setBoundVShow(bool);
 
 };
