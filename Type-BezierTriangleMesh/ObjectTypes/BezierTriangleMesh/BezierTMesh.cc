@@ -187,9 +187,6 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 	VertexHandle v00 = from_vertex_handle(h0);
 	VertexHandle v01 = to_vertex_handle(h0);
 
-	Point p00 = point(v00);
-	Point p01 = point(v01);
-
 	int fi0 = 2 - cpCornerIndex(f0, v00);
 	int ti0 = 2 - cpCornerIndex(f0, v01);
 	std::vector<Point> p0 = cp0.edgePoints(fi0, ti0, m_degree);
@@ -198,8 +195,8 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 	int ti1 = 2 - cpCornerIndex(f1, v01);
 	std::vector<Point> p1 = cp1.edgePoints(fi1, ti1, m_degree);
 
-	std::cerr.precision(2);
-	std::cerr.setf(std::ios::fixed, std::ios::floatfield);
+	Point p00 = point(v00);
+	Point p01 = point(v01);
 
 	p0[0] = p00;
 	p0[m_degree] = p01;
@@ -216,6 +213,46 @@ void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool b
 
 	cp0.edgePoints(fi0, ti0, m_degree, p0);
 	cp1.edgePoints(fi1, ti1, m_degree, p1);
+}
+
+void BezierTMesh::copyEdgeControlPoints(
+	FaceHandle from,
+	FaceHandle to,
+	HalfedgeHandle hh
+) {
+	auto &cp0 = data(from), &cp1 = data(to);
+
+	VertexHandle v00 = from_vertex_handle(hh);
+	VertexHandle v01 = to_vertex_handle(hh);
+
+	// get correct vertex order for source face
+	int fi0 = 2 - cpCornerIndex(from, v00);
+	int ti0 = 2 - cpCornerIndex(from, v01);
+	// get correct vertex order for target face
+	int fi1 = 2 - cpCornerIndex(to, v00);
+	int ti1 = 2 - cpCornerIndex(to, v01);
+
+	// copy control points
+	cp1.edgePoints(fi1, ti1, m_degree, cp0.edgePoints(fi0, ti0, m_degree));
+}
+
+void BezierTMesh::setControlPointsFromCorners(FaceHandle fh, size_t size)
+{
+	auto &cp = data(fh);
+
+	cp.zero(size);
+
+	size_t index;
+	// for all vertices
+	for (auto v_it = cfv_begin(fh), v_e = cfv_end(fh); v_it != v_e; ++v_it) {
+
+		switch (2-cpCornerIndex(fh, *v_it)) {
+			case 0: index = 0u; break;
+			case 1: index = m_degree; break;
+			case 2: index = size - 1; break;
+		}
+		cp.controlPoint(index, point(*v_it));
+	}
 }
 
 void BezierTMesh::untwistControlPoints(const FaceHandle fh)

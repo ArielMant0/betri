@@ -28,6 +28,11 @@ struct BezierTriangleTraits : public TriTraits
 			return m_cps;
 		}
 
+		void zero(size_t size)
+		{
+			m_cps = std::vector<Point>(size, Point(0.0));
+		}
+
 		void align(size_t degree, Point &p0, Point &p1, Point p2)
 		{
 			int c0, c1, c2;

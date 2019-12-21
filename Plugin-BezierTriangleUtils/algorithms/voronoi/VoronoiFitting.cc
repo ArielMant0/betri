@@ -128,6 +128,14 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 		rhsz[i] = p[2];
 	}
 
+	auto &cp = m_ctrl.data(face);
+	for (size_t i = 0; i < nv_inner_; ++i) {
+		Point p = cp.controlPoint(i);
+		resultX[i] = p[0];
+		resultY[i] = p[1];
+		resultZ[i] = p[2];
+	}
+
 	for (size_t row = 0; row < matSize; ++row) {
 		VertexHandle vh = row < inSize ? inner[row] : outVerts[row - inSize];
 		for (size_t i = 0, column=0; i <= m_degree; ++i) {
@@ -150,15 +158,27 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 	// --------------------------------------------
 
 	if (success) {
-		auto &cp = m_ctrl.data(face);
 
-		// resize control point vector
-		cp.prepare(nv_inner_);
-
+		const Point zero(0.0);
 		// write control point positions back
 		for (size_t i = 0; i < nv_inner_; ++i) {
+
 			Point p(resultX[i], resultY[i], resultZ[i]);
-			cp.controlPoint(i, p);
+			// only update control points that are (0, 0, 0)
+			if (cp.controlPoint(i) == zero) {
+				cp.controlPoint(i, p);
+			}
+		}
+
+		// set control points for adj faces (only those for the incident edge)
+		for (auto h_it = m_ctrl.cfh_begin(face), h_e = m_ctrl.cfh_end(face);
+			h_it != h_e; ++h_it
+		) {
+			m_ctrl.copyEdgeControlPoints(
+				face,
+				m_ctrl.opposite_face_handle(*h_it),
+				*h_it
+			);
 		}
 	}
 	return success;

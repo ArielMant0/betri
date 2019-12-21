@@ -1302,7 +1302,7 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		if (noNeighbors) count++;
 		border(vh, noNeighbors);
 
-		assert(dist(vh) < INF || vtt(vh).isBorder());
+		//assert(dist(vh) < INF || vtt(vh).isBorder());
 
 		if (!vtt(vh).isBorder()) {
 			setColor(vh, m_colors[id(vh)]);
@@ -1490,7 +1490,15 @@ void VoronoiRemesh::fitting()
 	VoronoiParametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
 	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
-	fit.degree(m_mesh.degree());
+	size_t degree = m_mesh.degree();
+	size_t cpNums = pointsFromDegree(degree);
+
+	fit.degree(degree);
+
+	for (FH face : m_ctrl.faces()) {
+		//m_ctrl.data(face).zero(cpNums);
+		m_ctrl.setControlPointsFromCorners(face, cpNums);
+	}
 
 	for (FH face : m_ctrl.faces()) {
 		if (!param.solveLocal(face)) {

@@ -47,6 +47,10 @@ public:
 
 	void interpolateEdgeControlPoints(const EdgeHandle eh, const bool between=true);
 
+	void copyEdgeControlPoints(FaceHandle from, FaceHandle to, HalfedgeHandle hh);
+
+	void setControlPointsFromCorners(FaceHandle fh, size_t size);
+
 	void untwistControlPoints(const FaceHandle fh);
 
 	FaceHandle add_face(const std::vector<VertexHandle> &vhs, bool cps=false)
