@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include <OpenFlipper/common/ObjectTypeDLLDefines.hh>
+
 namespace betri
 {
 
@@ -48,20 +50,9 @@ void option(BezierOption b, int value);
 
 void init();
 
-//class BezierOptionMng
-//{
-//public:
-//
-//	static int option(BezierOption b);
-//
-//	static void option(BezierOption b, int value);
-//
-//	static void init();
-//
-//private:
-//
-//	static std::array<int, BezierOption::N> s_options;
-//};
+OBJECTTYPEDLLEXPORTONLY void globalDegree(size_t degree);
+
+OBJECTTYPEDLLEXPORTONLY size_t globalDegree();
 
 }
 

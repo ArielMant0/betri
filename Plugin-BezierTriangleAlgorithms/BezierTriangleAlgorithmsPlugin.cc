@@ -7,6 +7,7 @@
 #include <qcombobox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
+#include <qspinbox.h>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
 
@@ -25,6 +26,11 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 		OpenFlipper::Options::dirSeparator() +
 		"btalgorithms.png"
 	);
+
+	QSpinBox *degBox = new QSpinBox;
+	connect(degBox, SIGNAL(valueChanged(int)), this, SLOT(setTargetDegree(int)));
+
+	degBox->setValue(betri::globalDegree());
 
 	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
@@ -98,12 +104,36 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 
 	QGridLayout *grid = new QGridLayout();
-	grid->addWidget(voronoiGroup, 0, 0);
-	grid->addWidget(deciGroup, 1, 0);
-	grid->addWidget(testButton, 2, 0);
+	grid->addWidget(degBox, 0, 0);
+	grid->addWidget(voronoiGroup, 1, 0);
+	grid->addWidget(deciGroup, 2, 0);
+	grid->addWidget(testButton, 3, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Algorithms"), m_tool, toolIcon);
+}
+
+void BezierTriangleAlgorithmsPlugin::setTargetDegree(int degree)
+{
+	betri::globalDegree((size_t)std::max(1, degree));
+}
+
+bool BezierTriangleAlgorithmsPlugin::applyTargetDegree(BaseObject *meshObj)
+{
+	BTMeshObject *btmeshObj = dynamic_cast<BTMeshObject*>(meshObj);
+	BezierTMesh *m = btmeshObj->mesh();
+
+	if (m->degree() != betri::globalDegree()) {
+
+		m->degree(betri::globalDegree());
+
+		for (BezierTMesh::FaceHandle fh : m->faces()) {
+			m->recalculateCPs(fh);
+		}
+
+		return true;
+	}
+	return false;
 }
 
 void BezierTriangleAlgorithmsPlugin::callVoronoi()
@@ -116,6 +146,12 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 
 	if (o_it != PluginFunctions::objectsEnd()) {
 
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
+
+		if (applyTargetDegree(*o_it)) {
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
+
 		int ctrl_id;
 		BTMeshObject *ctrlMeshObj;
 
@@ -126,7 +162,6 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 		ctrlMeshObj->hide();
 		ctrlMeshObj->target(false);
 
-		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
 
 		bool ok;
 		int minValue = meshObj->mesh()->n_faces()*0.01;
@@ -296,6 +331,10 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 		int ctrl_id;
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
+		if (applyTargetDegree(*o_it)) {
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
+
 		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
 		PluginFunctions::getObject(ctrl_id, ctrl_obj);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
@@ -386,6 +425,10 @@ void BezierTriangleAlgorithmsPlugin::callDecimationInit()
 
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
+
+		if (applyTargetDegree(*o_it)) {
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+		}
 
 		bool okay = false;
 

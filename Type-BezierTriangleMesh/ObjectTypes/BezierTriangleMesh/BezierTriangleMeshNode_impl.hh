@@ -1468,6 +1468,9 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
 	STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
 
+	// reset number of control points
+	cpSum_ = -1;
+
 	drawBTMesh_->NEWVERTICES = betri::mersennePrime(ITERATIONS);
 	drawBTMesh_->VERTEXSUM = betri::gaussSum(drawBTMesh_->NEWVERTICES + 2);
 	drawBTMesh_->STEPSIZE = 1.0 / (double(drawBTMesh_->NEWVERTICES) + 1.0);

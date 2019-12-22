@@ -24,6 +24,8 @@ using Vec3 = ACG::VectorT<Scalar, 3>;
 
 using ID = int;
 
+
+
 struct TriToVertex
 {
 	std::vector<VertexHandle> inner; // inner vertices
@@ -143,12 +145,12 @@ struct FitCollection
 	}
 };
 
-static inline size_t pointsFromDegree(const size_t degree)
+inline size_t pointsFromDegree(const size_t degree)
 {
 	return (degree + 1)*(degree + 2) / 2;
 }
 
-static inline Scalar eval(int i, int j, Vec2 bary, unsigned int degree)
+inline Scalar eval(int i, int j, Vec2 bary, unsigned int degree)
 {
 	int k = (int)degree - i - j;
 	double w = 1.0 - bary[0] - bary[1];
@@ -157,7 +159,7 @@ static inline Scalar eval(int i, int j, Vec2 bary, unsigned int degree)
 		* std::pow(bary[0], i) * std::pow(bary[1], j) * std::pow(w, k);
 }
 
-static inline Point evalSurface(const std::vector<Point> &cps, const Vec2 &bary, const unsigned int degree)
+inline Point evalSurface(const std::vector<Point> &cps, const Vec2 &bary, const unsigned int degree)
 {
 	Point point(0.0);
 

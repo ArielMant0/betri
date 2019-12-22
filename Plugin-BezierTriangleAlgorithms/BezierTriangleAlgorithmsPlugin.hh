@@ -41,6 +41,10 @@ public:
 
 private:
 
+	bool applyTargetDegree(BaseObject *meshObj);
+
+private:
+
 	QWidget *m_tool;
 	std::vector<QPushButton*> m_voronoiSteps;
 	std::array<QCheckBox*, 2> m_flags;
@@ -73,6 +77,8 @@ public slots:
 private slots:
 
 	void initializePlugin() override;
+
+	void setTargetDegree(int degree);
 
 	// voronoi meshing functions
 	void callVoronoi();

@@ -369,10 +369,9 @@ private:
 		return grad() - 1;
 	}
 
-	// TODO: must be reset/recalculated when degree changes -> updateGeometry
 	int cpSum()
 	{
-		return cpSum_ < 0 ? cpSum_ = betri::gaussSum(cpCount() + 2) : cpSum_;
+		return cpSum_ >= 0 ? cpSum_ : cpSum_ = (grad() + 1)*(grad() + 2) / 2;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

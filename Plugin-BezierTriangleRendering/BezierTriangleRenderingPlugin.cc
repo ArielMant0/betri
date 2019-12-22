@@ -376,7 +376,9 @@ void BezierTriangleRenderingPlugin::setTessType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
 	// TODO does franziska approves this?
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
@@ -384,44 +386,55 @@ void BezierTriangleRenderingPlugin::setTessType(int value)
 	// TODO: get these names in a more robust manner
 	switch (value) {
 		default: // CPU
-			renderManager().setActive(QString("Default Classical Renderer"), PluginFunctions::activeExaminer());
+			renderManager().setActive(
+				QString("Default Classical Renderer"),
+				PluginFunctions::activeExaminer()
+			);
 			break;
 		case 1: // GPU
-			renderManager().setActive(QString("Alpha_Version_ShaderPipeline"), PluginFunctions::activeExaminer());
+			renderManager().setActive(
+				QString("Alpha_Version_ShaderPipeline"),
+				PluginFunctions::activeExaminer()
+			);
 			break;
 		case 2: // raytracing
-			renderManager().setActive(QString("Raytracing_Renderer"), PluginFunctions::activeExaminer());
+			renderManager().setActive(QString("Raytracing_Renderer"),
+				PluginFunctions::activeExaminer()
+			);
 			break;
 	}
-	emit log(LOGINFO, tr("set tessellation type to %1").arg(value));
 }
 
 void BezierTriangleRenderingPlugin::setTessAmount(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_AMOUNT, value);
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
-	emit log(LOGINFO, tr("set tessellation amount to %1").arg(value));
 }
 
 void BezierTriangleRenderingPlugin::setTessMode(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_ADAPTIVE, value);
 	// TODO does franziska approves this?
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
-	emit log(LOGINFO, tr("set tessellation mode to %1").arg(value));
 }
 
 void BezierTriangleRenderingPlugin::setBoundVType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::BOUNDING_VOLUME, value);
 	// TODO does franziska approves this?
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
@@ -431,7 +444,9 @@ void BezierTriangleRenderingPlugin::setVisulisationType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::VISUALISATION_MODE, value);
 	// TODO does franziska approves this?
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
@@ -450,8 +465,9 @@ void BezierTriangleRenderingPlugin::setBoundVShow(bool value)
 void BezierTriangleRenderingPlugin::setBError(int value)
 {
 	PluginFunctions::betriOption(BezierOption::B_ERROR, value);
-	emit log(LOGINFO, tr("set B_ERROR to %1").arg(value));
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
@@ -460,8 +476,9 @@ void BezierTriangleRenderingPlugin::setBError(int value)
 void BezierTriangleRenderingPlugin::setDError(int value)
 {
 	PluginFunctions::betriOption(BezierOption::D_ERROR, value);
-	emit log(LOGINFO, tr("set D_ERROR to %1").arg(value));
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}
@@ -470,8 +487,9 @@ void BezierTriangleRenderingPlugin::setDError(int value)
 void BezierTriangleRenderingPlugin::setNewtonIt(int value)
 {
 	PluginFunctions::betriOption(BezierOption::NEWTON_IT_COUNT, value);
-	emit log(LOGINFO, tr("set D_ERROR to %1").arg(value));
-	PluginFunctions::ObjectIterator o_it(PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
 	}

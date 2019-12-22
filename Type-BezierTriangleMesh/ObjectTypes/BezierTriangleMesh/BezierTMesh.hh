@@ -3,6 +3,7 @@
 #define DRAW_CURVED
 
 #include "BezierTriangleMeshTypes.hh"
+#include "globals/BezierOptions.hh"
 
 #include <OpenFlipper/common/ObjectTypeDLLDefines.hh>
 
@@ -12,9 +13,10 @@ public:
 
 	BezierTMesh() :
 		OpenMesh::TriMesh_ArrayKernelT<BezierTriangleTraits>(),
-		m_render(false),
-		m_degree(3)
+		m_render(false)
 	{
+		m_degree = betri::globalDegree();
+
 		if (!has_face_normals()) {
 			request_face_normals();
 		}
