@@ -487,6 +487,7 @@ private:
 	std::vector<FH> m_seeds;
 	std::vector<VH> m_ctrlVerts;
 	std::vector<VH> m_seedVerts;
+	std::set<EH> m_pathEdges;
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;
