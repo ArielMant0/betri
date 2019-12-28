@@ -20,7 +20,8 @@ void voronoiInit(
 	BaseObjectData *ctrl,
 	size_t count,
 	const bool useColors,
-	const bool interpolate
+	const bool interpolate,
+	const bool overwrite
 );
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -30,8 +31,6 @@ void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl);
 bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
 
 void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
-
-void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
 
 //////////////////////////////////////////
 // decimation

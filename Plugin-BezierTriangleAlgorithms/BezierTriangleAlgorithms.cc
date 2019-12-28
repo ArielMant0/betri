@@ -45,12 +45,14 @@ void voronoiInit(
 	BaseObjectData *ctrl,
 	size_t count,
 	const bool useColors,
-	const bool interpolate
+	const bool interpolate,
+	const bool overwrite
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
 	remesher->useColors(useColors);
 	remesher->interpolate(interpolate);
+	remesher->overwrite(overwrite);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -111,31 +113,6 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 	);
 	ctrl->setObjectDrawMode(
 		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
-	);
-}
-
-void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)
-{
-	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
-	BezierTMesh *ctrlMesh = PluginFunctions::btMeshObject(ctrl)->mesh();
-
-	object->setObjectData(VODName(), new VOD(*mesh, *ctrlMesh));
-	VoronoiRemesh* remesher = dynamic_cast<VoronoiRemesh*>(
-		&(dynamic_cast<VOD*>(object->objectData(VODName())))->remesher()
-	);
-	remesher->useBaseMesh(true);
-	remesher->remesh();
-
-	mesh->garbage_collection();
-	ctrlMesh->garbage_collection();
-
-	object->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-		ACG::SceneGraph::DrawModes::WIREFRAME
-	);
-	ctrl->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED |
-		ACG::SceneGraph::DrawModes::WIREFRAME
 	);
 }
 

@@ -97,9 +97,6 @@ void VoronoiRemesh::cleanup()
 	if (m_mesh.get_property_handle(m_vtt, Props::VERTEXTOTRI))
 		m_mesh.remove_property(m_vtt);
 
-	if (m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX))
-		m_ctrl.remove_property(m_ttv);
-
 	ShortestPath::clear();
 }
 
@@ -1327,28 +1324,6 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 	std::cerr << "inner: " << count << ", outer: " << m_mesh.n_vertices() - count << std::endl;
 }
 
-void VoronoiRemesh::prepareFromBaseMesh()
-{
-	assert(m_useBaseMesh);
-
-	m_colors.reserve(m_mesh.n_faces());
-	m_colGen.generateNextNColors(m_mesh.n_faces(), std::back_inserter(m_colors));
-
-	copyMesh(m_mesh, m_ctrl);
-
-	for (FH face : m_mesh.faces()) {
-		id(face) = face.idx();
-		dist(face) = 0.0;
-		pred(face) = FH();
-
-		setColor(face, m_colors[face.idx()]);
-	}
-
-	for (EH edge : m_mesh.edges()) {
-		crossed(edge) = -1;
-	}
-}
-
 //////////////////////////////////////////////////////////
 // create base mesh
 //////////////////////////////////////////////////////////
@@ -1456,40 +1431,6 @@ bool VoronoiRemesh::dualize(bool steps)
 	return m_vertexIdx == m_mesh.n_vertices();
 }
 
-void VoronoiRemesh::makeShortestPaths()
-{
-	assert(m_useBaseMesh);
-
-	// create a path for each edge, ids are given by the vertices
-	for (EH edge : m_mesh.edges()) {
-		HH he = m_mesh.halfedge_handle(edge, 0);
-		VH v0 = m_mesh.from_vertex_handle(he), v1 = m_mesh.to_vertex_handle(he);
-
-		ShortestPath path(v0.idx(), v1.idx());
-		path.push(v0); path.push(v1);
-
-		if (!vtt(v0).isBorder()) {
-			vtt(v0).setBorder(path.first(), path.second());
-		}
-		if (!vtt(v1).isBorder()) {
-			vtt(v1).setBorder(path.first(), path.second());
-		}
-		ShortestPath::path(path);
-	}
-
-	// split faces so we end up with 1 extra vertex per face (and 3 extra faces)
-	for (FH face : m_ctrl.faces()) {
-		size_t i = 0;
-		for (auto vb = m_mesh.cfv_begin(face), ve = m_mesh.cfv_end(face); vb != ve; ++vb) {
-			ttv(face)[i++] = vb->idx();
-		}
-
-		VH vh = m_mesh.splitFaceBarycentric(face, true);
-		vtt(vh).setFace(m_ctrl.face_handle(face.idx()));
-		ttv(face).inner.push_back(vh);
-	}
-}
-
 //////////////////////////////////////////////////////////
 // parameterization (harmonic map) + surface fitting
 //////////////////////////////////////////////////////////
@@ -1530,36 +1471,33 @@ void VoronoiRemesh::fitting()
 		}
 	}
 
-	m_ctrl.update_normals();
+	// replace original mesh
+	if (m_overwrite) {
+		copyMesh(m_ctrl, m_mesh);
+		// update normals
+		m_mesh.garbage_collection();
+		m_mesh.update_normals();
+	} else {
+		// update normals
+		m_ctrl.update_normals();
+	}
 }
 
 void VoronoiRemesh::remesh()
 {
-	if (!m_useBaseMesh) partition();
-	else prepareFromBaseMesh();
+	partition();
 
 	// stop if cancel was requested
 	if (debugCancel())
 		return;
 
-	if (!m_useBaseMesh) dualize();
-	else makeShortestPaths();
+	dualize();
 
 	// stop if cancel was requested
 	if (debugCancel())
 		return;
 
 	fitting();
-
-	// stop if cancel was requested
-	if (debugCancel())
-		return;
-
-	// replace original mesh
-	if (m_copy)
-		copyMesh(m_ctrl, m_mesh);
-
-	m_mesh.garbage_collection();
 
 	std::cerr << "----------- DONE -----------" << std::endl;
 }

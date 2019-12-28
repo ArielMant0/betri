@@ -58,6 +58,8 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vFlags[0] = new QCheckBox(tr("colors"));
 	m_vFlags[0]->setChecked(true); // default
 	m_vFlags[1] = new QCheckBox(tr("interpolate"));
+	m_vFlags[2] = new QCheckBox(tr("overwrite mesh"));
+	m_vFlags[2]->setChecked(true); // default
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
@@ -67,6 +69,7 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
 	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
+	voronoiLayout->addWidget(m_vFlags[2], 5, 0);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -151,17 +154,6 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 
-		int ctrl_id;
-		BTMeshObject *ctrlMeshObj;
-
-		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-		PluginFunctions::getObject(ctrl_id, ctrl_obj);
-		ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
-		ctrlMeshObj->setName("control mesh");
-		ctrlMeshObj->hide();
-		ctrlMeshObj->target(false);
-
-
 		bool ok;
 		int minValue = meshObj->mesh()->n_faces()*0.01;
 		int seedCount = QInputDialog::getInt(
@@ -175,16 +167,40 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 		);
 
 		if (ok) {
+			int ctrl_id;
+			BTMeshObject *ctrlMeshObj;
+
+			emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+			PluginFunctions::getObject(ctrl_id, ctrl_obj);
+			ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+			ctrlMeshObj->setName("control mesh");
+			ctrlMeshObj->hide();
+			ctrlMeshObj->target(false);
+
 			betri::voronoiInit(
 				*o_it,
 				ctrl_obj,
 				seedCount,
-				m_vFlags[0],
-				m_vFlags[1]
+				m_vFlags[0]->isChecked(),
+				m_vFlags[1]->isChecked(),
+				m_vFlags[2]->isChecked()
 			);
 			betri::voronoiRemesh(*o_it, ctrl_obj);
 
 			BezierTMesh *cMesh = ctrlMeshObj->mesh();
+
+			if (m_vFlags[2]->isChecked()) {
+				cMesh = meshObj->mesh();
+				// remove tmp object
+				emit deleteObject(ctrl_id);
+				ctrl_obj = nullptr;
+			} else {
+				cMesh->setRenderable();
+				ctrlMeshObj->show();
+				meshObj->hide();
+			}
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 
 			emit log(LOGINFO, "# --------------------------- #");
 			emit log(LOGINFO, "# Performed Voronoi Remeshing!");
@@ -192,13 +208,6 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
 			emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
 			emit log(LOGINFO, "# --------------------------- #");
-
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
-			emit updatedObject(ctrl_id, UPDATE_ALL);
-
-			meshObj->hide();
-			cMesh->setRenderable();
-			ctrlMeshObj->show();
 		}
 	}
 }
@@ -279,28 +288,36 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
 		betri::voronoiFitting(*o_it, ctrl_obj);
+
+		BezierTMesh *cMesh = ctrlMeshObj->mesh();
+
+		if (m_vFlags[2]->isChecked()) {
+			cMesh = meshObj->mesh();
+			// remove tmp object
+			emit deleteObject(ctrlMeshObj->id());
+			ctrl_obj = nullptr;
+		} else {
+			meshObj->hide();
+
+			cMesh->setRenderable();
+			ctrlMeshObj->show();
+		}
+
+		emit updatedObject(meshObj->id(), UPDATE_ALL);
+
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Fitting!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
 		emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
 		emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
 		emit log(LOGINFO, "# --------------------------- #");
-
-		cMesh->setRenderable();
-
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
-
-		meshObj->hide();
-		ctrlMeshObj->show();
 	}
+
 	for (auto button : m_voronoiSteps) {
 		button->setDisabled(false);
 	}
-
 }
 
 void BezierTriangleAlgorithmsPlugin::callPartition()
@@ -320,14 +337,6 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 
-		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-		PluginFunctions::getObject(ctrl_id, ctrl_obj);
-		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
-
-		ctrlMeshObj->setName(meshObj->name() + "_ctrl");
-		ctrlMeshObj->hide();
-		ctrlMeshObj->target(false);
-
 		bool ok;
 		int minValue = meshObj->mesh()->n_faces()*0.01;
 		int seedCount = QInputDialog::getInt(
@@ -341,12 +350,22 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 		);
 
 		if (ok) {
+
+			emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+			PluginFunctions::getObject(ctrl_id, ctrl_obj);
+			BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+
+			ctrlMeshObj->setName(meshObj->name() + "_ctrl");
+			ctrlMeshObj->hide();
+			ctrlMeshObj->target(false);
+
 			betri::voronoiInit(
 				*o_it,
 				ctrl_obj,
 				seedCount,
-				m_vFlags[0],
-				m_vFlags[1]
+				m_vFlags[0]->isChecked(),
+				m_vFlags[1]->isChecked(),
+				m_vFlags[2]->isChecked()
 			);
 			betri::voronoiPartition(*o_it, ctrl_obj);
 			emit log(LOGINFO, "Performed Voronoi Partition!");
@@ -354,8 +373,6 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
-
-		//m_voronoiSteps[0]->setDisabled(true);
 	}
 }
 

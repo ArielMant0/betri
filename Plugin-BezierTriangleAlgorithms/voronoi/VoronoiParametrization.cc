@@ -392,13 +392,15 @@ bool VoronoiParametrization::solveLocal(const FaceHandle face)
 		std::cerr << "\tcalculated uv for " << m_inner->size() << " vertices\n";
 		// write back to hmap
 		for (VertexHandle v : *m_inner) {
-			hmap(v) = Vec2(resultU[sysid(v)], resultV[sysid(v)]);
-			m_mesh.set_color(v, { 0., hmap(v)[0], hmap(v)[1], 1. });
-			//std::cerr << "vertex " << v << " has uv " << hmap(v) << std::endl;
-			assert(std::isgreaterequal(hmap(v)[0], 0.0));
-			assert(std::isgreaterequal(hmap(v)[1], 0.0));
-			assert(std::islessequal(hmap(v)[0], 1.0));
-			assert(std::islessequal(hmap(v)[1], 1.0));
+			//assert(std::isgreaterequal(resultU[sysid(v)], 0.0));
+			//assert(std::isgreaterequal(resultV[sysid(v)], 0.0));
+			//assert(std::islessequal(resultU[sysid(v)], 1.0));
+			//assert(std::islessequal(resultV[sysid(v)], 1.0));
+			hmap(v) = Vec2(
+				std::min(1.0, std::max(resultU[sysid(v)], 0.0)),
+				std::min(1.0, std::max(resultV[sysid(v)], 0.0))
+			);
+			//m_mesh.set_color(v, { 0., hmap(v)[0], hmap(v)[1], 1. });
 		}
 	}
 

@@ -48,7 +48,7 @@ private:
 	QWidget *m_tool;
 	// TODO: disable other buttons
 	std::vector<QPushButton*> m_voronoiSteps;
-	std::array<QCheckBox*, 2> m_vFlags;
+	std::array<QCheckBox*, 3> m_vFlags;
 	std::array<QCheckBox*, 2> m_dFlags;
 
 	BaseObjectData *ctrl_obj;
@@ -65,6 +65,7 @@ signals:
     void log(QString _message);
 
 	void addEmptyObject(DataType _type, int& _id);
+	void deleteObject(int _id);
 
 	void addToolbox(QString name, QWidget *widget, QIcon *icon);
 

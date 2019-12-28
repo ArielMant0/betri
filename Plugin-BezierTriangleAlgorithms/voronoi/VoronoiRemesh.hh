@@ -30,22 +30,15 @@ public:
 		static constexpr char *BORDER = "border";
 	};
 
-	VoronoiRemesh(
-		BezierTMesh &mesh,
-		BezierTMesh &ctrl,
-		size_t minPartition = 10u,
-		bool colors=true,
-		bool copy=true
-	) :
+	VoronoiRemesh(BezierTMesh &mesh, BezierTMesh &ctrl) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
-		m_useColors(colors),
-		m_copy(copy),
+		m_useColors(true),
+		m_overwrite(true),
 		m_debugCancel(false),
-		m_useBaseMesh(false),
 		m_interpolate(false),
 		m_vertexIdx(0u),
-		m_minPartition(minPartition),
+		m_minPartition(10u),
 		m_colors(),
 		m_seeds(),
 		m_ctrlVerts()
@@ -64,31 +57,25 @@ public:
 
 	// partitions mesh into voronoi regions
 	void partition();
-	// use orignal mesh and initialize all needed data structures
-	void prepareFromBaseMesh();
 
 	// performs "dualizing" by finding paths on the mesh, can be performed stepwise
 	bool dualize(bool steps=false);
-	// initialize shortest paths if original mesh is used as base
-	void makeShortestPaths();
 
 	// parametrize and fit to surface
 	void fitting();
 
-	void smooth();
-
 	// -------------------------------------
 	// settings
 	// -------------------------------------
-
-	void useBaseMesh(bool use) { m_useBaseMesh = use; }
-	bool useBaseMesh() const { return m_useBaseMesh; }
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
 
 	void interpolate(bool use) { m_interpolate = use; }
 	bool interpolate() const { return m_interpolate; }
+
+	void overwrite(bool use) { m_overwrite = use; }
+	bool overwrite() const { return m_overwrite; }
 
 	void minPartition(size_t part) { m_minPartition = part; }
 	size_t minPartition() const { return m_minPartition; }
@@ -479,7 +466,7 @@ private:
 
 	std::string m_errorMsg;
 
-	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh, m_interpolate;
+	bool m_useColors, m_overwrite, m_debugCancel, m_interpolate;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
 	ACG::HaltonColors m_colGen;
 
