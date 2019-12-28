@@ -13,8 +13,48 @@ void VoronoiParametrization::prepare()
 	if(!m_mesh.get_property_handle(m_vweight, vweightName))
 		m_mesh.add_property(m_vweight, vweightName);
 
+	if (!m_mesh.get_property_handle(m_eweight, eweightName))
+		m_mesh.add_property(m_eweight, eweightName);
+
 	if(!m_mesh.get_property_handle(m_sysid, sysidName))
 		m_mesh.add_property(m_sysid, sysidName);
+
+	// calculate cotangent edge weights (only needs to be done once)
+
+	Scalar w;
+	HalfedgeHandle    h0, h1, h2;
+	VertexHandle      v0, v1;
+	Point             p0, p1, p2, d0, d1;
+
+	for (auto e_it = m_mesh.edges_begin(), e_e = m_mesh.edges_end();
+		e_it != e_e; ++e_it
+	) {
+		w = 0.0;
+
+		// Compute cotangent edge weights
+
+		h0 = m_mesh.halfedge_handle(*e_it, 0);
+		v0 = m_mesh.to_vertex_handle(h0);
+		p0 = m_mesh.point(v0);
+
+		h1 = m_mesh.halfedge_handle(*e_it, 1);
+		v1 = m_mesh.to_vertex_handle(h1);
+		p1 = m_mesh.point(v1);
+
+		h2 = m_mesh.next_halfedge_handle(h0);
+		p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+		d0 = (p0 - p2).normalize();
+		d1 = (p1 - p2).normalize();
+		w += 1.0 / tan(acos(d0 | d1));
+
+		h2 = m_mesh.next_halfedge_handle(h1);
+		p2 = m_mesh.point(m_mesh.to_vertex_handle(h2));
+		d0 = (p0 - p2).normalize();
+		d1 = (p1 - p2).normalize();
+		w += 1.0 / tan(acos(d0 | d1));
+
+		weight(*e_it) = w;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -35,26 +75,35 @@ void VoronoiParametrization::calcWeights(
 	OpenMesh::VPropHandleT<Scalar> &vweight,
 	OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
 ) {
-	VertexIter        v_it, v_end(mesh.vertices_end());
-	EdgeIter          e_it, e_end(mesh.edges_end());
-	VertexFaceIter    vf_it;
-	FaceVertexIter    fv_it;
-	HalfedgeHandle    h0, h1, h2;
-	VertexHandle      v0, v1;
-	Point             p0, p1, p2, d0, d1;
-	Scalar            w, area;
+	Scalar area;
 
-	const auto valence = [&](const VertexHandle vh) {
-		int val = 0;
-		for (auto vv = mesh.cvv_begin(vh); vv != mesh.cvv_end(vh); ++vv) {
-			if (inFace[*vv]) val++;
+	for (auto v_it = mesh.vertices_begin(), v_e = mesh.vertices_end();
+		v_it != v_e; ++v_it
+	) {
+		area = 0.0;
+
+		// Compute vertex weights:
+		//   1.0 / sum(1/3 of area of incident triangles)
+
+		auto vf_end = mesh.vf_end(*v_it);
+		for (auto vf_it = mesh.vf_begin(*v_it); vf_it != vf_end; ++vf_it) {
+
+			auto fv_it = mesh.fv_begin(*vf_it);
+
+			bool relevant = inFace[*fv_it];
+			
+			const Point& P = mesh.point(*fv_it);  ++fv_it;
+			relevant = relevant || inFace[*fv_it];
+			const Point& Q = mesh.point(*fv_it);  ++fv_it;
+			relevant = relevant || inFace[*fv_it];
+			const Point& R = mesh.point(*fv_it);
+
+			if (relevant) {
+				area += ((Q - P) % (R - P)).norm() * 0.5 * 0.3333;
+			}
 		}
-		return val;
-	};
 
-	for (v_it = mesh.vertices_begin(); v_it != v_end; ++v_it) {
-		if (inFace[*v_it])
-			mesh.property(vweight, *v_it) = 1.0 / valence(*v_it);
+		mesh.property(vweight, *v_it) = 1.0 / (4.0 * area);
 	}
 }
 
@@ -380,16 +429,22 @@ void VoronoiParametrization::addRow(
 		return;
 
 	Scalar weightsum(0.);
-	Scalar w(weight(_origvh));
+	Scalar vertexweight(weight(_origvh));
 
 	for (auto vv_it = m_mesh.vv_begin(_origvh); vv_it != m_mesh.vv_end(_origvh); ++vv_it) {
+
+		EdgeHandle eh = m_mesh.edge_handle(vv_it.current_halfedge_handle());
+		Scalar w = weight(eh);
+		w *= vertexweight;
+
 		if (vtt(*vv_it).isBorderOf(ttv(face))) {
+			
 			weightsum += w;
+
 			// update rhs (u,v)
-			// TODO: why v,u and not u,v ?
 			_rhsu[sysid(_origvh)] -= w*hmap(*vv_it)[0];
 			_rhsv[sysid(_origvh)] -= w*hmap(*vv_it)[1];
-		} else if (vtt(*vv_it).face == face) { //vtt(*vv_it).isInnerOf(ttv(face))) {
+		} else if (vtt(*vv_it).face == face) {
 			weightsum += w;
 			// update matrix (only vertices that are part of the local face)
 			_triplets.push_back(EigenTripletT(sysid(_origvh), sysid(*vv_it), w));

@@ -69,9 +69,11 @@ public:
 
 private:
 
-	Scalar& weight (VertexHandle _vh) { return m_mesh.property(m_vweight, _vh); }
-	Vec2& hmap (VertexHandle _vh) { return vtt(_vh).uv; }
-	int& sysid (VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
+	Scalar& weight(VertexHandle _vh) { return m_mesh.property(m_vweight, _vh); }
+	Scalar& weight(EdgeHandle eh) { return m_mesh.property(m_eweight, eh); }
+
+	Vec2& hmap(VertexHandle _vh) { return vtt(_vh).uv; }
+	int& sysid(VertexHandle _vh) { return m_mesh.property(m_sysid, _vh); }
 
 	TriToVertex& ttv(FaceHandle fh) { return m_ctrl.property(m_ttv, fh); }
 	VertexToTri& vtt(VertexHandle vh) { return m_mesh.property(m_vtt, vh); }
@@ -100,6 +102,7 @@ private:
 
     // OpenMesh mesh properties holding the texture coordinates and weights
 	OpenMesh::VPropHandleT<Scalar>			m_vweight;
+	OpenMesh::EPropHandleT<Scalar>			m_eweight;
 	OpenMesh::VPropHandleT<int>				m_sysid;
 
 	OpenMesh::FPropHandleT<TriToVertex>		m_ttv;
