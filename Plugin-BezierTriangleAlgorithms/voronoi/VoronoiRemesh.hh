@@ -34,8 +34,8 @@ public:
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
 		size_t minPartition = 10u,
-		bool colors = true,
-		bool copy = true
+		bool colors=true,
+		bool copy=true
 	) :
 		m_mesh(mesh),
 		m_ctrl(ctrl),
@@ -43,6 +43,7 @@ public:
 		m_copy(copy),
 		m_debugCancel(false),
 		m_useBaseMesh(false),
+		m_interpolate(false),
 		m_vertexIdx(0u),
 		m_minPartition(minPartition),
 		m_colors(),
@@ -85,6 +86,9 @@ public:
 
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
+
+	void interpolate(bool use) { m_interpolate = use; }
+	bool interpolate() const { return m_interpolate; }
 
 	void minPartition(size_t part) { m_minPartition = part; }
 	size_t minPartition() const { return m_minPartition; }
@@ -282,7 +286,7 @@ private:
 
 	void assignInnerVertices();
 
-	void splitClosedPaths();
+	void splitClosedPaths(std::set<ID> only);
 
 	void fixPredecessor(const FH fh, const bool rewrite=false);
 
@@ -376,7 +380,7 @@ private:
 			if (id(*v_it) >= 0 && dist(*v_it) < minDist && adjToRegion(vh, id(*v_it)) &&
 				(noBorder || !vtt(*v_it).isBorder())) {
 				minPred = *v_it;
-				minDist = id(*v_it);
+				minDist = dist(*v_it);
 			}
 
 		}
@@ -475,7 +479,7 @@ private:
 
 	std::string m_errorMsg;
 
-	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh;
+	bool m_useColors, m_copy, m_debugCancel, m_useBaseMesh, m_interpolate;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
 	ACG::HaltonColors m_colGen;
 

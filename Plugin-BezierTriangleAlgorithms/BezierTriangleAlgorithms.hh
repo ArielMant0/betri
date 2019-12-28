@@ -19,7 +19,8 @@ void voronoiInit(
 	BaseObjectData *object,
 	BaseObjectData *ctrl,
 	size_t count,
-	bool useColors
+	const bool useColors,
+	const bool interpolate
 );
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -29,8 +30,6 @@ void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl);
 bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
 
 void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
-
-void voronoiSmooth(BaseObjectData *object, BaseObjectData *ctrl);
 
 void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl);
 

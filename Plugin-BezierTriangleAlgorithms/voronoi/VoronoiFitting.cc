@@ -16,7 +16,7 @@ bool VoronoiFitting::solve()
 
 	// TODO: make sure edge control points are the same for adj faces
 	for (const FaceHandle face : m_ctrl.faces()) {
-		if (!solveLocal(face)) return false;
+		if (!solveLocal(face, false)) return false;
 	}
 	return true;
 }
@@ -42,7 +42,7 @@ void VoronoiFitting::sortInner(const FaceHandle face)
 	);
 }
 
-bool VoronoiFitting::solveLocal(const FaceHandle face)
+bool VoronoiFitting::solveLocal(const FaceHandle face, const bool interpolate)
 {
 	size_t nv_inner_ = pointsFromDegree(m_degree);
 	size_t degree = m_mesh.degree();
@@ -170,15 +170,17 @@ bool VoronoiFitting::solveLocal(const FaceHandle face)
 			}
 		}
 
-		// set control points for adj faces (only those for the incident edge)
-		for (auto h_it = m_ctrl.cfh_begin(face), h_e = m_ctrl.cfh_end(face);
-			h_it != h_e; ++h_it
-		) {
-			m_ctrl.copyEdgeControlPoints(
-				face,
-				m_ctrl.opposite_face_handle(*h_it),
-				*h_it
-			);
+		if (!interpolate) {
+			// set control points for adj faces (only those for the incident edge)
+			for (auto h_it = m_ctrl.cfh_begin(face), h_e = m_ctrl.cfh_end(face);
+				h_it != h_e; ++h_it
+			) {
+				m_ctrl.copyEdgeControlPoints(
+					face,
+					m_ctrl.opposite_face_handle(*h_it),
+					*h_it
+				);
+			}
 		}
 	}
 	return success;

@@ -40,11 +40,17 @@ VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl)
 }
 
 // should be called once to allow for stepwise execution
-void voronoiInit(BaseObjectData *object, BaseObjectData *ctrl, size_t count, bool useColors)
-{
+void voronoiInit(
+	BaseObjectData *object,
+	BaseObjectData *ctrl,
+	size_t count,
+	const bool useColors,
+	const bool interpolate
+) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
 	remesher->useColors(useColors);
+	remesher->interpolate(interpolate);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -106,12 +112,6 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 	ctrl->setObjectDrawMode(
 		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 	);
-}
-
-void voronoiSmooth(BaseObjectData *object, BaseObjectData *ctrl)
-{
-	auto remesher = getVoronoiObject(object, ctrl);
-	remesher->smooth();
 }
 
 void voronoiFittingTest(BaseObjectData *object, BaseObjectData *ctrl)

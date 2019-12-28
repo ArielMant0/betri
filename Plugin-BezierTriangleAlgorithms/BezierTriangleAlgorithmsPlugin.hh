@@ -46,9 +46,10 @@ private:
 private:
 
 	QWidget *m_tool;
+	// TODO: disable other buttons
 	std::vector<QPushButton*> m_voronoiSteps;
-	std::array<QCheckBox*, 2> m_flags;
-	std::array<QCheckBox*, 2> m_colors;
+	std::array<QCheckBox*, 2> m_vFlags;
+	std::array<QCheckBox*, 2> m_dFlags;
 
 	BaseObjectData *ctrl_obj;
 
@@ -86,7 +87,6 @@ private slots:
 	void callDualStep();
 	void callDual();
 	void callFitting();
-	void callSmooth();
 
 	void testAlgorithm();
 

@@ -36,7 +36,7 @@ public:
 	void prepare() override;
 	void cleanup() override;
 
-	bool solveLocal(const FaceHandle face);
+	bool solveLocal(const FaceHandle face, const bool interpolate);
 
 	static bool test(BezierTMesh *mesh=nullptr);
 
