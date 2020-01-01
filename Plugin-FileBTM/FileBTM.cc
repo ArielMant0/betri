@@ -460,6 +460,11 @@ bool FileBTMPlugin::parseASCII(
             fh = _importer.addFace(vhandles);
         }
 
+		if (fh < 0) {
+			std::cerr << "invalid face handle (complex edge?)\n";
+			continue;
+		}
+
 		BezierTMesh::FaceHandle fHandle = _importer.face(fh);
 		// read control points
 		for (uint j = 0; j < cpPerFace; ++j) {
@@ -595,6 +600,11 @@ bool FileBTMPlugin::parseBinary(
         fh = _importer.addFace(vhandles);
 
         nV = 0;
+
+		if (fh < 0) {
+			std::cerr << "invalid face handle (complex edge?)\n";
+			continue;
+		}
 
 		BezierTMesh::FaceHandle fHandle = _importer.face(fh);
         // read control points

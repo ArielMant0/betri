@@ -102,14 +102,23 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	connect(testButton, SIGNAL(clicked()), this, SLOT(testAlgorithm()));
 
 	///////////////////////////////////////////////////////////////////////////
+	// Tijmer
+	///////////////////////////////////////////////////////////////////////////
+	QCheckBox *useTimer = new QCheckBox(tr("time algorithm"));
+	connect(useTimer, QOverload<bool>::of(&QCheckBox::toggled), this, [&](bool use) {
+		m_useTimer = use;
+	});
+
+	///////////////////////////////////////////////////////////////////////////
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
 
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(degBox, 0, 0);
-	grid->addWidget(voronoiGroup, 1, 0);
-	grid->addWidget(deciGroup, 2, 0);
-	grid->addWidget(testButton, 3, 0);
+	grid->addWidget(useTimer, 1, 0);
+	grid->addWidget(voronoiGroup, 2, 0);
+	grid->addWidget(deciGroup, 3, 0);
+	grid->addWidget(testButton, 4, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Algorithms"), m_tool, toolIcon);
@@ -185,7 +194,27 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				m_vFlags[1]->isChecked(),
 				m_vFlags[2]->isChecked()
 			);
+
+			if (m_useTimer) {
+				m_timer.filename(
+					meshObj->path().toStdString() +
+					"/voronoi-times.txt"
+				);
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.start(
+					info.name + " " +
+					info.vertices + " " +
+					info.edges + " " +
+					info.faces + " " +
+					info.partition
+				);
+			}
+
 			betri::voronoiRemesh(*o_it, ctrl_obj);
+			
+			if (m_useTimer) {
+				m_timer.end();
+			}
 
 			BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
@@ -225,7 +254,16 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		bool done = betri::voronoiDual(*o_it, ctrl_obj, true);
+
+		if (m_useTimer) {
+			m_timer.lapEnd("dualize step");
+		}
+
 		emit log(LOGINFO, "Performed Dualizing Step!");
 
 		// only show control mesh obj if its complete
@@ -260,7 +298,16 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		betri::voronoiDual(*o_it, ctrl_obj, false);
+
+		if (m_useTimer) {
+			m_timer.lapEnd("dualize");
+		}
+
 		emit log(LOGINFO, "Performed Dualizing!");
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
@@ -269,9 +316,6 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		// TODO: does not work for some reason
 		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
-
-		//m_voronoiSteps[1]->setDisabled(true);
-		//m_voronoiSteps[2]->setDisabled(true);
 	}
 }
 
@@ -289,7 +333,15 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		betri::voronoiFitting(*o_it, ctrl_obj);
+
+		if (m_useTimer) {
+			m_timer.end("fitting");
+		}
 
 		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
@@ -367,7 +419,28 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				m_vFlags[1]->isChecked(),
 				m_vFlags[2]->isChecked()
 			);
+			
+			if (m_useTimer) {
+				m_timer.filename(
+					meshObj->path().toStdString() +
+					"/voronoi-times.txt"
+				);
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.start(
+					info.name + " " +
+					info.vertices + " " +
+					info.edges + " " +
+					info.faces + " " +
+					info.partition
+				);
+			}
+
 			betri::voronoiPartition(*o_it, ctrl_obj);
+
+			if (m_useTimer) {
+				m_timer.lapEnd("partition");
+			}
+
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
 			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
@@ -472,7 +545,27 @@ void BezierTriangleAlgorithmsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
+		if (m_useTimer) {
+			m_timer.filename(
+				meshObj->path().toStdString() + 
+				"/decimation-times.txt"
+			);
+			auto info = betri::decimationInfo(meshObj);
+			m_timer.start(
+				info.name + " " +
+				info.vertices + " " +
+				info.edges + " " +
+				info.faces + " " +
+				info.target
+			);
+		}
+
 		betri::decimation(meshObj, false, m_dFlags[1]->isChecked());
+
+		if (m_useTimer) {
+			m_timer.end();
+		}
+
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Decimation (DONE)!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));

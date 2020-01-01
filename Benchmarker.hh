@@ -65,7 +65,7 @@ private:
 		current_query_(0), active_(false), updateBuffers_(false),
 		renderModes_(0), renderModesDump_(0),
 		activeRMode_(0), activeBVol_(0), shifted_(0),
-		average_(false), occlQuery_(true)
+		average_(false), occlQuery_(false)
 	{
 		for (int i = 0; i < RENDERMODE_NUM; i++)
 			glGenQueries(QUERY_COUNT, queries_[i].data());

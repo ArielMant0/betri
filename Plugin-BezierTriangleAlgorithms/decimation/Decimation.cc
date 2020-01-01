@@ -7,6 +7,11 @@ namespace betri
 
 void Decimation::prepare()
 {
+	// needed for collapse legal test
+	if (!m_mesh.has_halfedge_status()) {
+		m_mesh.request_halfedge_status();
+	}
+
 	// quadric property of each vertex: normal equations of one-ring faces
 	if (!m_mesh.get_property_handle(m_hprio, "halfedgeprioprop"))
 		m_mesh.add_property(m_hprio, "halfedgeprioprop");
@@ -171,35 +176,25 @@ void Decimation::initialize(size_t complexity)
 
 	// build priority queue...
 	m_q->clear();
-
-	// prepare fitting by telling it barycentric coordinates used for surface sampling
-	m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
-	// calculate fitting errors
-	calculateErrors();
-
-	// fill queue
-	for (VertexHandle vh : m_mesh.vertices()) {
-		enqueueVertex(vh);
-	}
-
-#ifdef BEZIER_DEBUG
-	std::cerr << __FUNCTION__ << "\n\ttarget complexity: " << m_complexity;
-	std::cerr << "\n\tqueue size: " << m_q->size() << std::endl;
-#endif
-
-	if (m_useColors) {
-		// get vertex colors if we dont have any
-		if (!m_mesh.has_vertex_colors()) {
-			m_mesh.request_vertex_colors();
-		}
-
-		setColorsFromError();
-	}
 }
 
 bool Decimation::decimate(bool stepwise)
 {
 	bool done = m_nverts <= m_complexity;
+
+	if (!done && m_q->empty()) {
+
+		// prepare fitting by telling it barycentric coordinates
+		// used for surface sampling
+		m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
+		// calculate fitting errors
+		calculateErrors();
+
+		// fill queue
+		for (VertexHandle vh : m_mesh.vertices()) {
+			enqueueVertex(vh);
+		}
+	}
 
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {

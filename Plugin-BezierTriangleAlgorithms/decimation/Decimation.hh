@@ -48,6 +48,9 @@ public:
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
 
+	void complexity(size_t target) { m_complexity = target; }
+	size_t complexity() const { return m_complexity; }
+
 private:
 
 	//-----------------------------------------------//
