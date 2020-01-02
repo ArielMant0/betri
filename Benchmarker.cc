@@ -29,7 +29,7 @@ void Benchmarker::startFrame()
 		if (occlQuery_)
 			glBeginQuery(GL_SAMPLES_PASSED, queries_[shifted_ - 1][current_query_]);
 		else
-			glBeginQuery(GL_TIME_ELAPSED, queries_[shifted_-1][current_query_]);
+			glBeginQuery(GL_TIME_ELAPSED, queries_[shifted_ - 1][current_query_]);
 	}
 }
 
@@ -123,7 +123,7 @@ void Benchmarker::advanceRenderMode()
 		renderModes_ = renderModes_ >> 1;
 	}
 
-	switch (shifted_) 
+	switch (shifted_)
 	{
 		case 0: activeRMode_ = 1; break;
 		case 1: activeRMode_ = 2; break;
@@ -153,12 +153,13 @@ void Benchmarker::dumpToFile()
 
 	average_ = false;
 
-	std::string fileDir = "C:/Users/DoktorManto/Uni/Masterarbeit/masterthesis/rene/data/";
+	std::string fileDir = "D:/03_Uni/Masterarbeit/masterthesis/rene/data/";
+	//std::string fileDir = "C:/Users/DoktorManto/Uni/Masterarbeit/masterthesis/rene/data/";
 	std::ofstream fileout(
-		fileDir + gpuName + 
+		fileDir + gpuName +
 		"-" + std::to_string(average_) +
 		"-" + std::to_string(occlQuery_) +
-		".dat"
+		"_tmp.dat"
 	);
 
 	if (!fileout) {
