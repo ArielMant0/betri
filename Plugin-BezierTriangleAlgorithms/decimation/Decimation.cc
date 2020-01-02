@@ -321,7 +321,7 @@ void Decimation::step()
 			faces.push_back(*f_it);
 		}
 	}
-	
+
 #ifdef BEZIER_DEBUG
 	std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
 #endif
@@ -337,6 +337,11 @@ void Decimation::step()
 		for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
 			oneRing.insert(*h_it);
 		}
+	}
+
+	// update normals for error calculation
+	for (size_t i = 0; i < faces.size(); ++i) {
+		m_mesh.update_normal(faces[i]);
 	}
 
 	if (m_interpolate) {

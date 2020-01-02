@@ -19,11 +19,18 @@ class VoronoiParametrization : public Parametrization
 {
 public:
 
+	enum WeightMode
+	{
+		uniform = 0,
+		cotangent
+	};
+
     VoronoiParametrization() = delete;
 
 	explicit VoronoiParametrization(
 		BezierTMesh &mesh,
 		BezierTMesh &ctrl,
+		int weightMode,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
 		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::FPropHandleT<FaceHandle> &pred
@@ -36,6 +43,10 @@ public:
 		m_inner(nullptr),
 		m_mapper(mesh, vtt)
 	{
+		switch (weightMode) {
+			case 1: m_mode = cotangent; break;
+			default: m_mode = uniform;
+		}
 		prepare();
 	}
 
@@ -57,6 +68,7 @@ public:
     // computes weights (for complete mesh)
 	static void calcWeights(
 		BezierTMesh &mesh,
+		WeightMode &mode,
 		OpenMesh::VPropHandleT<Scalar> &vweight,
 		OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
 	);
@@ -99,6 +111,8 @@ private:
 
     // helper variable
     size_t nv_inner_;
+
+	WeightMode m_mode;
 
     // OpenMesh mesh properties holding the texture coordinates and weights
 	OpenMesh::VPropHandleT<Scalar>			m_vweight;

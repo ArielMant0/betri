@@ -39,7 +39,8 @@ void voronoiInit(
 	size_t count,
 	const bool useColors,
 	const bool interpolate,
-	const bool overwrite
+	const bool overwrite,
+	const int paramWeights
 );
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);

@@ -1436,7 +1436,7 @@ bool VoronoiRemesh::dualize(bool steps)
 //////////////////////////////////////////////////////////
 void VoronoiRemesh::fitting()
 {
-	VoronoiParametrization param(m_mesh, m_ctrl, m_vtt, m_ttv, m_pred);
+	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
 	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
 
 	size_t degree = m_mesh.degree();
@@ -1654,7 +1654,7 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 			while (k >= 0 && count == 0) {
 
 				last = cuts[i][j][k];
-				
+
 				if (last.is_valid() && count < cuts[i][j].size() - 1 &&
 					!isSeed(last)) {
 					count++;
@@ -1705,7 +1705,7 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 				f_it != f_e; ++f_it
 			) {
 				if (id(*f_it) == rId) {
-					
+
 					id(*f_it) = -1;
 					pred(*f_it) = FH();
 					dist(*f_it) = INF;
@@ -1726,7 +1726,7 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 
 		FH seedFace = m_seeds[rId];
 		m_seeds.erase(m_seeds.begin() + rId);
-		
+
 		assert(std::find(m_seeds.begin(), m_seeds.end(), seedFace) == m_seeds.end());
 	};
 

@@ -4,7 +4,6 @@
 #include <qgridlayout.h>
 // TODO new
 #include <qgroupbox.h>
-#include <qcombobox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
 #include <qspinbox.h>
@@ -19,7 +18,6 @@ using namespace betri;
 
 void BezierTriangleAlgorithmsPlugin::initializePlugin()
 {
-
 	m_tool = new QWidget();
 	QIcon *toolIcon = new QIcon(
 		OpenFlipper::Options::iconDirStr() +
@@ -61,6 +59,11 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vFlags[2] = new QCheckBox(tr("overwrite mesh"));
 	m_vFlags[2]->setChecked(true); // default
 
+	QLabel *modeLabel = new QLabel(tr("Parametrization Weights"));
+	m_vparam = new QComboBox();
+	m_vparam->addItem("uniform");
+	m_vparam->addItem("cotangent");
+
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
 	voronoiLayout->addWidget(patitionButton, 1, 0, 2, 1);
@@ -70,6 +73,8 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
 	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
 	voronoiLayout->addWidget(m_vFlags[2], 5, 0);
+	voronoiLayout->addWidget(modeLabel, 6, 0, 1, 1);
+	voronoiLayout->addWidget(m_vparam, 6, 1, 1, 1);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -192,7 +197,8 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				seedCount,
 				m_vFlags[0]->isChecked(),
 				m_vFlags[1]->isChecked(),
-				m_vFlags[2]->isChecked()
+				m_vFlags[2]->isChecked(),
+				m_vparam->currentIndex()
 			);
 
 			if (m_useTimer) {
@@ -211,7 +217,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			}
 
 			betri::voronoiRemesh(*o_it, ctrl_obj);
-			
+
 			if (m_useTimer) {
 				m_timer.end();
 			}
@@ -417,9 +423,10 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				seedCount,
 				m_vFlags[0]->isChecked(),
 				m_vFlags[1]->isChecked(),
-				m_vFlags[2]->isChecked()
+				m_vFlags[2]->isChecked(),
+				m_vparam->currentIndex()
 			);
-			
+
 			if (m_useTimer) {
 				m_timer.filename(
 					meshObj->path().toStdString() +
@@ -547,7 +554,7 @@ void BezierTriangleAlgorithmsPlugin::callDecimation()
 
 		if (m_useTimer) {
 			m_timer.filename(
-				meshObj->path().toStdString() + 
+				meshObj->path().toStdString() +
 				"/decimation-times.txt"
 			);
 			auto info = betri::decimationInfo(meshObj);

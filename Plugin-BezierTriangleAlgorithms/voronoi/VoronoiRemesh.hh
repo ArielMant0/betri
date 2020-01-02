@@ -80,6 +80,9 @@ public:
 	void minPartition(size_t part) { m_minPartition = part; }
 	size_t minPartition() const { return m_minPartition; }
 
+	void weights(int which) { m_paramWeights = which; }
+	int weights() const { return m_paramWeights; }
+
 private:
 
 	void prepare();
@@ -468,6 +471,9 @@ private:
 
 	bool m_useColors, m_overwrite, m_debugCancel, m_interpolate;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
+	// 0 = uniform, 1 = contangent
+	int m_paramWeights;
+
 	ACG::HaltonColors m_colGen;
 
 	std::vector<Color> m_colors;
@@ -488,7 +494,6 @@ private:
 
 	OpenMesh::FPropHandleT<TriToVertex>   m_ttv;
 	OpenMesh::VPropHandleT<VertexToTri>	  m_vtt;
-
 };
 
 }

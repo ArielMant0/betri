@@ -46,13 +46,15 @@ void voronoiInit(
 	size_t count,
 	const bool useColors,
 	const bool interpolate,
-	const bool overwrite
+	const bool overwrite,
+	const int paramIndex
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
 	remesher->useColors(useColors);
 	remesher->interpolate(interpolate);
 	remesher->overwrite(overwrite);
+	remesher->weights(paramIndex);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -119,7 +121,7 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	VoronoiInfo info;
-	
+
 	BezierTMesh* mesh = PluginFunctions::btMeshObject(object)->mesh();
 	info.name = object->name().toStdString();
 	info.vertices = std::to_string(mesh->n_vertices());

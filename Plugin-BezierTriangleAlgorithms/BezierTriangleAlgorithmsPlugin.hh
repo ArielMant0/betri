@@ -11,6 +11,7 @@
 #include <qlineedit.h> // TODO
 #include <qpushbutton.h> // TODO
 #include <qcheckbox.h>
+#include <qcombobox.h>
 
 #include "AlgorithmTimer.hh"
 
@@ -51,6 +52,7 @@ private:
 	// TODO: disable other buttons
 	std::vector<QPushButton*> m_voronoiSteps;
 	std::array<QCheckBox*, 3> m_vFlags;
+	QComboBox *m_vparam;
 	std::array<QCheckBox*, 2> m_dFlags;
 
 	bool m_useTimer;
@@ -100,5 +102,4 @@ private slots:
 	void callDecimationInit();
 	void callDecimation();
 	void callDecimationStep();
-
 };
