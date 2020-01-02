@@ -189,7 +189,8 @@ bool DecimationParametrization::solveLocal(
 		v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : from);
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
-		assert(std::isgreater(area(facesOrig[f]), 0.));
+
+		if (!std::isgreater(area(facesOrig[f]), 0.)) return false;
 	}
 
 	if (faces.size() != n - 2) return false;

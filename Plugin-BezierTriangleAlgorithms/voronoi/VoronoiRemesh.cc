@@ -1651,7 +1651,7 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 			int count = 0;
 
 			// look at all cut faces
-			while (k >= 0) {
+			while (k >= 0 && count == 0) {
 
 				last = cuts[i][j][k];
 				
@@ -1745,20 +1745,14 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 					maxDist = dist(*f);
 				}
 			}
-#ifdef BEZIER_DEBUG
 			if (!target.is_valid()) {
 				m_mesh.set_color(v, { 1.f, 0.5f, 0.5f, 1.f });
 				debugCancel("too many seeds around vertex");
 				return;
-
-				//removeRegion(*m_mesh.cvf_begin(v));
 			} else {
-#endif
 				addSeed(q, target);
 				assert(m_seeds.size() > before);
-#ifdef BEZIER_DEBUG
 			}
-#endif
 			count++;
 			std::cerr << "\tadded " << count << " seeds\n";
 			return;

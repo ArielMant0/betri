@@ -70,18 +70,19 @@ void Decimation::calculateErrors()
 
 void Decimation::calculateError(const HalfedgeHandle hh)
 {
+	double legal = isCollapseLegal(hh);
 	// "simulate collapse" -> fit all 1-Ring faces -> use max error
-	priority(hh) = isCollapseLegal(hh) ? fit(hh, false) : -1.0;
+	priority(hh) = legal == -1.0 ? -1.0 : (1.0 + legal) * fit(hh, false);
 }
 
 void Decimation::updateError(const HalfedgeHandle hh, const Scalar add)
 {
-	bool legal = isCollapseLegal(hh);
+	double legal = isCollapseLegal(hh);
 
-	if (priority(hh) != -1.0 && legal) {
+	if (priority(hh) != -1.0 && legal != -1.0) {
 		// "simulate collapse" -> fit all 1-Ring faces -> use max error
 		Scalar error = fit(hh, false);
-		priority(hh) = error != -1.0 ? add + error : -1.0;
+		priority(hh) = error != -1.0 ? add + error * (1.0 + legal) : -1.0;
 	} else {
 		// halfedges that result in an illegal collapse have a priority of -1
 		priority(hh) = -1.0;
@@ -121,7 +122,7 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 	}
 }
 
-bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
+double Decimation::isCollapseLegal(const HalfedgeHandle hh)
 {
 	// collect vertices
 	VertexHandle v0 = m_mesh.from_vertex_handle(hh);
@@ -129,14 +130,50 @@ bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
 
 	// topological test
 	if (!m_mesh.is_collapse_ok(hh)) {
-		return false;
+		return -1.0;
 	}
 	// test boundary stuff
 	if (m_mesh.is_boundary(v0) && !m_mesh.is_boundary(v1)) {
-		return false;
+		return -1.0;
 	}
 
-	return true;
+	// collect faces
+	FaceHandle fl = m_mesh.face_handle(hh);
+	FaceHandle fr = m_mesh.face_handle(m_mesh.opposite_halfedge_handle(hh));
+
+	// backup point positions
+	const Point p0 = m_mesh.point(v0);
+	const Point p1 = m_mesh.point(v1);
+
+	// simulate collapse
+	m_mesh.set_point(v0, p1);
+
+	// check for flipping normals
+	double c(0.0);
+	double mod(0.0);
+	const double min_cos(0.0); // pi/2
+
+	for (auto vf_it(m_mesh.cvf_begin(v0)), vf_end(m_mesh.cvf_end(v0));
+		vf_it != vf_end; ++vf_it
+	) {
+		// dont check triangles that would be deleted anyway
+		if ((*vf_it != fl) && (*vf_it != fr)) {
+
+			Point n0 = m_mesh.normal(*vf_it);
+			Point n1 = m_mesh.calc_face_normal(*vf_it);
+
+			c = (n0 | n1);
+			// check wether normal flips due to collapse
+			if (c < min_cos) {
+				mod = std::max(1.0 - ((1.0 + c) * 0.5), mod);
+			}
+		}
+	}
+
+	// undo simulation changes
+	m_mesh.set_point(v0, p0);
+
+	return mod;
 }
 
 void Decimation::calcErrorStatistics()
@@ -290,9 +327,9 @@ void Decimation::step()
 #endif
 
 	// fit remaining faces (and apply update)
-	fit(hh, true);
+	Scalar error = fit(hh, true);
 
-	if (debugCancel()) {
+	if (error == -1.0 || debugCancel()) {
 		return;
 	}
 
@@ -336,20 +373,23 @@ void Decimation::step()
 Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 {
 	// source and target vertex
-	VertexHandle from = m_mesh.from_vertex_handle(hh), to = m_mesh.to_vertex_handle(hh);
+	VertexHandle from = m_mesh.from_vertex_handle(hh);
+	VertexHandle to = m_mesh.to_vertex_handle(hh);
 
 	// stores all 3D points and corresponding uv's per face
 	std::vector<FitCollection> fitColls;
 
 	// parametrize to n-gon
 	if (!m_param.solveLocal(from, to, fitColls, apply)) {
-		//debugCancel("parametrization failed");
 		return -1.0;
 	}
 
 	assert(fitColls.size() == m_mesh.valence(from) - 2);
 
 	if (apply) {
+		if (!m_mesh.is_collapse_ok(hh)) {
+			return -1.0;
+		}
 		// collapse halfedge
 		m_mesh.collapse(hh);
 	}
