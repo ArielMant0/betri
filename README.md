@@ -30,15 +30,15 @@ via the Utils plugin
 ## Compiling
 
 If you add new files to any of the plugins or add a new plugin, you first need to rerun cmake
-- go to the build folder (miniknight: "OpenFlipper/build", potatopc: "OpenFlipper/build/release")
-- run "cmake-gui ..\.." in cmd (shortcur for cmd: press on path bar and type 'cmd')
+- go to the build folder (miniknight: "OpenFlipper/build", potato-pc: "OpenFlipper/build/release")
+- run "cmake-gui ..\.." in cmd (shortcut for cmd: press on path bar and type 'cmd')
 - press "configure"
 - press "generate"
 - open project or if it was still open there will be a dialog asking to reload where you simply
 click on "yes all", "okay", sth like that
 
 If you simply changed a file you can just build the project the file is in again (or even ALL BUILD)
-if you're unceratin which one to build
+if you're uncertain which one to build
 
 ## Benchmarking
 
@@ -61,3 +61,6 @@ Benchmarker::instance()->startFrame()
 // end the benchmarking process
 Benchmarker::instance()->endFrame()
 ```
+
+## Documentation
+- Doygen in the header

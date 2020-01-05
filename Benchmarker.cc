@@ -3,6 +3,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include "Benchmarker.hh"
 #include <cctype>
+#include <intrin.h>
+#include <experimental/filesystem>
 
 static ACG::Benchmarker *bench = nullptr;
 
@@ -22,34 +24,35 @@ Benchmarker* Benchmarker::instance()
 	return bench;
 }
 
+// https://www.khronos.org/opengl/wiki/Query_Object
 void Benchmarker::startFrame()
 {
 	if (active()) {
-		// start timer query
-		if (occlQuery_)
-			glBeginQuery(GL_SAMPLES_PASSED, queries_[shifted_ - 1][current_query_]);
-		else
-			glBeginQuery(GL_TIME_ELAPSED, queries_[shifted_ - 1][current_query_]);
+		// start query
+		switch (testType_) {
+			case TEST_TYPE::FTIME: glBeginQuery(
+				GL_TIME_ELAPSED, queries_[shifted_ - 1][current_query_]); 
+				break;
+			case TEST_TYPE::OCCL: glBeginQuery(
+				GL_SAMPLES_PASSED, queries_[shifted_ - 1][current_query_]); 
+				break;
+			default:
+				std::cerr << __FUNCTION__ << " nothing done" << std::endl; // TODO
+		}
 	}
 }
 
 void Benchmarker::endFrame()
 {
 	if (active()) {
-		// end timer query
-		if (occlQuery_)
-			glEndQuery(GL_SAMPLES_PASSED);
-		else
-			glEndQuery(GL_TIME_ELAPSED);
-
-		/*
-		// display timer query results from querycount frames before
-		if (GL_TRUE == glIsQuery(queries_[current_query_])) {
-			GLuint64 result;
-			glGetQueryObjectui64v(queries_[current_query_], GL_QUERY_RESULT, &result);
-			std::cerr << result * 1.e-6 << " ms/frame" << std::endl;
+		// end query
+		switch (testType_) {
+			case TEST_TYPE::FTIME: glEndQuery(GL_TIME_ELAPSED); break;
+			case TEST_TYPE::OCCL: glEndQuery(GL_SAMPLES_PASSED); break;
+			default: // TODO
+				std::cerr << __FUNCTION__ << " nothing done" << std::endl; 
 		}
-		*/
+
 		// advance query counter
 		if (current_query_ + 1 == QUERY_COUNT) {
 			current_query_ = 0;
@@ -60,6 +63,9 @@ void Benchmarker::endFrame()
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Mode getter/setter
+///////////////////////////////////////////////////////////////////////////////
 void Benchmarker::active(bool activate)
 {
 	// TODO current_query_ = 0
@@ -79,14 +85,24 @@ bool Benchmarker::update()
 	return tmp;
 }
 
-void Benchmarker::occlQuery(bool state)
+void Benchmarker::testType(TEST_TYPE testType)
 {
-	occlQuery_ = state;
+	testType_ = testType;
+}
+
+void Benchmarker::againstType(AGAINST_TYPE againstType)
+{
+	againstType_ = againstType;
 }
 
 void Benchmarker::average(bool state)
 {
 	average_ = state;
+}
+
+void Benchmarker::append(bool state)
+{
+	append_ = state;
 }
 
 void Benchmarker::renderMode(int rmode)
@@ -106,6 +122,34 @@ int Benchmarker::bVolume() const
 	return activeBVol_;
 }
 
+void Benchmarker::meshInfo(std::string name, int triangleCount, int degree)
+{
+	meshName_ = name;
+	triangleCount_ = triangleCount;
+	degree_ = degree;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// File string setter
+///////////////////////////////////////////////////////////////////////////////
+void Benchmarker::filePath(std::string path)
+{
+	path_ = path;
+}
+
+void Benchmarker::fileName(std::string name)
+{
+	name_ = name;
+}
+
+void Benchmarker::fileType(std::string type)
+{
+	type_ = type;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Logic
+///////////////////////////////////////////////////////////////////////////////
 void Benchmarker::advanceRenderMode()
 {
 	updateBuffers_ = true;
@@ -116,6 +160,8 @@ void Benchmarker::advanceRenderMode()
 		activeRMode_ = 0;
 		activeBVol_ = 0;
 		shifted_ = 0;
+		for (int i = 0; i < RENDERMODE_NUM; i++)
+			glGenQueries(QUERY_COUNT, queries_[i].data());
 		return;
 	}
 
@@ -140,27 +186,127 @@ void Benchmarker::advanceRenderMode()
 	assert(shifted_ < RENDERMODE_NUM + 1);
 }
 
+// https://weseetips.wordpress.com/tag/c-get-cpu-name/
+std::string Benchmarker::getCPUName()
+{
+	// Get extended ids.
+	int CPUInfo[4] = { -1 };
+	__cpuid(CPUInfo, 0x80000000);
+	unsigned int nExIds = CPUInfo[0];
+
+	// Get the information associated with each extended ID.
+	char CPUBrandString[0x40] = { 0 };
+	for (unsigned int i = 0x80000000; i <= nExIds; ++i) {
+		__cpuid(CPUInfo, i);
+
+		// Interpret CPU brand string and cache information.
+		if (i == 0x80000002) {
+			memcpy(CPUBrandString, CPUInfo, sizeof(CPUInfo));
+		} else if (i == 0x80000003) {
+			memcpy(CPUBrandString + 16, CPUInfo, sizeof(CPUInfo));
+		} else if (i == 0x80000004) {
+			memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
+		}
+	}
+
+	return std::string(CPUBrandString);
+}
+
+std::string Benchmarker::generateFileName(
+	std::string cpuName, std::string gpuName
+)
+{
+	std::string sys = "";
+	if (cpuName.compare("AMD Ryzen") == 0 &&
+		gpuName.compare("GeForce GTX 1050 Ti/PCIe/SSE2") == 0
+	) {
+		sys = "Sys1";
+	} else if (
+		cpuName.compare("Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz") == 0 &&
+		gpuName.compare("Intel(R) HD Graphics 630") == 0
+	) {
+		sys = "Sys2";
+	} else if (
+		cpuName.compare("Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz") == 0 &&
+		gpuName.compare("GeForce GTX 1050 Ti/PCIe/SSE2") == 0
+	) {
+		sys = "Sys3";
+	} else if (
+		cpuName.compare("Intel(R) Core(TM) i7-3630HQ CPU @ 2.40GHz") == 0 &&
+		gpuName.compare("Intel(R) HD Graphics 4000") == 0
+	) {
+		sys = "Sys4";
+	} else if (
+		cpuName.compare("Intel(R) Core(TM) i7-3630HQ CPU @ 2.40GHz") == 0 &&
+		gpuName.compare("GeForce 660M PCIe/SSE2") == 0
+	) {
+		sys = "Sys5";
+	}
+
+	int cgr = RENDER_MODE::CPU | RENDER_MODE::GPU | RENDER_MODE::RAYPRISM;
+	int ray = RENDER_MODE::RAYAABB | RENDER_MODE::RAYPRISM;
+	std::string prefix = "";
+	if ((renderModesDump_ & cgr) == cgr) {
+		prefix = "CGR";
+	} else if ((renderModesDump_ & ray) == ray) {
+		prefix = "Ray";
+	}
+
+	std::string baseType;
+	switch (testType_) {
+		case TEST_TYPE::FTIME: baseType = "Ftime"; break;
+		case TEST_TYPE::OCCL: baseType = "Occl"; break;
+		default: baseType = "";
+	}
+
+	std::string againstType;
+	switch (againstType_) {
+		case 0: 
+			againstType = "Frame" + meshName_ + 
+				"D" + std::to_string(degree_) +
+				"Tc" + std::to_string(triangleCount_);
+			break;
+		case 1: againstType = "Tc" + meshName_ + "D" + std::to_string(degree_); 
+			break;
+		case 2: againstType = "Degree" + meshName_ + 
+			"Tc" + std::to_string(triangleCount_); break;
+		case 3: againstType = "Genus" + 
+			("Tc" + std::to_string(triangleCount_)) +
+			"D" + std::to_string(degree_); break;
+		default: againstType = "";
+	}
+
+	return prefix + baseType + "Vs" + againstType + sys;
+}
+
+std::string Benchmarker::columnOne(int i)
+{
+	switch (againstType_) {
+		case AGAINST_TYPE::FRAME: return std::to_string(i + 1);
+		case AGAINST_TYPE::TC: return std::to_string(triangleCount_);
+		case AGAINST_TYPE::DEGREE: return std::to_string(degree_);
+		case AGAINST_TYPE::GENUS: return "1";
+		default: return std::to_string(i + 1);
+	}
+}
+
 void Benchmarker::dumpToFile()
 {
 	// https://www.khronos.org/opengl/wiki/OpenGL_Context#Context_information_queries
 	// https://stackoverflow.com/questions/42245870/how-to-get-the-graphics-card-model-name-in-opengl-or-win32
-	// https://stackoverflow.com/questions/83439/remove-spaces-from-stdstring-in-c
-	//const GLubyte* vendor = glGetString(GL_VENDOR);
-	const GLubyte* renderer = glGetString(GL_RENDERER);
-	std::string gpuName(reinterpret_cast<const char*>(renderer));
-	gpuName.erase(std::remove_if(gpuName.begin(), gpuName.end(), std::isspace), gpuName.end());
-	gpuName = gpuName.substr(0, gpuName.find("/", 0));
+	std::string gpuName(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+	auto cpuName = getCPUName();
 
-	average_ = false;
+	std::string complete;
+	if (name_.size() > 0)
+		complete = path_ + name_ + type_;
+	else
+		complete = path_ + generateFileName(cpuName, gpuName) + type_;
 
-	std::string fileDir = "D:/03_Uni/Masterarbeit/masterthesis/rene/data/";
-	//std::string fileDir = "C:/Users/DoktorManto/Uni/Masterarbeit/masterthesis/rene/data/";
-	std::ofstream fileout(
-		fileDir + gpuName +
-		"-" + std::to_string(average_) +
-		"-" + std::to_string(occlQuery_) +
-		"_tmp.dat"
-	);
+	// https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
+	auto exists = std::experimental::filesystem::exists(complete);
+
+	std::ofstream fileout(complete, append_ ? std::ofstream::app : std::ofstream::trunc);
 
 	if (!fileout) {
 		std::cerr << "Error open fileout!" << std::endl;
@@ -183,30 +329,35 @@ void Benchmarker::dumpToFile()
 	////////////
 	int tmp = renderModesDump_;
 	GLuint64 result;
-	fileout << "runNum";
-	for (int j = 0; j < RENDERMODE_NUM; j++) {
-		if (tmp & 1) {
-			fileout << "," << modes[j];
+	if (!(append_ && exists)) {
+		fileout << cpuName << "\n";
+		fileout << gpuName << "\n";
+		fileout << "runNum";
+		for (int j = 0; j < RENDERMODE_NUM; j++) {
+			if (tmp & 1) {
+				fileout << "," << modes[j];
+			}
+			tmp = tmp >> 1;
 		}
-		tmp = tmp >> 1;
+		fileout << "\n";
 	}
-	fileout << "\n";
 
 	/////////////
 	// Content //
 	/////////////
 	if (!average_) {
-		for (int j = 0; j < QUERY_COUNT; j++) {
-			fileout << std::to_string(j + 1);
+		for (int i = 0; i < QUERY_COUNT; i++) {
+			fileout << columnOne(i);
 			tmp = renderModesDump_;
-			for (int i = 0; i < RENDERMODE_NUM; i++) {
+			for (int j = 0; j < RENDERMODE_NUM; j++) {
 				if (tmp & 1) {
-					if (occlQuery_) {
-						glGetQueryObjectui64v(queries_[i][j], GL_QUERY_RESULT, &result);
-						fileout << "," << result;
-					} else {
-						glGetQueryObjectui64v(queries_[i][j], GL_QUERY_RESULT, &result);
-						fileout << "," << result * 1.e-6;
+					glGetQueryObjectui64v(
+						queries_[j][i], GL_QUERY_RESULT, &result);
+
+					switch (testType_) {
+						case TEST_TYPE::FTIME: 
+							fileout << "," << result * 1.e-6; break;
+						case TEST_TYPE::OCCL: fileout << "," << result; break;
 					}
 				}
 				tmp = tmp >> 1;
@@ -215,23 +366,23 @@ void Benchmarker::dumpToFile()
 		}
 	} else {
 		tmp = renderModesDump_;
-		fileout << "1";
+		fileout << columnOne(1);
 		for (int i = 0; i < RENDERMODE_NUM; i++) {
-			float avg = 0.0;
+			double avg = 0.0;
 			if (tmp & 1) {
 				for (int j = 0; j < QUERY_COUNT; j++) {
-					if (occlQuery_) {
-						glGetQueryObjectui64v(queries_[i][j], GL_QUERY_RESULT, &result);
-						fileout << "," << result;
-					} else {
-						glGetQueryObjectui64v(queries_[i][j], GL_QUERY_RESULT, &result);
-						fileout << "," << result * 1.e-6;
+					glGetQueryObjectui64v(
+						queries_[i][j], GL_QUERY_RESULT, &result);
+					switch (testType_) {
+						case TEST_TYPE::FTIME: avg += result * 1.e-6; break;
+						case TEST_TYPE::OCCL: avg += result; break;
 					}
 				}
 				fileout << "," << (avg / QUERY_COUNT);
 			}
 			tmp = tmp >> 1;
 		}
+		fileout << std::endl;
 	}
 }
 
