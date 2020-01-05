@@ -103,6 +103,12 @@ static inline BezierTMesh::Point evalSurface(std::vector<BezierTMesh::Point> &cp
 {
 	BezierTMesh::Point point(0.0);
 
+	// 0 0 2
+	// 0 1 1
+	// 0 2 0
+	// 1 0 1
+	// 1 1 0
+	// 2 0 0
 	for (int i = 0; i <= degree; i++) {
 		for (int j = 0; j + i <= degree; j++) {
 			point += cps[cpIndex(i, j, degree)] * eval(i, j, degree - i - j, bary, degree);

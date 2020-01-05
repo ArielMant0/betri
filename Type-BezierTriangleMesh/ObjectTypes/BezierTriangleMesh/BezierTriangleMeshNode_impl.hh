@@ -13,13 +13,11 @@
 
 #include <iostream>
 #include <fstream>
-#include <fstream> // TODO
-#include <functional> // TODO
-#include <regex> // TODO
 
 #include "globals/BezierOptions.hh"
 #include "BezierMathUtil.hh"
 #include "boundVol/BVolGenerator.hh"
+#include "RayCastingShaderGenerator.hh"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Defines
@@ -159,11 +157,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	if (!bezierTriangleMesh_.isRenderable())
 		return;
 
-#define old
-#ifndef old
-	// TODO call otherwise or atleast only when needed
-	drawBTMesh_->getVBO(); // TODO this should be done differently, in a status node or smthg look into that further
-#endif
 
 	// check if textures are still valid
 	if (bspline_selection_draw_mode_ == CONTROLPOINT
@@ -219,321 +212,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
 		ro.depthTest = true;
-#ifndef old
-		///////////////////////////////////////////////////////////////////////
-		// Setup drawMesh based on property source
-		///////////////////////////////////////////////////////////////////////
-
-		ro.shaderDesc.vertexColors = true;
-
-		switch (props->colorSource()) {
-			case DrawModes::COLOR_PER_VERTEX:
-				drawBTMesh_->usePerVertexColors();
-				break;
-			case DrawModes::COLOR_PER_FACE:
-				drawBTMesh_->usePerFaceColors();
-				break;
-			default:
-			{
-				drawBTMesh_->disableColors();
-				ro.shaderDesc.vertexColors = false;
-			} break;
-		}
-
-		// only the polygon primitives can set the normal source
-		if (props->primitive() == DrawModes::PRIMITIVE_POLYGON) {
-			switch (props->normalSource()) {
-				case DrawModes::NORMAL_PER_VERTEX:
-					drawBTMesh_->usePerVertexNormals();
-					break;
-				case DrawModes::NORMAL_PER_HALFEDGE:
-					drawBTMesh_->usePerHalfedgeNormals();
-					break;
-				default: break;
-			}
-
-			if (props->flatShaded())
-				drawBTMesh_->setFlatShading();
-			else
-				drawBTMesh_->setSmoothShading();
-		}
-
-		ro.shaderDesc.addTextureType(GL_TEXTURE_2D, false, 0);
-
-		switch (props->texcoordSource()) {
-			case DrawModes::TEXCOORD_PER_VERTEX:
-				drawBTMesh_->usePerVertexTexcoords();
-				break;
-			case DrawModes::TEXCOORD_PER_HALFEDGE:
-				drawBTMesh_->usePerHalfedgeTexcoords();
-				break;
-			default:
-			{
-				ro.shaderDesc.clearTextures();
-			} break;
-		}
-
-		///////////////////////////////////////////////////////////////////////
-		// Prepare renderobject
-		///////////////////////////////////////////////////////////////////////
-
-		// enable / disable lighting
-		ro.shaderDesc.numLights = props->lighting() ? 0 : -1;
-
-		// Enable/Disable twoSided Lighting
-		ro.shaderDesc.twoSidedLighting = _state.twosided_lighting();
-
-		// TODO: better handling of attribute sources in shader gen
-		switch (props->lightStage()) {
-			case DrawModes::LIGHTSTAGE_SMOOTH:
-				ro.shaderDesc.shadeMode = SG_SHADE_GOURAUD;
-				break;
-			case DrawModes::LIGHTSTAGE_PHONG:
-				ro.shaderDesc.shadeMode = SG_SHADE_PHONG;
-				break;
-			case DrawModes::LIGHTSTAGE_UNLIT:
-				ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-				break;
-		}
-
-		if (props->flatShaded())
-			ro.shaderDesc.shadeMode = SG_SHADE_FLAT;
-
-		if (props->normalSource() == DrawModes::NORMAL_PER_FACE)
-			ro.shaderDesc.vertexNormalInterpolator = "flat";
-		else
-			ro.shaderDesc.vertexNormalInterpolator.clear();
-
-		///////////////////////////////////////////////////////////////////////
-		// handle 'special' primitives (wireframe, hiddenline, primitives in sysmem buffers)..
-		///////////////////////////////////////////////////////////////////////
-
-		if (props->primitive() == DrawModes::PRIMITIVE_WIREFRAME) {
-			ro.debugName = "BTMeshNode.Wireframe";
-
-			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-			drawBTMesh_->disableColors();
-
-			// use specular color for lines
-			if (_drawMode.isAtomic())
-				ro.emissive = ro.specular;
-			else
-				ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
-
-			// allow wireframe + solid mode
-			ro.depthFunc = GL_LEQUAL;
-			ro.priority = -1; // render before polygon
-
-			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-
-			applyRenderObjectSettings(props->primitive(), &ro);
-			add_line_RenderObjects(_renderer, &ro); // TODO
-		}
-
-		if (props->primitive() == DrawModes::PRIMITIVE_HIDDENLINE) {
-			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-			drawBTMesh_->disableColors();
-
-			// use specular color for lines
-			if (_drawMode.isAtomic())
-				ro.emissive = ro.specular;
-			else
-				ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
-
-			// eventually prepare depthbuffer first
-			int polyLayer = _drawMode.getLayerIndexByPrimitive(DrawModes::PRIMITIVE_POLYGON);
-			if ((polyLayer > int(i) || polyLayer < 0) && (bezierTriangleMesh_.n_faces() != 0)) {
-				ro.priority = 0;
-
-				applyRenderObjectSettings(DrawModes::PRIMITIVE_POLYGON, &ro);
-
-				// disable color write
-				ro.glColorMask(0, 0, 0, 0);
-
-				ro.debugName = "BTMeshNode.HiddenLine.faces";
-				// add_face_RenderObjects(_renderer, &ro); // TODO
-			}
-
-
-			// draw lines after depth image
-			ro.priority = 1;
-			ro.glColorMask(1, 1, 1, 1);
-			ro.depthFunc = GL_LEQUAL;
-
-			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-
-			applyRenderObjectSettings(DrawModes::PRIMITIVE_HIDDENLINE, &ro);
-
-			ro.debugName = "BTMeshNode.HiddenLine.lines";
-			//add_line_RenderObjects(_renderer, &ro); // TODO
-		}
-
-		if (props->colored() && props->primitive() == DrawModes::PRIMITIVE_EDGE) {
-			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-			ro.shaderDesc.vertexColors = true;
-
-			// note: colored edges are in sysmem, so they are directly bound to the VertexDeclaration
-			drawBTMesh_->updateEdgeHalfedgeVertexDeclarations();
-			ro.vertexDecl = drawBTMesh_->getEdgeColoredVertexDeclaration();
-			ro.glDrawArrays(GL_LINES, 0, int(bezierTriangleMesh_.n_edges() * 2));
-
-			// use specular color for lines
-			ro.emissive = ro.specular;
-
-			// line thickness
-			ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-
-			applyRenderObjectSettings(props->primitive(), &ro);
-			ro.debugName = "BTMeshNode.Edges";
-			_renderer->addRenderObject(&ro);
-
-			// skip other edge primitives for this drawmode layer
-			continue;
-		}
-
-		if (props->primitive() == DrawModes::PRIMITIVE_HALFEDGE) {
-			ro.shaderDesc.shadeMode = SG_SHADE_UNLIT;
-
-			// buffers in system memory
-			drawBTMesh_->updateEdgeHalfedgeVertexDeclarations();
-			halfedgeDecl.clear();
-			halfedgeDecl.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION, (void *)0);
-
-			ro.vertexDecl = &halfedgeDecl;
-			// use specular color for lines
-			ro.emissive = ro.specular;
-			ro.vertexBuffer = drawBTMesh_->getHEVBO();
-			ro.indexBuffer = 0;
-			ro.glDrawArrays(GL_LINES, 0, int(bezierTriangleMesh_.n_halfedges() * 2));
-
-			ro.debugName = "BTMeshNode.HalfEdges";
-			_renderer->addRenderObject(&ro);
-		}
-
-		///////////////////////////////////////////////////////////////////////
-		// take care of all the other primitives
-		///////////////////////////////////////////////////////////////////////
-
-		ro.depthRange = Vec2f(0.01f, 1.0f);
-
-		switch (props->primitive()) {
-			case DrawModes::PRIMITIVE_POINT:
-			{
-				if (ro.shaderDesc.shadeMode == SG_SHADE_UNLIT) {
-					// use specular color for points
-					if (_drawMode.isAtomic())
-						ro.emissive = ro.specular;
-					else
-						ro.emissive = OpenMesh::color_cast<ACG::Vec3f>(_state.overlay_color());
-				}
-
-				// use shaders to simulate point size
-				ro.setupPointRendering(_mat->pointSize(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-
-				applyRenderObjectSettings(props->primitive(), &ro);
-				ro.debugName = "BTMeshNode.Points";
-				//add_point_RenderObjects(_renderer, &ro); // TODO
-			} break;
-			case DrawModes::PRIMITIVE_EDGE:
-			{
-				// use specular color for lines
-				ro.emissive = ro.specular;
-
-				// use shaders to simulate line width
-				ro.setupLineRendering(_state.line_width(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-
-				applyRenderObjectSettings(props->primitive(), &ro);
-				ro.debugName = "BTMeshNode.Edges";
-				//add_line_RenderObjects(_renderer, &ro); // TODO
-			} break;
-			case DrawModes::PRIMITIVE_POLYGON:
-			{
-				applyRenderObjectSettings(props->primitive(), &ro);
-
-				///////////////////////////////////////////////////////////////
-				// Raytracing
-				///////////////////////////////////////////////////////////////
-				if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING && !showBVolume) {
-
-					// TODO this is a doublication
-					if (!controlPointTex_.is_valid())
-						updateTexBuffers();
-
-					ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
-					ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
-
-					//std::cerr << _state.eye() << std::endl;
-					//std::cerr << _renderer->camPosWS_ << std::endl;
-					//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
-
-					//ro.setUniform("campos", _renderer->camPosWS_);
-					//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
-					ro.setUniform("campos", ACG::Vec3f(_state.eye()));
-
-					// vertex shader uniforms
-					//ro.setUniform("cameraPos", );
-
-					// fragment shader uniforms
-					static float iteration = 0.0f;
-					iteration += 0.04f;
-					ro.setUniform("lig", ACG::Vec3f(3.0 * cos(iteration), 3.0 * sin(iteration), 0.0));
-
-					ro.setUniform("btriangles", int(1));
-					ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
-				}
-
-#ifdef GL_ARB_tessellation_shader
-				bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
-
-				///////////////////////////////////////////////////////////////
-				// Tessellation
-				///////////////////////////////////////////////////////////////
-				if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU) {
-					if (!controlPointTex_.is_valid())
-						updateTexBuffers();
-
-					ro.shaderDesc.tessControlTemplateFile = "BezierTriangle/tesscontrol_lod.glsl";
-					ro.shaderDesc.tessEvaluationTemplateFile = "BezierTriangle/tesseval_lod.glsl";
-
-					// Tesselation Control Shader Uniforms
-					ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
-					ro.setUniform("campos", ACG::Vec3f(_state.eye()));
-
-					// Fragment Shader Uniforms
-					ro.setUniform("controlPointTex", int(1));
-
-					ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 1, false);
-					//roPrimitives = GL_PATCHES;
-
-					ro.patchVertices = 3;
-
-					drawBTMesh_->addPatchRenderObjects(_renderer, &ro, textureMap_, false);
-
-				} else {
-#endif
-
-					if (!ro.shaderDesc.vertexTemplateFile.isEmpty())
-						drawBTMesh_->scanVertexShaderForInput(ro.shaderDesc.vertexTemplateFile.toStdString());
-
-					bool useNonIndexed = (props->colorSource() == DrawModes::COLOR_PER_FACE) &&
-						(props->lightStage() == DrawModes::LIGHTSTAGE_SMOOTH) && !props->flatShaded();
-					if (!useNonIndexed && props->colorSource() == DrawModes::COLOR_PER_FACE)
-						ro.shaderDesc.vertexColorsInterpolator = "flat";
-
-					ro.debugName = "BTMeshNode.Faces";
-					add_face_RenderObjects(_renderer, &ro, useNonIndexed); // TODO
-
-					ro.shaderDesc.vertexColorsInterpolator.clear();
-
-#ifdef GL_ARB_tessellation_shader
-				}
-#endif
-
-			} break;
-			default: break;
-		}
-#endif
-#ifdef old
 
 		///////////////////////////////////////////////////////////////////////
 		//
@@ -717,7 +395,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 			_renderer->addRenderObject(&ro);
 		}
-#endif
 	}
 
 
@@ -791,30 +468,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
 
 	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::add_face_RenderObjects(
-	IRenderer* _renderer, const RenderObject* _baseObj, bool _nonindexed
-)
-{
-	drawBTMesh_->addTriRenderObjects(_renderer, _baseObj, textureMap_, _nonindexed);
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::add_line_RenderObjects(
-	IRenderer* _renderer, const RenderObject* _baseObj
-)
-{
-//	if ((enabled_arrays_ & PER_EDGE_COLOR_ARRAY) && (enabled_arrays_ & PER_EDGE_VERTEX_ARRAY)) {
-		// colored edges still slow
-//		glDrawArrays(GL_LINES, 0, int(drawBTMesh_.n_edges() * 2));
-//	} else
-		drawBTMesh_->addLineRenderObjects(_renderer, _baseObj);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1374,8 +1027,6 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	invalidateSurfaceMesh_ = true;
 	invalidateControlNetMesh_ = true;
 
-	drawBTMesh_->invalidateSurfaceMesh_ = true;
-
 	// TODO
 	NEWVERTICES = betri::mersennePrime(ITERATIONS);
 	VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
@@ -1383,10 +1034,6 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 
 	// reset number of control points
 	cpSum_ = -1;
-
-	drawBTMesh_->NEWVERTICES = betri::mersennePrime(ITERATIONS);
-	drawBTMesh_->VERTEXSUM = betri::gaussSum(drawBTMesh_->NEWVERTICES + 2);
-	drawBTMesh_->STEPSIZE = 1.0 / (double(drawBTMesh_->NEWVERTICES) + 1.0);
 
 	updateTexBuffers(); // TODO
 }
@@ -1449,7 +1096,10 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 		)
 		return;
 
-	updateRaytracingFormula(); // TODO
+	updateRaycastingFormula(
+		grad(),
+		OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData()
+	);
 
 	surfaceVBO_.del();
 	surfaceIBO_.del();
@@ -1473,328 +1123,6 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 	} else if (meshOption == betri::TESSELLATION_TYPE::RAYTRACING) {
 		VBOfromBoundingMesh();
 	}
-}
-
-// Raytracing -----------------------------------------------------------------
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateRaytracingFormula()
-{
-	// TODO move this method
-
-	std::string formula;
-	std::string subFormula;
-	std::string tmpFormula;
-	int n = grad();
-
-	std::string plusDelimiter = " + ";
-	std::string minusDelimiter = " - ";
-
-	std::vector<std::string> posFormulaVec;
-	std::vector<std::string> negFormulaVec;
-
-	for (int j = 0; j <= n; j++) {
-		for (int k = 0; j + k <= n; k++) {
-			int i = n - j - k;
-			int cpIndex = pointsBefore(j) + k;
-
-			subFormula = " + " + std::to_string(betri::FACTORIALS[n] /
-				(betri::FACTORIALS[i] * betri::FACTORIALS[j] * betri::FACTORIALS[k]));
-			subFormula += " * bt.cps[" + std::to_string(cpIndex) + "]";
-
-			for (int tmp = 0; tmp < i; tmp++) {
-				subFormula += " * s";
-			}
-			for (int tmp = 0; tmp < j; tmp++) {
-				subFormula += " * t";
-			}
-
-			for (int tmp = 0; tmp < k; tmp++) {
-				posFormulaVec.clear();
-				negFormulaVec.clear();
-
-				// https://stackoverflow.com/questions/53849/how-do-i-tokenize-a-string-in-c
-				size_t start = plusDelimiter.size(), end = 0, endPos = 0, endNeg = 0;
-
-				bool next = subFormula.find(minusDelimiter, 0) < start;
-				while (endNeg != std::string::npos) {
-					endNeg = subFormula.find(minusDelimiter, start);
-					endPos = subFormula.find(plusDelimiter, start);
-					end = std::min(endNeg, endPos);
-
-					if (next) {
-						negFormulaVec.push_back(subFormula.substr(start,
-							(end == std::string::npos) ? std::string::npos : end - start)
-						);
-					} else {
-						posFormulaVec.push_back(subFormula.substr(start,
-							(end == std::string::npos) ? std::string::npos : end - start)
-						);
-					}
-					start = ((end > (std::string::npos - plusDelimiter.size()))
-						? std::string::npos : end + plusDelimiter.size()
-					);
-					next = endNeg < endPos;
-				}
-
-				/*
-				for (auto s : negFormulaVec) {
-					std::cerr << "Neg: " << tmp << " -> " << s << std::endl;
-				}
-				for (auto s : posFormulaVec) {
-					std::cerr << "Pos: " << tmp << " -> " << s << std::endl;
-				}
-				*/
-
-				tmpFormula.clear();
-				for (auto s : negFormulaVec) {
-					tmpFormula += " - 1.0 * " + s;
-					tmpFormula += " + " + s;
-					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
-					if (s.find(" * t") == std::string::npos)
-						tmpFormula += " * s";
-					else
-						tmpFormula.insert(pos, " * s");
-					tmpFormula += " + " + s + " * t";
-				}
-				for (auto s : posFormulaVec) {
-					tmpFormula += " + 1.0 * " + s;
-					tmpFormula += " - " + s;
-					auto pos = tmpFormula.length() - (s.length() - s.find(" * t"));
-					if (s.find(" * t") == std::string::npos)
-						tmpFormula += " * s";
-					else
-						tmpFormula.insert(pos, " * s");
-					tmpFormula += " - " + s + " * t";
-				}
-
-				subFormula = tmpFormula;
-				/*
-				if (cpIndex == 3) {
-					std::cerr << "//////////////" << tmp << std::endl;
-					std::cerr << subFormula << "\n" << std::endl;
-
-					std::cerr << "Negative" << std::endl;
-					for (auto elem : negFormulaVec)
-						std::cerr << elem << std::endl;
-					std::cerr << "Positive" << std::endl;
-					for (auto elem : posFormulaVec)
-						std::cerr << elem << std::endl;
-					std::cerr << std::endl;
-				}
-				*/
-			}
-
-			//std::cerr << "form " << subFormula << std::endl;
-
-			//std::cerr << " j " << j << " k " << k << " " << subFormula << std::endl;
-
-			subFormula += "\n";
-			formula += subFormula;
-		}
-	}
-
-	//s.erase(std::find(s.begin(), s.end(), ' '));
-	// https://en.cppreference.com/w/cpp/regex/regex_replace
-	// http://www.cplusplus.com/reference/regex/ECMAScript/
-	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
-
-	// Replace additional 1.0
-	std::regex replace_re0("1\\.0+\\s\\*\\s");
-	formula = std::regex_replace(formula, replace_re0, "");
-
-	// Replace additional zeros?
-	std::regex replace_re1("\\.0+\\s");
-	formula = std::regex_replace(formula, replace_re1, ".0 ");
-
-	//std::cerr << "\nfinal formula" << std::endl;
-	//std::cerr << formula << std::endl;
-
-	std::regex replace_re2("\\n");
-	formula = std::regex_replace(formula, replace_re2, "");
-
-
-	std::vector<std::string> theStringVector;
-	size_t start = 0, end = 0;
-	while (end != std::string::npos) {
-		end = std::min(
-			formula.find(minusDelimiter, start + minusDelimiter.size()),
-			formula.find(plusDelimiter, start + minusDelimiter.size())
-		);
-
-		// If at end, use length=maxLength.  Else use length=end-start.
-		theStringVector.push_back(formula.substr(start,
-			(end == std::string::npos) ? std::string::npos : end - start));
-
-		// If at end, use start=maxSize.  Else use start=end+delimiter.
-		start = ((end > (std::string::npos - minusDelimiter.size()))
-			? std::string::npos : end + minusDelimiter.size());
-		start = end;
-	}
-
-	std::vector<std::string> regexVec;
-	std::string myRegex;
-	for (int i = 0; i <= n; i++) {
-		for (int j = 0; j <= n - i; j++) {
-			myRegex.clear();
-			for (int x = 0; x < i; x++) {
-				myRegex += " * s";
-			}
-			for (int y = 0; y < j; y++) {
-				myRegex += " * t";
-			}
-			regexVec.push_back(myRegex);
-		}
-	}
-
-	// TODO reserve oben auch
-	std::vector<std::string> qVec;
-
-	std::string tmp;
-	std::string save;
-	for (int iter = regexVec.size() - 1; iter != 0; iter--) {
-		tmp.clear();
-		for (int stringIt = 0; stringIt != theStringVector.size(); stringIt++) {
-			if (theStringVector[stringIt].find(regexVec[iter], 0) != std::string::npos) {
-				theStringVector[stringIt].erase(
-					theStringVector[stringIt].end() - regexVec[iter].size(),
-					theStringVector[stringIt].end()
-				);
-				tmp += theStringVector[stringIt];
-				// remove used ones
-				theStringVector[stringIt] = "";
-			}
-		}
-		qVec.push_back(tmp);
-	}
-	tmp.clear();
-	for (auto s : theStringVector) {
-		tmp += s;
-	}
-	qVec.push_back(tmp);
-
-	std::string combinedQString;
-	for (int stringIt = 0; stringIt != qVec.size(); stringIt++) {
-		combinedQString += "vec3 q_" + std::to_string(stringIt) + " =" + qVec[stringIt] + ";\n";
-	}
-
-	std::string combinedBuv = "B_uv =";
-	for (int stringIt = 0; stringIt != regexVec.size(); stringIt++) {
-		combinedBuv += " + q_" + std::to_string(stringIt) + regexVec[regexVec.size() - stringIt - 1] + "\n";
-	}
-	combinedBuv += ";"; // TODO
-
-	////////////////////////////////////
-	// Calculate partial derivate (s) //
-	////////////////////////////////////
-	// TODO reserve
-	std::vector<std::string> derivateVec;
-	std::string derivate;
-	for (int i = 0; i <= n; i++) {
-		for (int j = 0; j <= n - i; j++) {
-			if (i == 0) {
-				derivateVec.push_back("-1");
-				continue;
-			}
-			derivate.clear();
-			if (i >= 2) {
-				derivate += " * " + std::to_string(i);
-			}
-			for (int x = 0; x < i - 1; x++) {
-				derivate += " * s";
-			}
-			for (int y = 0; y < j; y++) {
-				derivate += " * t";
-			}
-			derivateVec.push_back(derivate);
-		}
-	}
-
-	std::string dBs = "dBs =";
-	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
-		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
-			dBs += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
-	}
-	dBs += ";"; // TODO
-
-	////////////////////////////////////
-	// Calculate partial derivate (t) //
-	////////////////////////////////////
-	derivateVec.clear();
-	for (int i = 0; i <= n; i++) {
-		for (int j = 0; j <= n - i; j++) {
-			if (j == 0) {
-				derivateVec.push_back("-1");
-				continue;
-			}
-			derivate.clear();
-			if (j >= 2) {
-				derivate += " * " + std::to_string(j);
-			}
-			for (int x = 0; x < i; x++) {
-				derivate += " * s";
-			}
-			for (int y = 0; y < j - 1; y++) {
-				derivate += " * t";
-			}
-			derivateVec.push_back(derivate);
-		}
-	}
-
-	std::string dBt = "dBt =";
-	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
-		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
-			dBt += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
-	}
-	dBt += ";"; // TODO
-
-	/*
-	std::cerr << "\n\nQs" << std::endl;
-	std::cerr << combinedQString << std::endl;
-
-	std::cerr << "\ndBs" << std::endl;
-	std::cerr << dBs << std::endl;
-
-	std::cerr << "\ndBt" << std::endl;
-	std::cerr << dBt << std::endl;
-
-	std::cerr << "\nBuv" << std::endl;
-	std::cerr << combinedBuv << std::endl;
-	*/
-
-	///////////////////////////
-	// Write results to file //
-	///////////////////////////
-	// http://openflipper.org/Daily-Builds/Doc/Staging/Developer/a02657.html
-	// https://stackoverflow.com/questions/9505085/replace-a-line-in-text-file
-	std::string shaderDir = OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData();
-	std::ifstream filein(shaderDir + "/BezierTriangle/raytracing_template_fs.glsl");
-	std::ofstream fileout(shaderDir + "/BezierTriangle/raytracing_gen_fs.glsl");
-
-	if (!filein) {
-		std::cerr << "Error open filein!" << std::endl;
-		return;
-	}
-	if (!fileout) {
-		std::cerr << "Error open fileout!" << std::endl;
-		return;
-	}
-
-	std::string strTemp;
-	//bool found = false;
-	while (std::getline(filein, strTemp)) {
-		fileout << strTemp << "\n";
-		if (strTemp.find("BEGIN QS") != std::string::npos) {
-			fileout << combinedQString;
-		} else if (strTemp.find("BEGIN DBS") != std::string::npos) {
-			fileout << dBs;
-		} else if(strTemp.find("BEGIN DBT") != std::string::npos) {
-			fileout << dBt;
-		} else if (strTemp.find("BEGIN BUV") != std::string::npos) {
-			fileout << combinedBuv;
-		}
-	}
-
-	// TODO clear all vectors
 }
 
 // ControlNet -----------------------------------------------------------------
@@ -1983,77 +1311,6 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 ///////////////////////////////////////////////////////////////////////////////
 // Functions for VBO creation
 ///////////////////////////////////////////////////////////////////////////////
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-int BezierTriangleMeshNode<MeshT>::pointsBefore(int level)
-{
-	// TODO das ist langsam?!
-	int sum = 0;
-	for (int i = 0; i < level; i++)
-	{
-		sum += grad() + 1 - i;
-	}
-	return sum;
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getCP(
-	int i, int j, int k, BezierTMesh::FaceHandle fh
-)
-{
-	int cpIndex = pointsBefore(i) + j;
-
-	auto faceControlP = bezierTriangleMesh_.data(fh);
-	return faceControlP.controlPoint(cpIndex);
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-BezierTMesh::Point BezierTriangleMeshNode<MeshT>::oneEntry(
-	int i, int j, int k,
-	BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
-)
-{
-	Point entry = betri::FACTORIALS[grad()] / (betri::FACTORIALS[i] * betri::FACTORIALS[j] * betri::FACTORIALS[k])
-		* pow(baryCoords[0], i) * pow(baryCoords[1], j) * pow(baryCoords[2], k)
-		* getCP(i, j, k, fh);
-	return entry;
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-BezierTMesh::Point BezierTriangleMeshNode<MeshT>::newPosition(
-	BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
-)
-{
-	// 0 0 2
-	// 0 1 1
-	// 0 2 0
-	// 1 0 1
-	// 1 1 0
-	// 2 0 0
-	Point sum = Point(0.0);
-	for (int i = 0; i <= grad(); i++)
-	{
-		for (int j = 0; j + i <= grad(); j++)
-		{
-			for (int k = grad() - i - j; k + j + i == grad() && k >= 0; k++)
-			{
-				sum += oneEntry(i, j, k, baryCoords, fh);
-			}
-		}
-	}
-	return sum;
-}
-
-//-----------------------------------------------------------------------------
-
 template <class MeshT>
 BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getFaceNormal(
 	double u, double v,
@@ -2064,6 +1321,8 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getFaceNormal(
 	Point pos1;
 	Point pos2;
 
+	auto &cps = mesh().data(face).points();
+
 	// It is nessessary to distinguish between vertices that are
 	// in the face and those which are on a border, because for
 	// these the vector needs to show in the other direction and
@@ -2072,25 +1331,25 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getFaceNormal(
 	if (toEval[2] < STEPSIZE) {
 		if (toEval[0] < STEPSIZE) {
 			toEval = betri::getBaryCoords(u + STEPSIZE, v - STEPSIZE);
-			pos2 = newPosition(toEval, face);
+			pos2 = betri::evalSurface(cps, toEval, grad());
 			toEval = betri::getBaryCoords(u, v - STEPSIZE);
-			pos1 = newPosition(toEval, face);
+			pos1 = betri::evalSurface(cps, toEval, grad());
 		} else if (toEval[1] < STEPSIZE) {
 			toEval = betri::getBaryCoords(u - STEPSIZE, v + STEPSIZE);
-			pos1 = newPosition(toEval, face);
+			pos1 = betri::evalSurface(cps, toEval, grad());
 			toEval = betri::getBaryCoords(u - STEPSIZE, v);
-			pos2 = newPosition(toEval, face);
+			pos2 = betri::evalSurface(cps, toEval, grad());
 		} else {
 			toEval = betri::getBaryCoords(u - STEPSIZE, v);
-			pos1 = newPosition(toEval, face);
+			pos1 = betri::evalSurface(cps, toEval, grad());
 			toEval = betri::getBaryCoords(u, v - STEPSIZE);
-			pos2 = newPosition(toEval, face);
+			pos2 = betri::evalSurface(cps, toEval, grad());
 		}
 	} else {
 		toEval = betri::getBaryCoords(u + STEPSIZE, v);
-		pos1 = newPosition(toEval, face);
+		pos1 = betri::evalSurface(cps, toEval, grad());
 		toEval = betri::getBaryCoords(u, v + STEPSIZE);
-		pos2 = newPosition(toEval, face);
+		pos2 = betri::evalSurface(cps, toEval, grad());
 	}
 
 	return cross(normalize(pos1 - start), normalize(pos2 - start));
@@ -2112,6 +1371,8 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getVertexNormal(
 	Point toEval2;
 	int count = 0;
 
+	auto &cps = mesh().data(face).points();
+
 	const MeshT::Color offsets[] = {
 		MeshT::Color(-STEPSIZE, 0.0, 0.0, -STEPSIZE),
 		MeshT::Color(0.0, -STEPSIZE, STEPSIZE, -STEPSIZE),
@@ -2132,8 +1393,8 @@ BezierTMesh::Point BezierTriangleMeshNode<MeshT>::getVertexNormal(
 			toEval1[0] + toEval1[1] + toEval1[2] <= 1.0 &&
 			toEval2[0] + toEval2[1] + toEval2[2] <= 1.0
 			) {
-			pos1 = newPosition(toEval1, face);
-			pos2 = newPosition(toEval2, face);
+			pos1 = betri::evalSurface(cps, toEval1, grad());
+			pos2 = betri::evalSurface(cps, toEval2, grad());
 
 			normal += cross(normalize(pos1 - start), normalize(pos2 - start));
 			count++;
@@ -2173,6 +1434,8 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 		auto vh1 = *(vertexHandle++);
 		auto vh2 = *(vertexHandle++);
 
+		auto &cps = mesh().data(face).points();
+
 		for (double u = 0.0; u <= 1.0; u += STEPSIZE) {
 			for (double v = 0.0; u + v <= 1.0; v += STEPSIZE) {
 				//////////////
@@ -2180,7 +1443,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				//////////////
 				// Get the 3D-position Barycentric coords
 				auto toEval = betri::getBaryCoords(u, v);
-				pos = newPosition(toEval, face);
+				pos = betri::evalSurface(cps, toEval, grad());
 				for (int m = 0; m < 3; ++m)
 					vboData[elementOffset++] = float(pos[m]);
 

@@ -20,8 +20,7 @@
 #include <ACG/GL/globjects.hh>
 #include <ACG/GL/VertexDeclaration.hh>
 #include <ACG/GL/GLPrimitives.hh>
-
-#include "DrawBTMesh.hh"
+#include <ACG/GL/DrawMesh.hh>
 
 #include "BezierTMesh.hh"
 
@@ -57,6 +56,8 @@ public:
 	typedef typename MeshT::EdgeHandle EdgeHandle;
 	typedef typename MeshT::HalfedgeHandle HalfedgeHandle;
 	typedef typename MeshT::FaceHandle FaceHandle;
+
+	using DrawMesh = DrawMeshT<MeshT>;
 
 	/// Constructor
 	BezierTriangleMeshNode(MeshT& _bss,
@@ -109,7 +110,7 @@ public:
 		fancySphere_ = new GLSphere(16, 16);
 		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
 
-		drawBTMesh_ = new DrawBTMesh(bezierTriangleMesh_);
+		drawBTMesh_ = new DrawMesh(bezierTriangleMesh_);
 
 		// TODO why is this nessessary?
 		// Hand draw mesh down to super class.
@@ -144,7 +145,7 @@ public:
 	};
 
 
-	MeshT& bsplineSurface() {
+	MeshT& mesh() {
 		return bezierTriangleMesh_;
 	}
 
@@ -303,7 +304,6 @@ private:
 	/// update vertex + index buffer of surface mesh
 	void updateSurfaceMesh(const int meshOption);
 
-	void updateRaytracingFormula();
 	/// update vertex + index buffer of control net mesh
 	void updateControlNetMesh();
 	/// update texture resources for gpu-based spline evaluation
@@ -312,15 +312,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Functions for VBO creation
 	///////////////////////////////////////////////////////////////////////////
-	int pointsBefore(int level);
-	BezierTMesh::Point getCP(int i, int j, int k, BezierTMesh::FaceHandle fh);
-	BezierTMesh::Point oneEntry(
-		int i, int j, int k,
-		BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
-	);
-	BezierTMesh::Point newPosition(
-		BezierTMesh::Point baryCoords, BezierTMesh::FaceHandle fh
-	);
 	BezierTMesh::Point getFaceNormal(
 		double u, double v,
 		BezierTMesh::Point toEval, BezierTMesh::FaceHandle face,
@@ -401,40 +392,6 @@ private:
 
 	ACG::Vec4f generateHighlightColor(ACG::Vec4f _color);
 
-	///////////////////////////////////////////////////////////////////////////
-	// Draw Functions
-	///////////////////////////////////////////////////////////////////////////
-
-	/** \brief draws all vertices of the mesh
-	*
-	*/
-	//inline void draw_vertices();
-
-	//inline void add_point_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
-
-	/** \brief draws all edges of the mesh
-	*
-	*/
-	//inline void draw_lines();
-
-	//inline void add_line_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
-
-
-	/** \brief draws all halfedges of the mesh
-	*
-	*/
-	//inline void draw_halfedges();
-
-
-	/** \brief draws all faces of the mesh
-	*
-	*/
-	//void draw_faces();
-
-	void add_face_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj, bool _nonindexed = false);
-
-	void add_line_RenderObjects(IRenderer* _renderer, const RenderObject* _baseObj);
-
 ///////////////////////////////////////////////////////////////////////////////
 // Private Membervariables
 ///////////////////////////////////////////////////////////////////////////////
@@ -451,7 +408,7 @@ private:
 /** @name Draw-mesh handling
 * @{ */
 //===========================================================================
-	DrawBTMesh* drawBTMesh_;
+	DrawMesh* drawBTMesh_;
 
 /** @} */
 
