@@ -67,4 +67,8 @@ private slots:
 
 	void applyTessellation(bool toTriMesh);
 
+	void addRandomizedControlPoints();
+
+	void addTextureCoordinates();
+
 };

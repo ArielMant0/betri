@@ -160,7 +160,7 @@ bool DecimationParametrization::solveLocal(
 
 		HalfedgeHandle hh = m_mesh.find_halfedge(from, v0);
 		FaceHandle f = m_mesh.face_handle(hh);
-		if (!m_mesh.adjToVertex(f, v1)) {
+		if (!f.is_valid() || !m_mesh.adjToVertex(f, v1)) {
 			f = m_mesh.opposite_face_handle(hh);
 		}
 

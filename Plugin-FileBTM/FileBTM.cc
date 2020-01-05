@@ -474,6 +474,7 @@ bool FileBTMPlugin::parseASCII(
 			_importer.addControlPoint(fHandle, cpx, cpy, cpz);
 		}
     }
+
     // file was successfully parsed.
     return true;
 }
@@ -625,7 +626,7 @@ int FileBTMPlugin::loadObject(QString _filename)
 {
     BTMImporter importer;
     // Parse file
-    readOFFFile( _filename, importer );
+    readOFFFile(_filename, importer);
 
     // Finish importing
     importer.finish();
@@ -642,13 +643,8 @@ int FileBTMPlugin::loadObject(QString _filename)
 	BTMeshObject* btMeshObj = dynamic_cast<BTMeshObject*> (object);
 
 	if (btMeshObj) {
-		if (userReadOptions_ & BTMImporter::FORCE_NONORMALS) {
-			emit log(LOGINFO, tr("loadObject: Computing vertex and face normals."));
-			btMeshObj->mesh()->update_normals();
-		} else {
-			emit log(LOGINFO, tr("loadObject: Computing face normals."));
-			btMeshObj->mesh()->update_face_normals();
-		}
+		emit log(LOGINFO, tr("loadObject: Computing vertex and face normals."));
+		btMeshObj->mesh()->update_normals();
 	}
 
 	btMeshObj->mesh()->setRenderable();

@@ -6,7 +6,7 @@
 
 #include <iostream>
 
-void BezierTMesh::addCPsToFace(const FaceHandle f)
+void BezierTMesh::addCPsToFace(const FaceHandle f, const bool shift)
 {
 	auto vertexHandle = cfv_begin(f);
 	VertexHandle vh0 = *(vertexHandle++);
@@ -20,12 +20,15 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 	Point p2 = point(vh2);
 
 	update_normal(f);
-	Point n0 = calc_vertex_normal(vh0);
-	Point n1 = calc_vertex_normal(vh1);
-	Point n2 = calc_vertex_normal(vh2);
+	Point n0, n1, n2;
+	if (shift) {
+		n0 = calc_vertex_normal(vh0);
+		n1 = calc_vertex_normal(vh1);
+		n2 = calc_vertex_normal(vh2);
+	}
 
 	const int stuff = betri::gaussSum(m_degree + 1) - 1;
-	cp_vec.reserve(stuff);
+	cp_vec.reserve(stuff+1);
 
 	const float CP_STEPSIZE = 1.0 / m_degree;
 	int i = 0;
@@ -34,6 +37,9 @@ void BezierTMesh::addCPsToFace(const FaceHandle f)
 		for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE, ++i) {
 			double w = 1 - u - v;
 			Point p = p0 * u + p1 * v + p2 * w;
+			if (shift && i != 0 && i != m_degree && i != stuff) {
+				p += (n0 * u + n1 * v + n2 * w) / 2.5;
+			}
 			cp_vec.push_back(p);
 		}
 	}
@@ -172,9 +178,9 @@ void BezierTMesh::applyTessellation(MeshT *mesh, size_t amount)
 	}
 }
 
-void BezierTMesh::recalculateCPs(const FaceHandle f)
+void BezierTMesh::recalculateCPs(const FaceHandle f, const bool shift)
 {
-	addCPsToFace(f);
+	addCPsToFace(f, shift);
 }
 
 void BezierTMesh::interpolateEdgeControlPoints(const EdgeHandle eh, const bool between)

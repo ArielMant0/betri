@@ -10,18 +10,14 @@
 #include <qdoublespinbox>
 #include <qinputdialog.h>
 
+#include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenFlipper/common/GlobalOptions.hh>
 #include <OpenFlipper/common/RendererInfo.hh>
-
-#include "OpenFlipper/BasePlugin/PluginFunctions.hh"
-
-#include "BezierTriangleRendering.hh"
 
 using namespace betri;
 
 void BezierTriangleRenderingPlugin::initializePlugin()
 {
-
 	m_tool = new QWidget();
 	QIcon *toolIcon = new QIcon(
 		OpenFlipper::Options::iconDirStr() +
@@ -244,35 +240,6 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	visLabel->hide();
 	visComboBox->hide();
 
-	///////////////////////////////////////////////////////////////////////////
-	// Mesh-Attribute group
-	///////////////////////////////////////////////////////////////////////////
-	QGroupBox *attrGroup = new QGroupBox(tr("Mesh Attributes"));
-
-	QPushButton *addTexCoordsButton = new QPushButton(tr("Re-Add TexCoords"));
-
-	connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
-		this, [&]() {
-
-		PluginFunctions::ObjectIterator o_it(
-			PluginFunctions::TARGET_OBJECTS,
-			DATA_BEZIER_TRIANGLE_MESH
-		);
-
-		if (o_it != PluginFunctions::objectsEnd()) {
-
-			BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
-			betri::randomMeshUV(*(meshObj->mesh()));
-
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
-		}
-	});
-	//connect(addTexCoordsButton, QOverload<>::of(&QPushButton::pressed),
-	//	this, &BezierTriangleRenderingPlugin::setVisulisationType);
-
-	QGridLayout *attrLayout = new QGridLayout;
-	attrLayout->addWidget(addTexCoordsButton, 0, 0);
-	attrGroup->setLayout(attrLayout);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Performance group
@@ -365,8 +332,7 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	grid->addWidget(tessGroup, 2, 0);
 	grid->addWidget(raytracingGroup, 3, 0);
 	grid->addWidget(visGroup, 4, 0);
-	grid->addWidget(attrGroup, 5, 0);
-	grid->addWidget(perfGroup, 6, 0);
+	grid->addWidget(perfGroup, 5, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Rendering"), m_tool, toolIcon);

@@ -165,7 +165,7 @@ double Decimation::isCollapseLegal(const HalfedgeHandle hh)
 			c = (n0 | n1);
 			// check wether normal flips due to collapse
 			if (c < min_cos) {
-				mod = std::max(1.0 - ((1.0 + c) * 0.5), mod);
+				mod = std::max((1.0 - c) * 0.5, mod);
 			}
 		}
 	}
@@ -422,7 +422,9 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 
 			auto it = m_mesh.cfh_begin(face);
 			for (auto end = m_mesh.cfh_end(face); it != end; ++it) {
-				if (isOuterFace(m_mesh.opposite_face_handle(*it))) {
+
+				if (!m_mesh.is_boundary(m_mesh.edge_handle(*it)) &&
+					isOuterFace(m_mesh.opposite_face_handle(*it))) {
 					// set edge control points of outer edge
 					m_mesh.copyEdgeControlPoints(
 						m_mesh.opposite_face_handle(*it),
