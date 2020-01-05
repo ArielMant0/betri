@@ -42,7 +42,7 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	modeComboBox->addItem(tr("NONE"));
 	modeComboBox->addItem(tr("CPU"));
 	modeComboBox->addItem(tr("GPU"));
-	modeComboBox->addItem(tr("Raytracing"));
+	modeComboBox->addItem(tr("Ray casting"));
 
 	// set the connection to the setTessType
 	// TODO warum ist das hier anders als bei der tessspinbox
@@ -542,27 +542,6 @@ void BezierTriangleRenderingPlugin::setTessType(int value)
 	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
-	}
-
-	// TODO: get these names in a more robust manner
-	switch (value) {
-		default: // CPU
-			renderManager().setActive(
-				QString("Default Classical Renderer"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
-		case 1: // GPU
-			renderManager().setActive(
-				QString("Alpha_Version_ShaderPipeline"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
-		case 2: // raytracing
-			renderManager().setActive(QString("Raytracing_Renderer"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
 	}
 }
 
