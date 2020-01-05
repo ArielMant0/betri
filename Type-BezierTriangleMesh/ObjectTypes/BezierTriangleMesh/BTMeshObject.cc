@@ -11,8 +11,6 @@
 
 #include "BTMeshObject.hh"
 
-#ifdef DRAW_CURVED
-
 #define DATA_BEZIER_TRIANGLE_MESH typeId("BezierTriangleMesh")
 
 //== TYPEDEFS =================================================================
@@ -873,5 +871,3 @@ BaseNode* BTMeshObject::primaryNode()
 {
 	return boundingBoxNode();
 }
-
-#endif

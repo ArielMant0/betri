@@ -89,17 +89,9 @@ void TypeBezierTriangleMeshPlugin::slotUpdateContextMenu(int _objectId)
 
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-#ifdef DRAW_CURVED
 	if (surfaceObject != 0) {
 		renderControlNetAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_control_net());
 		renderSurfaceAction_->setChecked(surfaceObject->bezierTriangleMeshNode()->render_bspline_surface());
-#endif
-
-		/*
-		renderCPSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::CONTROLPOINT);
-		renderKnotSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::KNOTVECTOR);
-		renderNoSelectionAction_->setChecked(surfaceObject->splineSurfaceNode()->get_selection_draw_mode() == ACG::SceneGraph::BSplineSurfaceNodeT<BSplineSurface>::NONE);
-		*/
 	}
 }
 
@@ -117,12 +109,10 @@ void TypeBezierTriangleMeshPlugin::slotRenderControlNet() {
 
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-#ifdef DRAW_CURVED
 	if (surfaceObject != 0) {
 		surfaceObject->bezierTriangleMeshNode()->render_control_net(renderControlNetAction_->isChecked());
 		emit updatedObject(objectId, UPDATE_ALL);
 	}
-#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -141,12 +131,10 @@ void TypeBezierTriangleMeshPlugin::slotRenderSurface() {
 
 	BTMeshObject* surfaceObject = dynamic_cast<BTMeshObject*>(object);
 
-#ifdef DRAW_CURVED
 	if (surfaceObject != 0) {
 		surfaceObject->bezierTriangleMeshNode()->render_bspline_surface(renderSurfaceAction_->isChecked());
 		emit updatedObject(objectId, UPDATE_ALL);
 	}
-#endif
 }
 
 //-----------------------------------------------------------------------------
