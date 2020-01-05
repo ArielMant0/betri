@@ -1404,7 +1404,7 @@ void DrawBTMesh::VBOfromBoundingMesh()
 
 	int numVerts;
 	int numIndices;
-	betri::getVertexIndexCounts(bVolume, numVerts, numIndices);
+	betri::estimateVertexIndexCounts(bVolume, numVerts, numIndices);
 
 	int vertexCount = bezierTriangleMesh_.n_faces() * numVerts;
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes

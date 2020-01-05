@@ -98,8 +98,6 @@ public:
 		controlNetLineIndices_(0),
 		invalidateControlNetMesh_(true),
 		invalidateControlNetMeshSel_(true),
-		controlPointsChangedR_(true), // TODO
-		controlPointsChangedC_(true), // TODO
 		NEWVERTICES(0), // TODO
 		VERTEXSUM(3), // TODO
 		STEPSIZE(1.0), // TODO
@@ -163,10 +161,6 @@ public:
 
 	/// update bounding box
 	void boundingBox(Vec3d& _bbMin, Vec3d& _bbMax);
-
-	// TODO
-	void setControlPointsCircular();
-	void setControlPointsColumnwise();
 
 	/// return available draw modes
 	DrawModes::DrawMode availableDrawModes() const;
@@ -482,8 +476,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Setup
 	///////////////////////////////////////////////////////////////////////////
-	bool controlPointsChangedC_;
-	bool controlPointsChangedR_;
 
 	// Color Variables --------------------------------------------------------
 	Vec4f controlnet_color_;

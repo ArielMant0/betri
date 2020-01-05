@@ -131,7 +131,12 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
 	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
+	// set default to AABB
 	boundVComboBox->setCurrentIndex(1);
+	PluginFunctions::betriOption(
+		betri::BezierOption::BOUNDING_VOLUME,
+		betri::boundingVolumeType::AABB
+	);
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;

@@ -27,15 +27,22 @@ enum boundingVolumeType
 	BoundingBillboard = 5
 };
 
-static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
+template <typename T, typename I>
+inline void setValue(std::vector<T> &data, T value, I &index)
+{
+	data.push_back(value);
+	//data[index++] = value;
+}
+
+static void estimateVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 {
 	constexpr int indicesPerTriangle = 3;
 	constexpr int AABBTriangles = 12;
 	constexpr int prismTriangles = 6 + 2;
 	constexpr int tetraederTriangles = 4;
-	constexpr int hullTriangles = 8;
-	constexpr int bMeshTriangles = 8; // TODO
-	constexpr int bBoardTriangles = 4; // TODO
+	constexpr int hullTriangles = 1;
+	constexpr int bMeshTriangles = 1;
+	constexpr int bBoardTriangles = 1;
 
 	switch (bVolume) {
 		case boundingVolumeType::BoundingTetraeder:
@@ -51,16 +58,16 @@ static void getVertexIndexCounts(int bVolume, int &numVerts, int &numIndices)
 			numIndices = prismTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::ConvexHull:
-			numVerts = 6; // TODO 
-			numIndices = hullTriangles * indicesPerTriangle; // BIG TODO
+			numVerts = 3;
+			numIndices = hullTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::BoundingMesh:
-			numVerts = 6; // TODO 
-			numIndices = bMeshTriangles * indicesPerTriangle; // BIG TODO
+			numVerts = 3;
+			numIndices = bMeshTriangles * indicesPerTriangle;
 			break;
 		case boundingVolumeType::BoundingBillboard:
-			numVerts = 6; // TODO 
-			numIndices = bBoardTriangles * indicesPerTriangle; // BIG TODO
+			numVerts = 3;
+			numIndices = bBoardTriangles * indicesPerTriangle;
 			break;
 		default:
 			numVerts = 0;
@@ -210,7 +217,6 @@ static void addBoundingTetraederFromPoints(
 		}
 	}
 
-
 	std::vector<BezierTMesh::Point> newPoints;
 	newPoints.push_back(BezierTMesh::Point(v1.x, v1.y, v1.z));
 	newPoints.push_back(BezierTMesh::Point(v2.x, v2.y, v2.z));
@@ -223,36 +229,23 @@ static void addBoundingTetraederFromPoints(
 	const size_t boundingVolumeVCount = 4;
 
 	for (auto v : newPoints) {
-		vboData[vboIndex++] = float(v[0]);
-		vboData[vboIndex++] = float(v[1]);
-		vboData[vboIndex++] = float(v[2]);
+		setValue(vboData, float(v[0]), vboIndex);
+		setValue(vboData, float(v[1]), vboIndex);
+		setValue(vboData, float(v[2]), vboIndex);
 
-		/*
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-		*/
-
-		vboData[vboIndex++] = float(face_index);
-		vboData[vboIndex++] = 0.0;
+		setValue(vboData, float(face_index), vboIndex);
+		setValue(vboData, 0.0f, vboIndex);
 	}
 
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
+	for (int i = 0; i <= 3; ++i) {
+		for (int j = i; j <= i + 2; ++j) {
+			setValue(
+				iboData,
+				int(face_index * boundingVolumeVCount + (j % 4)),
+				iboIndex
+			);
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -296,69 +289,56 @@ static void addBoundingBoxFromPoints(
 
 	for (auto p : pointArray) {
 		// store pos
-		for (int m = 0; m < 3; ++m)
-			vboData[vboIndex++] = float(p[m]);
+		for (int m = 0; m < 3; ++m) {
+			setValue(vboData, float(p[m]), vboIndex);
+		}
 
-		/*
-		// TODO not nessessary
-		// store normal
-		//for (int m = 0; m < 3; ++m)
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-		*/
-
-		// store texcoord
-		//texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
-		//vboData[vboIndex++] = texCoord[0];
-		//vboData[vboIndex++] = texCoord[1];
-		vboData[vboIndex++] = float(face_index);
-		vboData[vboIndex++] = 0.0;
+		setValue(vboData, float(face_index), vboIndex);
+		setValue(vboData, 0.f, vboIndex);
 	}
 
 	// first face - front
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
+	setValue(iboData, face_index*boundingVolumeVCount + 0, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 3, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 1, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 3, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 2, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 1, iboIndex);
 	// second face - top
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 6;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
+	setValue(iboData, face_index*boundingVolumeVCount + 1, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 2, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 5, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 2, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 6, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 5, iboIndex);
 	// third face - back
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 6;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 6;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
+	setValue(iboData, face_index*boundingVolumeVCount + 5, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 6, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 4, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 6, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 7, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 4, iboIndex);
 	// forth face - bottom
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
+	setValue(iboData, face_index*boundingVolumeVCount + 4, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 7, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 0, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 7, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 3, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 0, iboIndex);
 	// fifth face - left
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 4;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 0;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 1;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 5;
-	// sixth face - rigth
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 3;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 7;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 6;
-	iboData[iboIndex++] = face_index * boundingVolumeVCount + 2;
+	setValue(iboData, face_index*boundingVolumeVCount + 4, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 0, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 5, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 0, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 1, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 5, iboIndex);
+	// sixth face - right
+	setValue(iboData, face_index*boundingVolumeVCount + 3, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 7, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 2, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 7, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 6, iboIndex);
+	setValue(iboData, face_index*boundingVolumeVCount + 2, iboIndex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -429,18 +409,15 @@ static void addPrismVolumeFromPoints(
 	for (int i = 0; i < controlPointsPerFace; i++) {
 		cp = faceControlP[i];
 
-		// TODO does not work for higher degrees but should not be nessessary in generell
+		// TODO does not work for higher degrees but should not be neccessary in generell
 		if (i == 0 || i == grad || i == controlPointsPerFace - 1)
 			continue;
 
-		// TODO is das gut so
+		// TODO: dont make intersection test, calculate distance to plane?
 		BezierTMesh::Point intersection;
 
-		// TODO boolean ins if
 		// Calculate intersection between p1-cp and p2-p3
-		bool intersect = linePlaneIntersect(p1, cp, p2, normalize(cross(normal, p3 - p2)), intersection);
-
-		if (intersect) {
+		if (linePlaneIntersect(p1, cp, p2, normalize(cross(normal, p3 - p2)), intersection)) {
 			// Calculate ratio between intersect-cp and p1-intersect
 			double ratio = length(cp - intersection) / length(intersection - p1);
 
@@ -451,9 +428,7 @@ static void addPrismVolumeFromPoints(
 		}
 
 		// Calculate intersection between p2-cp and p1-p3
-		intersect = linePlaneIntersect(p2, cp, p1, normalize(cross(normal, p1 - p3)), intersection);
-
-		if (intersect) {
+		if (linePlaneIntersect(p2, cp, p1, normalize(cross(normal, p1 - p3)), intersection)) {
 			// Calculate ratio between intersect-cp and p2-intersect
 			double ratio = length(cp - intersection) / length(intersection - p2);
 
@@ -464,9 +439,7 @@ static void addPrismVolumeFromPoints(
 		}
 
 		// Calculate intersection between p3-cp and p1-p2
-		intersect = linePlaneIntersect(p3, cp, p1, normalize(cross(normal, p2 - p1)), intersection);
-
-		if (intersect) {
+		if (linePlaneIntersect(p3, cp, p1, normalize(cross(normal, p2 - p1)), intersection)) {
 			// Calculate ratio between intersect-cp and p3-intersect
 			double ratio = length(cp - intersection) / length(intersection - p3);
 
@@ -477,7 +450,7 @@ static void addPrismVolumeFromPoints(
 		}
 
 		// Calculate ratio between p3-intersect and intersect-cp
-		// TODO double dotP = dot(cp - p1, normal) 
+		// TODO double dotP = dot(cp - p1, normal)
 		dot(cp - p1, normal) < n_min ? n_min = dot(cp - p1, normal) : -1;
 		dot(cp - p1, normal) > n_max ? n_max = dot(cp - p1, normal) : -1;
 	}
@@ -496,22 +469,13 @@ static void addPrismVolumeFromPoints(
 
 	for (auto p : pointArray) {
 		// store pos
-		for (int m = 0; m < 3; ++m)
-			vboData[vboIndex++] = float(p[m]);
-
-		/*
-		// TODO not nessessary
-		// store normal
-		//for (int m = 0; m < 3; ++m)
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-		*/
+		for (int m = 0; m < 3; ++m) {
+			setValue(vboData, float(p[m]), vboIndex);
+		}
 
 		// store texcoord
-		vboData[vboIndex++] = float(face_index);
-		vboData[vboIndex++] = 0.0;
+		setValue(vboData, float(face_index), vboIndex);
+		setValue(vboData, 0.0f, vboIndex);
 	}
 
 	// TODO ask franziska if this is better
@@ -524,7 +488,7 @@ static void addPrismVolumeFromPoints(
 	};
 
 	for (int i : indexArray) {
-		iboData[iboIndex++] = face_index * boundingVolumeVCount + i;
+		setValue(iboData, face_index * boundingVolumeVCount + i, iboIndex);
 	}
 }
 
@@ -541,7 +505,7 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 	std::vector<size_t> convexHull;
 
 	// Search for biggest x as one of the points of the convex hull
-	
+
 	auto start = BezierTMesh::Point(-INFINITY);
 	auto last = BezierTMesh::Point(-INFINITY);
 
@@ -556,7 +520,7 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 			last = p;
 		}
 	}
-	
+
 	/*
 	// Bounding Plane
 	auto min = BezierTMesh::Point(std::numeric_limits<float>::max());
@@ -600,7 +564,7 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 
 	std::cerr << "\n diag1 + diag2 + normal " << std::endl;
 	std::cerr << diag1 << " " << diag2 << " " << normal << std::endl;
-	
+
 	std::cerr << "\n start + last " << std::endl;
 	std::cerr << start << " " << last << std::endl;
 	*/
@@ -721,31 +685,22 @@ static void addConvexHullFromPoints(
 	//////////////////
 	// Setup Buffer //
 	//////////////////
-	//const size_t boundingVolumeVCount = hull.m_vertices.size();
-	const size_t boundingVolumeVCount = faceControlP.size();
+
+	// num vertices that came before in vbo (divide by 3 3D coords + 2 tex coords)
+	const size_t beforeSize = vboData.size() / 5;
 
 	for (auto v : reducedMesh.vertices()) {
-		vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
-		vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
-		vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+		setValue(vboData, float(reducedMesh.point(v)[0]), vboIndex);
+		setValue(vboData, float(reducedMesh.point(v)[1]), vboIndex);
+		setValue(vboData, float(reducedMesh.point(v)[2]), vboIndex);
 
-		/*
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-		*/
-
-		vboData[vboIndex++] = float(face_index);
-		vboData[vboIndex++] = 0.0;
+		setValue(vboData, float(face_index), vboIndex);
+		setValue(vboData, 0.0f, vboIndex);
 	}
-
-	// TODO das ist dämlich
-	vboIndex += 5 * (boundingVolumeVCount - reducedMesh.n_vertices());
 
 	for (auto f : reducedMesh.faces()) {
 		for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
-			iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+			setValue(iboData, int(beforeSize + fv_it->idx()), iboIndex);
 		}
 	}
 }
@@ -893,22 +848,25 @@ std::cerr << std::endl;
 	//////////////////
 	// Setup Buffer //
 	//////////////////
+
+	// num vertices that came before in vbo (divide by 3 3D coords + 2 tex coords)
+	const size_t beforeSize = vboData.size() / 5;
+
 	if (false) {
-		const size_t boundingVolumeVCount = hull.m_vertices.size();
 
 		for (auto v : hull.m_vertices) {
-			vboData[vboIndex++] = float(v.x);
-			vboData[vboIndex++] = float(v.y);
-			vboData[vboIndex++] = float(v.z);
+			setValue(vboData, float(v.x), vboIndex);
+			setValue(vboData, float(v.y), vboIndex);
+			setValue(vboData, float(v.z), vboIndex);
 
 
-			vboData[vboIndex++] = float(face_index);
+			setValue(vboData, float(face_index), vboIndex);
 			//vboData[vboIndex++] = float(1.0);
-			vboData[vboIndex++] = float(0.0);
-			vboData[vboIndex++] = float(0.0);
+			setValue(vboData, 0.0f, vboIndex);
+			setValue(vboData, 0.0f, vboIndex);
 
-			vboData[vboIndex++] = 1.0;
-			vboData[vboIndex++] = 0.0;
+			setValue(vboData, 1.0f, vboIndex);
+			setValue(vboData, 0.0f, vboIndex);
 		}
 
 		//int asd = 0;
@@ -919,34 +877,54 @@ std::cerr << std::endl;
 			do {
 				//adf2++;
 				//std::cerr << asd << " " << adf2 << std::endl;
-				iboData[iboIndex++] = face_index * boundingVolumeVCount + hull.m_halfEdges[e].m_endVertex;
+				//iboData[iboIndex++] = face_index * boundingVolumeVCount + hull.m_halfEdges[e].m_endVertex;
+				setValue(iboData, int(beforeSize + hull.m_halfEdges[e].m_endVertex), iboIndex);
 				e = hull.m_halfEdges[e].m_next;
 			} while (e != f.m_halfEdgeIndex);
 		}
 	} else {
-		const size_t boundingVolumeVCount = hull.m_vertices.size();
+
+		// num vertices that came before in vbo (divide by 3 3D coords + 2 tex coords)
+		const size_t beforeSize = vboData.size() / 5;
 
 		for (auto v : reducedMesh.vertices()) {
-			vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
-			vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
-			vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+			setValue(vboData, float(reducedMesh.point(v)[0]), vboIndex);
+			setValue(vboData, float(reducedMesh.point(v)[1]), vboIndex);
+			setValue(vboData, float(reducedMesh.point(v)[2]), vboIndex);
 
-			/*
-			vboData[vboIndex++] = float(face_index);
-			//vboData[vboIndex++] = float(1.0);
-			vboData[vboIndex++] = float(0.0);
-			vboData[vboIndex++] = float(0.0);
-			*/
-
-			vboData[vboIndex++] = float(face_index);
-			vboData[vboIndex++] = 0.0;
+			setValue(vboData, float(face_index), vboIndex);
+			setValue(vboData, 0.0f, vboIndex);
 		}
 
 		for (auto f : reducedMesh.faces()) {
 			for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
-				iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+				setValue(iboData, int(beforeSize + fv_it->idx()), iboIndex);
 			}
 		}
+
+		//const size_t boundingVolumeVCount = hull.m_vertices.size();
+
+		//for (auto v : reducedMesh.vertices()) {
+		//	vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
+		//	vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
+		//	vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+
+		//	/*
+		//	vboData[vboIndex++] = float(face_index);
+		//	//vboData[vboIndex++] = float(1.0);
+		//	vboData[vboIndex++] = float(0.0);
+		//	vboData[vboIndex++] = float(0.0);
+		//	*/
+
+		//	vboData[vboIndex++] = float(face_index);
+		//	vboData[vboIndex++] = 0.0;
+		//}
+
+		//for (auto f : reducedMesh.faces()) {
+		//	for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
+		//		iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+		//	}
+		//}
 	}
 }
 
@@ -1012,30 +990,22 @@ static void addBoundingBillboardFromPoints(
 	//////////////////
 	// Setup Buffer //
 	//////////////////
-	const size_t boundingVolumeVCount = faceControlP.size();
+
+	// num vertices that came before in vbo (divide by 3 3D coords + 2 tex coords)
+	const size_t beforeSize = vboData.size() / 5;
 
 	for (auto v : reducedMesh.vertices()) {
-		vboData[vboIndex++] = float(reducedMesh.point(v)[0]);
-		vboData[vboIndex++] = float(reducedMesh.point(v)[1]);
-		vboData[vboIndex++] = float(reducedMesh.point(v)[2]);
+		setValue(vboData, float(reducedMesh.point(v)[0]), vboIndex);
+		setValue(vboData, float(reducedMesh.point(v)[1]), vboIndex);
+		setValue(vboData, float(reducedMesh.point(v)[2]), vboIndex);
 
-		/*
-		vboData[vboIndex++] = float(face_index);
-		//vboData[vboIndex++] = float(1.0);
-		vboData[vboIndex++] = float(0.0);
-		vboData[vboIndex++] = float(0.0);
-		*/
-
-		vboData[vboIndex++] = float(face_index);
-		vboData[vboIndex++] = 0.0;
+		setValue(vboData, float(face_index), vboIndex);
+		setValue(vboData, 0.0f, vboIndex);
 	}
-
-	// TODO das ist dämlich
-	vboIndex += 5 * (boundingVolumeVCount - reducedMesh.n_vertices());
 
 	for (auto f : reducedMesh.faces()) {
 		for (TriMesh::FaceVertexIter fv_it = reducedMesh.fv_iter(f); fv_it.is_valid(); ++fv_it) {
-			iboData[iboIndex++] = face_index * boundingVolumeVCount + fv_it->idx();
+			setValue(iboData, int(beforeSize + fv_it->idx()), iboIndex);
 		}
 	}
 }

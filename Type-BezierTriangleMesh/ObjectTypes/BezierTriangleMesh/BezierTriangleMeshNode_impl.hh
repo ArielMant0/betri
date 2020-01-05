@@ -42,8 +42,6 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 {
 	if (!bezierTriangleMesh_.isRenderable()) return;
-	// TODO
-	//setControlPointsColumnwise();
 
 	const int controlPointsPerFace = cpSum();
 	for (auto face : bezierTriangleMesh_.faces()) {
@@ -54,76 +52,6 @@ void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 			_bbMin.minimize(cp);
 			_bbMax.maximize(cp);
 		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::setControlPointsCircular()
-{
-	for (auto &face : bezierTriangleMesh_.faces()) {
-		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
-		auto vh0 = *(vertexHandle++);
-		auto vh1 = *(vertexHandle++);
-		auto vh2 = *(vertexHandle);
-
-		int testScalar = 0.0;
-		auto cp0 = bezierTriangleMesh_.point(vh0);
-		auto cp1 = (bezierTriangleMesh_.point(vh0) * 0.5 + bezierTriangleMesh_.point(vh1) * 0.5) + Point(0.0, 0.0, testScalar);
-		auto cp2 = bezierTriangleMesh_.point(vh1);
-		auto cp3 = (bezierTriangleMesh_.point(vh1) * 0.5 + bezierTriangleMesh_.point(vh2) * 0.5) + Point(0.0, 0.0, testScalar);
-		auto cp4 = bezierTriangleMesh_.point(vh2);
-		auto cp5 = bezierTriangleMesh_.point(vh2) * 0.5 + bezierTriangleMesh_.point(vh0) * 0.5 + Point(0.0, 0.0, testScalar);
-
-		bezierTriangleMesh_.data(face).points(std::vector<Point>({ cp0, cp1, cp2, cp3, cp4, cp5 }));
-	}
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::setControlPointsColumnwise()
-{
-	// TODO: rene/franzis toggle !!!
-	return;
-
-	float div = 1.0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (10.0 - 1.0)));
-
-	// Columnwise
-	for (auto &face : bezierTriangleMesh_.faces()) {
-		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
-		auto vh0 = *(vertexHandle++);
-		auto vh1 = *(vertexHandle++);
-		auto vh2 = *(vertexHandle);
-
-
-		Point p0 = bezierTriangleMesh_.point(vh0);
-		Point p1 = bezierTriangleMesh_.point(vh1);
-		Point p2 = bezierTriangleMesh_.point(vh2);
-
-		std::vector<Point> cp_vec = std::vector<Point>();
-
-		// TODO 1.01 ...
-		const float CP_STEPSIZE = 1.0 / grad();
-		int i = 0;
-		for (double u = 0.0; u <= 1.01; u += CP_STEPSIZE) {
-			for (double v = 0.0; u + v <= 1.01; v += CP_STEPSIZE) {
-				double w = 1 - u - v;
-				Point p = p0 * u + p1 * v + p2 * w;
-				// If it isnt an cornerpoint
-				if (i != 0 && i != grad() && i != betri::gaussSum(grad() + 1) - 1) {
-					Point n = bezierTriangleMesh_.normal(vh0) * u + bezierTriangleMesh_.normal(vh1) * v + bezierTriangleMesh_.normal(vh2) * w;
-					//p += n / div;
-					p += n / 2.5;
-					//p += Point(0.3, 0.0, 0.0);
-				}
-				i++;
-				cp_vec.push_back(p);
-			}
-		}
-
-		bezierTriangleMesh_.data(face).points(cp_vec);
 	}
 }
 
@@ -236,13 +164,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	// TODO call otherwise or atleast only when needed
 	drawBTMesh_->getVBO(); // TODO this should be done differently, in a status node or smthg look into that further
 #endif
-
-	// TODO
-	if (controlPointsChangedR_) {
-		setControlPointsColumnwise();
-		controlPointsChangedR_ = false;
-		controlPointsChangedC_ = true;
-	}
 
 	// check if textures are still valid
 	if (bspline_selection_draw_mode_ == CONTROLPOINT
@@ -911,14 +832,6 @@ void BezierTriangleMeshNode<MeshT>::draw(
 	// only render mesh if it is ready
 	if (!bezierTriangleMesh_.isRenderable())
 		return;
-
-	// TODO
-	if (controlPointsChangedC_) {
-		//setControlPointsCircular();
-		setControlPointsColumnwise();
-		controlPointsChangedC_ = false;
-		controlPointsChangedR_ = true;
-	}
 
 	GLenum prev_depth = _state.depthFunc();
 
@@ -2541,7 +2454,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 
 	int numVerts;
 	int numIndices;
-	betri::getVertexIndexCounts(bVolume, numVerts, numIndices);
+	betri::estimateVertexIndexCounts(bVolume, numVerts, numIndices);
 
 	int vertexCount = bezierTriangleMesh_.n_faces() * numVerts;
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
@@ -2549,9 +2462,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	int indexCount = bezierTriangleMesh_.n_faces() * numIndices;
 
 	// create index buffer
-	std::vector<int> iboData(indexCount);
+	//std::vector<int> iboData(indexCount);
+	std::vector<int> iboData;
+	iboData.reserve(indexCount);
 	// create vertex buffer
-	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
+	//std::vector<float> vboData(vboSize / 4); // float: 4 bytes
+	std::vector<float> vboData;
+	vboData.reserve(vboSize / 4);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Fill with boundingbox data
@@ -2559,17 +2476,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 
 	int vboIndex = 0;
 	int iboIndex = 0;
-	//for (int face_index = 0; face_index < bezierTriangleMesh_.n_faces(); ++face_index) {
 	int face_index = 0;
 
 	const int controlPointsPerFace = cpSum();
 	for (FaceHandle face : bezierTriangleMesh_.faces()) {
 
-		auto faceControlP = bezierTriangleMesh_.data(face);
-		std::vector<Point> cpArray = std::vector<Point>();
-		for (int i = 0; i < controlPointsPerFace; i++) {
-			cpArray.push_back(faceControlP.controlPoint(i));
-		}
+		auto &faceControlP = bezierTriangleMesh_.data(face);
+		std::vector<Point> cpArray = faceControlP.points();
 
 		switch (bVolume) {
 			case betri::boundingVolumeType::BoundingTetraeder:
@@ -2686,19 +2599,37 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	// Upload VBO and IBO and cleanup
 	///////////////////////////////////////////////////////////////////////////
 
+	vboSize = vboData.size() * (surfaceDecl_.getVertexStride() / 4); // bytes;
+	indexCount = iboData.size() * 4;
+
+	// in bytes
+	switch (bVolume) {
+		case betri::boundingVolumeType::AABB:
+		case betri::boundingVolumeType::PrismVolume:
+		case betri::boundingVolumeType::BoundingTetraeder:
+			assert(vboData.size() * 4 == vertexCount * surfaceDecl_.getVertexStride());
+			assert(indexCount == bezierTriangleMesh_.n_faces() * numIndices * 4);
+			break;
+		case betri::boundingVolumeType::ConvexHull:
+			assert(vboData.size() * 4 >= vertexCount * surfaceDecl_.getVertexStride());
+			assert(indexCount >= bezierTriangleMesh_.n_faces() * numIndices * 4);
+			break;
+		default: break;
+	}
+
 	if (vboSize)
-		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+		surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
 
 	vboData.clear();
 
-	// TODO why is it here *4 is it because of size in bytes?!
 	if (indexCount)
-		surfaceIBO_.upload(indexCount * 4, &iboData[0], GL_STATIC_DRAW);
+		surfaceIBO_.upload(indexCount, iboData.data(), GL_STATIC_DRAW);
+
+	iboData.clear();
 
 	surfaceIndexCount_ = indexCount;
 
 	invalidateSurfaceMesh_ = false;
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2708,9 +2639,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 {
-	//setControlPointsColumnwise();
-	//updateGeometry();
-
 	if (pick_texture_idx_ == 0)
 		pick_init_texturing();
 
