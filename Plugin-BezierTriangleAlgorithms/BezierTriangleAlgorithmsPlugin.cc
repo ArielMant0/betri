@@ -4,7 +4,6 @@
 #include <qgridlayout.h>
 // TODO new
 #include <qgroupbox.h>
-#include <qcombobox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
 #include <qspinbox.h>
@@ -19,7 +18,6 @@ using namespace betri;
 
 void BezierTriangleAlgorithmsPlugin::initializePlugin()
 {
-
 	m_tool = new QWidget();
 	QIcon *toolIcon = new QIcon(
 		OpenFlipper::Options::iconDirStr() +
@@ -61,6 +59,11 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vFlags[2] = new QCheckBox(tr("overwrite mesh"));
 	m_vFlags[2]->setChecked(true); // default
 
+	QLabel *modeLabel = new QLabel(tr("Parametrization Weights"));
+	m_vparam = new QComboBox();
+	m_vparam->addItem("uniform");
+	m_vparam->addItem("cotangent");
+
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
 	voronoiLayout->addWidget(patitionButton, 1, 0, 2, 1);
@@ -70,6 +73,8 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
 	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
 	voronoiLayout->addWidget(m_vFlags[2], 5, 0);
+	voronoiLayout->addWidget(modeLabel, 6, 0, 1, 1);
+	voronoiLayout->addWidget(m_vparam, 6, 1, 1, 1);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -102,14 +107,23 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	connect(testButton, SIGNAL(clicked()), this, SLOT(testAlgorithm()));
 
 	///////////////////////////////////////////////////////////////////////////
+	// Tijmer
+	///////////////////////////////////////////////////////////////////////////
+	QCheckBox *useTimer = new QCheckBox(tr("time algorithm"));
+	connect(useTimer, QOverload<bool>::of(&QCheckBox::toggled), this, [&](bool use) {
+		m_useTimer = use;
+	});
+
+	///////////////////////////////////////////////////////////////////////////
 	// Add all Elements
 	///////////////////////////////////////////////////////////////////////////
 
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(degBox, 0, 0);
-	grid->addWidget(voronoiGroup, 1, 0);
-	grid->addWidget(deciGroup, 2, 0);
-	grid->addWidget(testButton, 3, 0);
+	grid->addWidget(useTimer, 1, 0);
+	grid->addWidget(voronoiGroup, 2, 0);
+	grid->addWidget(deciGroup, 3, 0);
+	grid->addWidget(testButton, 4, 0);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Algorithms"), m_tool, toolIcon);
@@ -183,9 +197,30 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				seedCount,
 				m_vFlags[0]->isChecked(),
 				m_vFlags[1]->isChecked(),
-				m_vFlags[2]->isChecked()
+				m_vFlags[2]->isChecked(),
+				m_vparam->currentIndex()
 			);
+
+			if (m_useTimer) {
+				m_timer.filename(
+					meshObj->path().toStdString() +
+					"/voronoi-times.txt"
+				);
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.start(
+					info.name + " " +
+					info.vertices + " " +
+					info.edges + " " +
+					info.faces + " " +
+					info.partition
+				);
+			}
+
 			betri::voronoiRemesh(*o_it, ctrl_obj);
+
+			if (m_useTimer) {
+				m_timer.end();
+			}
 
 			BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
@@ -225,7 +260,16 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		bool done = betri::voronoiDual(*o_it, ctrl_obj, true);
+
+		if (m_useTimer) {
+			m_timer.lapEnd("dualize step");
+		}
+
 		emit log(LOGINFO, "Performed Dualizing Step!");
 
 		// only show control mesh obj if its complete
@@ -260,7 +304,16 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		betri::voronoiDual(*o_it, ctrl_obj, false);
+
+		if (m_useTimer) {
+			m_timer.lapEnd("dualize");
+		}
+
 		emit log(LOGINFO, "Performed Dualizing!");
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);
@@ -269,9 +322,6 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		// TODO: does not work for some reason
 		ctrlMeshObj->mesh()->setRenderable();
 		ctrlMeshObj->show();
-
-		//m_voronoiSteps[1]->setDisabled(true);
-		//m_voronoiSteps[2]->setDisabled(true);
 	}
 }
 
@@ -289,7 +339,15 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
 
+		if (m_useTimer) {
+			m_timer.lapStart();
+		}
+
 		betri::voronoiFitting(*o_it, ctrl_obj);
+
+		if (m_useTimer) {
+			m_timer.end("fitting");
+		}
 
 		BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
@@ -365,9 +423,31 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				seedCount,
 				m_vFlags[0]->isChecked(),
 				m_vFlags[1]->isChecked(),
-				m_vFlags[2]->isChecked()
+				m_vFlags[2]->isChecked(),
+				m_vparam->currentIndex()
 			);
+
+			if (m_useTimer) {
+				m_timer.filename(
+					meshObj->path().toStdString() +
+					"/voronoi-times.txt"
+				);
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.start(
+					info.name + " " +
+					info.vertices + " " +
+					info.edges + " " +
+					info.faces + " " +
+					info.partition
+				);
+			}
+
 			betri::voronoiPartition(*o_it, ctrl_obj);
+
+			if (m_useTimer) {
+				m_timer.lapEnd("partition");
+			}
+
 			emit log(LOGINFO, "Performed Voronoi Partition!");
 
 			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
@@ -472,7 +552,27 @@ void BezierTriangleAlgorithmsPlugin::callDecimation()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BezierTMesh *mesh = meshObj->mesh();
 
+		if (m_useTimer) {
+			m_timer.filename(
+				meshObj->path().toStdString() +
+				"/decimation-times.txt"
+			);
+			auto info = betri::decimationInfo(meshObj);
+			m_timer.start(
+				info.name + " " +
+				info.vertices + " " +
+				info.edges + " " +
+				info.faces + " " +
+				info.target
+			);
+		}
+
 		betri::decimation(meshObj, false, m_dFlags[1]->isChecked());
+
+		if (m_useTimer) {
+			m_timer.end();
+		}
+
 		emit log(LOGINFO, "# --------------------------- #");
 		emit log(LOGINFO, "# Performed Decimation (DONE)!");
 		emit log(LOGINFO, tr("# Vertices: %1").arg(mesh->n_vertices()));

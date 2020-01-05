@@ -11,6 +11,24 @@ enum class TestOptions
 	decimation_param
 };
 
+struct VoronoiInfo
+{
+	std::string name;
+	std::string vertices;
+	std::string edges;
+	std::string faces;
+	std::string partition;
+};
+
+struct DecimationInfo
+{
+	std::string name;
+	std::string vertices;
+	std::string edges;
+	std::string faces;
+	std::string target;
+};
+
 //////////////////////////////////////////
 // voronoi
 //////////////////////////////////////////
@@ -21,7 +39,8 @@ void voronoiInit(
 	size_t count,
 	const bool useColors,
 	const bool interpolate,
-	const bool overwrite
+	const bool overwrite,
+	const int paramWeights
 );
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -32,6 +51,8 @@ bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
 
 void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
+VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl);
+
 //////////////////////////////////////////
 // decimation
 //////////////////////////////////////////
@@ -39,6 +60,8 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 void decimationInit(BaseObjectData *object, size_t complexity, bool color=true);
 
 bool decimation(BaseObjectData *object, bool steps, bool interpolate);
+
+DecimationInfo decimationInfo(BaseObjectData *object);
 
 //////////////////////////////////////////
 // tests

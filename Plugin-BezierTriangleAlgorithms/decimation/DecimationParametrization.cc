@@ -160,7 +160,7 @@ bool DecimationParametrization::solveLocal(
 
 		HalfedgeHandle hh = m_mesh.find_halfedge(from, v0);
 		FaceHandle f = m_mesh.face_handle(hh);
-		if (!m_mesh.adjToVertex(f, v1)) {
+		if (!f.is_valid() || !m_mesh.adjToVertex(f, v1)) {
 			f = m_mesh.opposite_face_handle(hh);
 		}
 
@@ -189,7 +189,8 @@ bool DecimationParametrization::solveLocal(
 		v02 = c0 == 2 ? v0 : (c1 == 2 ? v1 : from);
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
-		assert(std::isgreater(area(facesOrig[f]), 0.));
+
+		if (!std::isgreater(area(facesOrig[f]), 0.)) return false;
 	}
 
 	if (faces.size() != n - 2) return false;

@@ -7,6 +7,11 @@ namespace betri
 
 void Decimation::prepare()
 {
+	// needed for collapse legal test
+	if (!m_mesh.has_halfedge_status()) {
+		m_mesh.request_halfedge_status();
+	}
+
 	// quadric property of each vertex: normal equations of one-ring faces
 	if (!m_mesh.get_property_handle(m_hprio, "halfedgeprioprop"))
 		m_mesh.add_property(m_hprio, "halfedgeprioprop");
@@ -65,18 +70,19 @@ void Decimation::calculateErrors()
 
 void Decimation::calculateError(const HalfedgeHandle hh)
 {
+	double legal = isCollapseLegal(hh);
 	// "simulate collapse" -> fit all 1-Ring faces -> use max error
-	priority(hh) = isCollapseLegal(hh) ? fit(hh, false) : -1.0;
+	priority(hh) = legal == -1.0 ? -1.0 : (1.0 + legal) * fit(hh, false);
 }
 
 void Decimation::updateError(const HalfedgeHandle hh, const Scalar add)
 {
-	bool legal = isCollapseLegal(hh);
+	double legal = isCollapseLegal(hh);
 
-	if (priority(hh) != -1.0 && legal) {
+	if (priority(hh) != -1.0 && legal != -1.0) {
 		// "simulate collapse" -> fit all 1-Ring faces -> use max error
 		Scalar error = fit(hh, false);
-		priority(hh) = error != -1.0 ? add + error : -1.0;
+		priority(hh) = error != -1.0 ? add + error * (1.0 + legal) : -1.0;
 	} else {
 		// halfedges that result in an illegal collapse have a priority of -1
 		priority(hh) = -1.0;
@@ -116,7 +122,7 @@ void Decimation::enqueueVertex(const VertexHandle vh)
 	}
 }
 
-bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
+double Decimation::isCollapseLegal(const HalfedgeHandle hh)
 {
 	// collect vertices
 	VertexHandle v0 = m_mesh.from_vertex_handle(hh);
@@ -124,14 +130,50 @@ bool Decimation::isCollapseLegal(const HalfedgeHandle hh)
 
 	// topological test
 	if (!m_mesh.is_collapse_ok(hh)) {
-		return false;
+		return -1.0;
 	}
 	// test boundary stuff
 	if (m_mesh.is_boundary(v0) && !m_mesh.is_boundary(v1)) {
-		return false;
+		return -1.0;
 	}
 
-	return true;
+	// collect faces
+	FaceHandle fl = m_mesh.face_handle(hh);
+	FaceHandle fr = m_mesh.face_handle(m_mesh.opposite_halfedge_handle(hh));
+
+	// backup point positions
+	const Point p0 = m_mesh.point(v0);
+	const Point p1 = m_mesh.point(v1);
+
+	// simulate collapse
+	m_mesh.set_point(v0, p1);
+
+	// check for flipping normals
+	double c(0.0);
+	double mod(0.0);
+	const double min_cos(0.0); // pi/2
+
+	for (auto vf_it(m_mesh.cvf_begin(v0)), vf_end(m_mesh.cvf_end(v0));
+		vf_it != vf_end; ++vf_it
+	) {
+		// dont check triangles that would be deleted anyway
+		if ((*vf_it != fl) && (*vf_it != fr)) {
+
+			Point n0 = m_mesh.normal(*vf_it);
+			Point n1 = m_mesh.calc_face_normal(*vf_it);
+
+			c = (n0 | n1);
+			// check wether normal flips due to collapse
+			if (c < min_cos) {
+				mod = std::max((1.0 - c) * 0.5, mod);
+			}
+		}
+	}
+
+	// undo simulation changes
+	m_mesh.set_point(v0, p0);
+
+	return mod;
 }
 
 void Decimation::calcErrorStatistics()
@@ -171,35 +213,25 @@ void Decimation::initialize(size_t complexity)
 
 	// build priority queue...
 	m_q->clear();
-
-	// prepare fitting by telling it barycentric coordinates used for surface sampling
-	m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
-	// calculate fitting errors
-	calculateErrors();
-
-	// fill queue
-	for (VertexHandle vh : m_mesh.vertices()) {
-		enqueueVertex(vh);
-	}
-
-#ifdef BEZIER_DEBUG
-	std::cerr << __FUNCTION__ << "\n\ttarget complexity: " << m_complexity;
-	std::cerr << "\n\tqueue size: " << m_q->size() << std::endl;
-#endif
-
-	if (m_useColors) {
-		// get vertex colors if we dont have any
-		if (!m_mesh.has_vertex_colors()) {
-			m_mesh.request_vertex_colors();
-		}
-
-		setColorsFromError();
-	}
 }
 
 bool Decimation::decimate(bool stepwise)
 {
 	bool done = m_nverts <= m_complexity;
+
+	if (!done && m_q->empty()) {
+
+		// prepare fitting by telling it barycentric coordinates
+		// used for surface sampling
+		m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
+		// calculate fitting errors
+		calculateErrors();
+
+		// fill queue
+		for (VertexHandle vh : m_mesh.vertices()) {
+			enqueueVertex(vh);
+		}
+	}
 
 	// do the actual decimation...
 	while (m_nverts > m_complexity && !m_q->empty()) {
@@ -289,15 +321,15 @@ void Decimation::step()
 			faces.push_back(*f_it);
 		}
 	}
-	
+
 #ifdef BEZIER_DEBUG
 	std::cerr << "collapsing halfedge " << hh << " with error " << collapseError << '\n';
 #endif
 
 	// fit remaining faces (and apply update)
-	fit(hh, true);
+	Scalar error = fit(hh, true);
 
-	if (debugCancel()) {
+	if (error == -1.0 || debugCancel()) {
 		return;
 	}
 
@@ -305,6 +337,11 @@ void Decimation::step()
 		for (auto h_it = m_mesh.cvoh_begin(vh); h_it != m_mesh.cvoh_end(vh); ++h_it) {
 			oneRing.insert(*h_it);
 		}
+	}
+
+	// update normals for error calculation
+	for (size_t i = 0; i < faces.size(); ++i) {
+		m_mesh.update_normal(faces[i]);
 	}
 
 	if (m_interpolate) {
@@ -341,20 +378,23 @@ void Decimation::step()
 Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 {
 	// source and target vertex
-	VertexHandle from = m_mesh.from_vertex_handle(hh), to = m_mesh.to_vertex_handle(hh);
+	VertexHandle from = m_mesh.from_vertex_handle(hh);
+	VertexHandle to = m_mesh.to_vertex_handle(hh);
 
 	// stores all 3D points and corresponding uv's per face
 	std::vector<FitCollection> fitColls;
 
 	// parametrize to n-gon
 	if (!m_param.solveLocal(from, to, fitColls, apply)) {
-		//debugCancel("parametrization failed");
 		return -1.0;
 	}
 
 	assert(fitColls.size() == m_mesh.valence(from) - 2);
 
 	if (apply) {
+		if (!m_mesh.is_collapse_ok(hh)) {
+			return -1.0;
+		}
 		// collapse halfedge
 		m_mesh.collapse(hh);
 	}
@@ -382,7 +422,9 @@ Scalar Decimation::fit(const HalfedgeHandle hh, const bool apply)
 
 			auto it = m_mesh.cfh_begin(face);
 			for (auto end = m_mesh.cfh_end(face); it != end; ++it) {
-				if (isOuterFace(m_mesh.opposite_face_handle(*it))) {
+
+				if (!m_mesh.is_boundary(m_mesh.edge_handle(*it)) &&
+					isOuterFace(m_mesh.opposite_face_handle(*it))) {
 					// set edge control points of outer edge
 					m_mesh.copyEdgeControlPoints(
 						m_mesh.opposite_face_handle(*it),

@@ -11,6 +11,9 @@
 #include <qlineedit.h> // TODO
 #include <qpushbutton.h> // TODO
 #include <qcheckbox.h>
+#include <qcombobox.h>
+
+#include "AlgorithmTimer.hh"
 
 class BezierTriangleAlgorithmsPlugin : public QObject,
 	BaseInterface,
@@ -28,7 +31,7 @@ class BezierTriangleAlgorithmsPlugin : public QObject,
 
 public:
 
-	BezierTriangleAlgorithmsPlugin() : m_tool(0) {}
+	BezierTriangleAlgorithmsPlugin() : m_tool(0), m_useTimer(false) {}
 
 	~BezierTriangleAlgorithmsPlugin() {};
 
@@ -49,7 +52,11 @@ private:
 	// TODO: disable other buttons
 	std::vector<QPushButton*> m_voronoiSteps;
 	std::array<QCheckBox*, 3> m_vFlags;
+	QComboBox *m_vparam;
 	std::array<QCheckBox*, 2> m_dFlags;
+
+	bool m_useTimer;
+	AlgorithmTimer m_timer;
 
 	BaseObjectData *ctrl_obj;
 
@@ -95,5 +102,4 @@ private slots:
 	void callDecimationInit();
 	void callDecimation();
 	void callDecimationStep();
-
 };

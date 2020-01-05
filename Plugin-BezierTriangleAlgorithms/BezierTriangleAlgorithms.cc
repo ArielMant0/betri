@@ -46,13 +46,15 @@ void voronoiInit(
 	size_t count,
 	const bool useColors,
 	const bool interpolate,
-	const bool overwrite
+	const bool overwrite,
+	const int paramIndex
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
 	remesher->useColors(useColors);
 	remesher->interpolate(interpolate);
 	remesher->overwrite(overwrite);
+	remesher->weights(paramIndex);
 }
 
 void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -116,6 +118,22 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 	);
 }
 
+VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl)
+{
+	VoronoiInfo info;
+
+	BezierTMesh* mesh = PluginFunctions::btMeshObject(object)->mesh();
+	info.name = object->name().toStdString();
+	info.vertices = std::to_string(mesh->n_vertices());
+	info.edges = std::to_string(mesh->n_edges());
+	info.faces = std::to_string(mesh->n_faces());
+
+	auto remesher = getVoronoiObject(object, ctrl);
+	info.partition = std::to_string(remesher->minPartition());
+
+	return info;
+}
+
 const char * DECName()
 {
 	return "DECIMATION_PER_OBJECT_DATA";
@@ -163,6 +181,22 @@ bool decimation(BaseObjectData *object, bool steps, bool interpolate)
 	}
 
 	return done;
+}
+
+DecimationInfo decimationInfo(BaseObjectData * object)
+{
+	DecimationInfo info;
+
+	BezierTMesh* mesh = PluginFunctions::btMeshObject(object)->mesh();
+	info.name = object->name().toStdString();
+	info.vertices = std::to_string(mesh->n_vertices());
+	info.edges = std::to_string(mesh->n_edges());
+	info.faces = std::to_string(mesh->n_faces());
+
+	auto decimator = getDecimationObject(object);
+	info.target = std::to_string(decimator->complexity());
+
+	return info;
 }
 
 bool test(TestOptions which, BezierTMesh *mesh)

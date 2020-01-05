@@ -48,6 +48,9 @@ public:
 	void useColors(bool use) { m_useColors = use; }
 	bool useColors() const { return m_useColors; }
 
+	void complexity(size_t target) { m_complexity = target; }
+	size_t complexity() const { return m_complexity; }
+
 private:
 
 	//-----------------------------------------------//
@@ -90,7 +93,7 @@ private:
 
 	void enqueueVertex(const VertexHandle vh);
 
-	bool isCollapseLegal(const HalfedgeHandle hh);
+	double isCollapseLegal(const HalfedgeHandle hh);
 
 	Scalar& priority(const HalfedgeHandle hh) { return m_mesh.property(m_hprio, hh); }
 	Scalar& priority(const VertexHandle vh) { return m_mesh.property(m_vprio, vh); }

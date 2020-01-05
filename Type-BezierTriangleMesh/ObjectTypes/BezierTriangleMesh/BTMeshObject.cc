@@ -11,8 +11,6 @@
 
 #include "BTMeshObject.hh"
 
-#ifdef DRAW_CURVED
-
 #define DATA_BEZIER_TRIANGLE_MESH typeId("BezierTriangleMesh")
 
 //== TYPEDEFS =================================================================
@@ -92,9 +90,9 @@ BTMeshObject::~BTMeshObject()
 	deleteData();
 
 	// Delete the Mesh only, if this object contains a mesh
-	if (mesh_ != NULL) {
+	if (mesh_ != nullptr) {
 		delete mesh_;
-		mesh_ = NULL;
+		mesh_ = nullptr;
 	} else {
 		std::cerr << "Destructor error : Mesh already deleted" << std::endl;
 	}
@@ -873,5 +871,3 @@ BaseNode* BTMeshObject::primaryNode()
 {
 	return boundingBoxNode();
 }
-
-#endif

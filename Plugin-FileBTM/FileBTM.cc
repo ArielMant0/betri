@@ -475,6 +475,7 @@ bool FileBTMPlugin::parseASCII(
 			_importer.addControlPoint(fHandle, cpx, cpy, cpz);
 		}
     }
+
     // file was successfully parsed.
     return true;
 }
@@ -602,6 +603,11 @@ bool FileBTMPlugin::parseBinary(
 
         nV = 0;
 
+		if (fh < 0) {
+			std::cerr << "invalid face handle (complex edge?)\n";
+			continue;
+		}
+
 		BezierTMesh::FaceHandle fHandle = _importer.face(fh);
         // read control points
         for (uint j = 0; j < cpPerFace; ++j) {
@@ -621,7 +627,7 @@ int FileBTMPlugin::loadObject(QString _filename)
 {
     BTMImporter importer;
     // Parse file
-    readOFFFile( _filename, importer );
+    readOFFFile(_filename, importer);
 
     // Finish importing
     importer.finish();
@@ -638,13 +644,8 @@ int FileBTMPlugin::loadObject(QString _filename)
 	BTMeshObject* btMeshObj = dynamic_cast<BTMeshObject*> (object);
 
 	if (btMeshObj) {
-		if (userReadOptions_ & BTMImporter::FORCE_NONORMALS) {
-			emit log(LOGINFO, tr("loadObject: Computing vertex and face normals."));
-			btMeshObj->mesh()->update_normals();
-		} else {
-			emit log(LOGINFO, tr("loadObject: Computing face normals."));
-			btMeshObj->mesh()->update_face_normals();
-		}
+		emit log(LOGINFO, tr("loadObject: Computing vertex and face normals."));
+		btMeshObj->mesh()->update_normals();
 	}
 
 	btMeshObj->mesh()->setRenderable();
