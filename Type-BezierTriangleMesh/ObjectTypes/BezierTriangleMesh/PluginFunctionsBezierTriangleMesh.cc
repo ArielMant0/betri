@@ -115,7 +115,6 @@ BezierTMesh* btMesh(BaseObjectData* _object)
 	return 0;
 }
 
-
 BezierTMesh* btMesh(int _identifier)
 {
 	BTMeshObject* object = btMeshObject(_identifier);

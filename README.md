@@ -113,3 +113,6 @@ Benchmarker::instance()->startFrame()
 // end the benchmarking process
 Benchmarker::instance()->endFrame()
 ```
+
+## Documentation
+- Doxygen in the header

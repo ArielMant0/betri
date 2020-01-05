@@ -8,8 +8,7 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-#include <qlineedit.h> // TODO
-#include <qpushbutton.h> // TODO
+#include <qlineedit.h>
 #include <qcheckbox.h>
 
 class BezierTriangleRenderingPlugin : public QObject,
@@ -42,8 +41,17 @@ public:
 private:
 
 	QWidget *m_tool;
-	QLineEdit *echoLineEdit; // TODO
 
+	////////////////////////////
+	// Bench-File information //
+	////////////////////////////
+	QComboBox *filePathComboBox;
+	QLineEdit *filePathLineEdit;
+	QLineEdit *outFileLineEdit;
+	QComboBox *fileTypeComboBox;
+
+	QComboBox *testTypeComboBox;
+	QComboBox *againstTypeComboBox;
 	std::vector<QCheckBox*> perfCheckboxes;
 
 ///////////////////////////////////////////////////////////////////////////////

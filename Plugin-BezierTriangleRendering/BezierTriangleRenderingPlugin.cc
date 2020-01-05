@@ -9,6 +9,7 @@
 #include <qspinbox.h>
 #include <qdoublespinbox>
 #include <qinputdialog.h>
+#include <qpushbutton.h>
 
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 #include <OpenFlipper/common/GlobalOptions.hh>
@@ -37,7 +38,7 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	modeComboBox->addItem(tr("NONE"));
 	modeComboBox->addItem(tr("CPU"));
 	modeComboBox->addItem(tr("GPU"));
-	modeComboBox->addItem(tr("Raytracing"));
+	modeComboBox->addItem(tr("Ray casting"));
 
 	// set the connection to the setTessType
 	// TODO warum ist das hier anders als bei der tessspinbox
@@ -130,6 +131,7 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
 	boundVComboBox->addItem(tr("BOUNDING BILLBOARD"));
+	boundVComboBox->setCurrentIndex(1);
 
 	QLabel *berrorLabel = new QLabel(tr("bary-Error:"));
 	QSpinBox *berrorSpinBox = new QSpinBox;
@@ -246,10 +248,27 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 	QGroupBox *perfGroup = new QGroupBox(tr("Performace Tester"));
 
-	QPushButton *startTestButton = new QPushButton(tr("Do it"));
-	QLabel *framecountLabel = new QLabel(tr("Framecount:"));
-	QSpinBox *framecountSpinBox = new QSpinBox;
-	framecountSpinBox->setRange(1, 1000);
+	QLabel *filePathLabel = new QLabel(tr("outFile path:"));
+	filePathComboBox = new QComboBox;
+	filePathComboBox->addItem(tr("C:/Users/DoktorManto/Uni/Masterarbeit/masterthesis/rene/data/"));
+	filePathComboBox->addItem(tr("D:/03_Uni/Masterarbeit/masterthesis/rene/data/"));
+	filePathComboBox->addItem(tr("Custom"));
+	filePathLineEdit = new QLineEdit;
+	filePathLineEdit->setPlaceholderText("Placeholder Text");
+	filePathLineEdit->hide();
+
+	QLabel *outFileLabel = new QLabel(tr("Outfile name:"));
+	outFileLineEdit = new QLineEdit;
+	outFileLineEdit->setPlaceholderText("tmpName");
+
+	QLabel *fileTypeLabel = new QLabel(tr("outFile type:"));
+	fileTypeComboBox = new QComboBox;
+	fileTypeComboBox->addItem(tr(".dat"));
+
+	QLabel *presetsLabel = new QLabel(tr("Presets:"));
+	QPushButton *testCGRButton = new QPushButton(tr("Test CGR"));
+	QPushButton *testBVolsButton = new QPushButton(tr("Test Bounding Vols"));
+	QPushButton *testAllButton = new QPushButton(tr("All"));
 
 	QCheckBox *cpuBox = new QCheckBox("CPU");
 	perfCheckboxes.push_back(cpuBox);
@@ -266,11 +285,89 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	QCheckBox *rBillBox = new QCheckBox("Ray-Billb");
 	perfCheckboxes.push_back(rBillBox);
 
-	// Random unrelated links yay
-	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/classBaseInterface.html#ace0d6b943ce94f48c40e8c0e17a8413e
-	// https://www.openflipper.org/media/Documentation/OpenFlipper-1.2/baseInterfacePage.html
-	// http://openflipper.org/Documentation/latest/a14811.html#baseInterfaceSceneUpdateNotification
-	// http://www.openflipper.org/media/Documentation/OpenFlipper-4.0/a00293_source.html
+	QLabel *testTypeLabel = new QLabel(tr("Test type:"));
+	testTypeComboBox = new QComboBox;
+	testTypeComboBox->addItem(tr("Time Query"));
+	testTypeComboBox->addItem(tr("Occlusion Query"));
+
+	QLabel *againstTypeLabel = new QLabel(tr("Against type:"));
+	againstTypeComboBox = new QComboBox;
+	againstTypeComboBox->addItem(tr("Frame"));
+	againstTypeComboBox->addItem(tr("Triangle Count"));
+	againstTypeComboBox->addItem(tr("Degree"));
+	againstTypeComboBox->addItem(tr("Genus"));
+
+	QLabel *framecountLabel = new QLabel(tr("Framecount:"));
+	QSpinBox *framecountSpinBox = new QSpinBox;
+	framecountSpinBox->setRange(1, 10000);
+	framecountSpinBox->setValue(100);
+
+	QCheckBox *appendBox = new QCheckBox("Append");
+	perfCheckboxes.push_back(appendBox);
+
+	QCheckBox *avgBox = new QCheckBox("Average");
+	perfCheckboxes.push_back(avgBox);
+
+	QPushButton *startTestButton = new QPushButton(tr("Dew it"));
+
+	//////////////
+	// Connects //
+	//////////////
+	// hide/show the appropriate widgets
+	connect(filePathComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, [=](int index) {
+		switch (index) {
+			case 0: case 1:
+				if (!filePathLineEdit->isHidden()) {
+					filePathLineEdit->hide();
+				}
+				break;
+			default:
+				filePathLineEdit->show();
+		}
+	}
+	);
+
+	// Setup presets
+	connect(testCGRButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+		(perfCheckboxes[0])->setChecked(true); // CPU
+		(perfCheckboxes[1])->setChecked(true); // GPU
+		(perfCheckboxes[2])->setChecked(false); // Tetrahedron
+		(perfCheckboxes[3])->setChecked(false); // AABB
+		(perfCheckboxes[4])->setChecked(true); // Prism
+		(perfCheckboxes[5])->setChecked(false); // Chull
+		(perfCheckboxes[6])->setChecked(false); // Billboard
+	}
+	);
+
+	connect(testBVolsButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+		(perfCheckboxes[0])->setChecked(false); // CPU
+		(perfCheckboxes[1])->setChecked(false); // GPU
+		(perfCheckboxes[2])->setChecked(false); // Tetrahedron
+		(perfCheckboxes[3])->setChecked(true); // AABB
+		(perfCheckboxes[4])->setChecked(true); // Prism
+		(perfCheckboxes[5])->setChecked(false); // Chull
+		(perfCheckboxes[6])->setChecked(false); // Billboard
+	}
+	);
+
+	connect(testAllButton, QOverload<>::of(&QPushButton::pressed),
+		this, [&]() {
+		(perfCheckboxes[0])->setChecked(true); // CPU
+		(perfCheckboxes[1])->setChecked(true); // GPU
+		(perfCheckboxes[2])->setChecked(true); // Tetrahedron
+		(perfCheckboxes[3])->setChecked(true); // AABB
+		(perfCheckboxes[4])->setChecked(true); // Prism
+		(perfCheckboxes[5])->setChecked(true); // Chull
+		(perfCheckboxes[6])->setChecked(true); // Billboard
+	}
+	);
+
+	///////////////////////////////////////
+	// Submit information to benchmarker //
+	///////////////////////////////////////
 	connect(startTestButton, QOverload<>::of(&QPushButton::pressed),
 		this, [&]() {
 			int result = 0;
@@ -301,31 +398,95 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 			if ((perfCheckboxes[6])->isChecked()) {
 				result |= int(ACG::Benchmarker::RENDER_MODE::RAYBILLB);
 			}
+			std::string tmp = filePathComboBox->currentText().toStdString();
+			if (tmp.compare("Custom") == 0)
+				tmp = filePathLineEdit->text().toStdString();
+
+			PluginFunctions::ObjectIterator o_it(
+				PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+			);
+			if (o_it != PluginFunctions::objectsEnd()) {
+				BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
+				BezierTMesh *mesh = meshObj->mesh();
+				std::string meshName = meshObj->name().toStdString();
+				meshName[0] = toupper(meshName[0]);
+
+				ACG::Benchmarker::instance()->meshInfo(
+					meshName.substr(0, meshName.find("-", 0)),
+					mesh->n_faces(), mesh->degree()
+				);
+			}
+
+			// TODO put all in one function
+			ACG::Benchmarker::instance()->filePath(tmp);
+			ACG::Benchmarker::instance()->fileName(
+				outFileLineEdit->text().toStdString()
+			);
+			ACG::Benchmarker::instance()->fileType(
+				fileTypeComboBox->currentText().toStdString()
+			);
+
+			ACG::Benchmarker::instance()->testType(
+				(ACG::Benchmarker::TEST_TYPE)testTypeComboBox->currentIndex()
+			);
+			ACG::Benchmarker::instance()->againstType(
+				(ACG::Benchmarker::AGAINST_TYPE)againstTypeComboBox->currentIndex()
+			);
+			ACG::Benchmarker::instance()->append(
+				(perfCheckboxes[7])->isChecked()
+			);
+			ACG::Benchmarker::instance()->average(
+				(perfCheckboxes[8])->isChecked()
+			);
+
 			ACG::Benchmarker::instance()->active(true);
 			ACG::Benchmarker::instance()->renderMode(result);
-			if (false) {
-				ACG::Benchmarker::instance()->occlQuery(false);
-			}
-			if (false) {
-				ACG::Benchmarker::instance()->average(false);
-			}
 		}
 	);
 
+	///////////////////////////
+	// Add widgets to layout //
+	///////////////////////////
+
 	QGridLayout *perfLayout = new QGridLayout;
-	perfLayout->addWidget(startTestButton, 0, 0);
-	perfLayout->addWidget(cpuBox, 1, 0);
-	perfLayout->addWidget(gpuBox, 2, 0);
-	perfLayout->addWidget(rTetraBox, 3, 0);
-	perfLayout->addWidget(rBoxBox, 4, 0);
-	perfLayout->addWidget(rPrismBox, 5, 0);
-	perfLayout->addWidget(rHullBox, 6, 0);
-	perfLayout->addWidget(rBillBox, 7, 0);
+	perfLayout->addWidget(filePathLabel, 0, 0);
+	perfLayout->addWidget(filePathComboBox, 1, 0, 1, 3);
+	perfLayout->addWidget(filePathLineEdit, 2, 0, 1, 3);
+	perfLayout->addWidget(outFileLabel, 3, 0);
+	perfLayout->addWidget(outFileLineEdit, 3, 1);
+	perfLayout->addWidget(appendBox, 3, 2);
+	perfLayout->addWidget(fileTypeLabel, 4, 0);
+	perfLayout->addWidget(fileTypeComboBox, 4, 1);
+
+	perfLayout->addWidget(presetsLabel, 5, 0);
+	perfLayout->addWidget(testCGRButton, 6, 0);
+	perfLayout->addWidget(testBVolsButton, 6, 1);
+	perfLayout->addWidget(testAllButton, 6, 2);
+
+	perfLayout->addWidget(cpuBox, 7, 0);
+	perfLayout->addWidget(gpuBox, 7, 1);
+	perfLayout->addWidget(rTetraBox, 8, 0);
+	perfLayout->addWidget(rBoxBox, 8, 1);
+	perfLayout->addWidget(rPrismBox, 8, 2);
+	perfLayout->addWidget(rHullBox, 9, 0);
+	//perfLayout->addWidget(rMeshBox, 9, 1);
+	perfLayout->addWidget(rBillBox, 9, 2);
+
+	perfLayout->addWidget(testTypeLabel, 10, 0);
+	perfLayout->addWidget(testTypeComboBox, 10, 1);
+	perfLayout->addWidget(againstTypeLabel, 11, 0);
+	perfLayout->addWidget(againstTypeComboBox, 11, 1);
+
+	perfLayout->addWidget(framecountLabel, 12, 0);
+	perfLayout->addWidget(framecountSpinBox, 12, 1);
+	perfLayout->addWidget(avgBox, 12, 2);
+
+	perfLayout->addWidget(startTestButton, 13, 0);
 	perfGroup->setLayout(perfLayout);
 
-	///////////////////////////////////////////////////////////////////////////
-	// Add all Elements
-	///////////////////////////////////////////////////////////////////////////
+	////////////////////////
+	// Add groups to grid //
+	////////////////////////
 
 	QGridLayout *grid = new QGridLayout();
 	grid->addWidget(modeGroup, 1, 0);
@@ -347,27 +508,6 @@ void BezierTriangleRenderingPlugin::setTessType(int value)
 	);
 	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
 		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
-	}
-
-	// TODO: get these names in a more robust manner
-	switch (value) {
-		default: // CPU
-			renderManager().setActive(
-				QString("Default Classical Renderer"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
-		case 1: // GPU
-			renderManager().setActive(
-				QString("Alpha_Version_ShaderPipeline"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
-		case 2: // raytracing
-			renderManager().setActive(QString("Raytracing_Renderer"),
-				PluginFunctions::activeExaminer()
-			);
-			break;
 	}
 }
 
