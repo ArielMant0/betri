@@ -10,6 +10,8 @@
 
 static void updateRaycastingFormula(int n, std::string shaderDir)
 {
+	assert(n > 0);
+
 	std::string formula;
 	std::string subFormula;
 	std::string tmpFormula;
@@ -214,6 +216,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	////////////////////////////////////
 	// Calculate partial derivate (s) //
 	////////////////////////////////////
+	// TODO All four derivates can be done in one double loop
 	// TODO reserve
 	std::vector<std::string> derivateVec;
 	std::string derivate;
@@ -237,12 +240,14 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 		}
 	}
 
+	// loop through it, back to front
+	// -1 is used to jump over entrys that should be left out
 	std::string dBs = "dBs =";
 	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dBs += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
 	}
-	dBs += ";"; // TODO
+	dBs += ";";
 
 	////////////////////////////////////
 	// Calculate partial derivate (t) //
@@ -268,13 +273,129 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 		}
 	}
 
+	// loop through it, back to front
+	// -1 is used to jump over entrys that should be left out
 	std::string dBt = "dBt =";
 	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dBt += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
 	}
-	dBt += ";"; // TODO
+	dBt += ";";
 
+	///////////////////////////////////////////
+	// Calculate second partial derivate (s) //
+	///////////////////////////////////////////
+	derivateVec.clear();
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (i == 0 || i == 1) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (i >= 2) {
+				derivate += " * " + std::to_string(i) + " * " + std::to_string(i-1);
+			}
+			for (int x = 0; x < i - 2; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	// loop through it, back to front
+	// -1 is used to jump over entrys that should be left out
+	std::string dsdsB = "dsdsB =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dsdsB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	// TODO just ask infront whether degree is 1
+	if (derivateVec.size() == 3 && derivateVec[0] == "-1" &&
+		derivateVec[1] == "-1" && derivateVec[2] == "-1")
+		dsdsB += " 0";
+	dsdsB += ";";
+
+	///////////////////////////////////////////
+	// Calculate second partial derivate (t) //
+	//////////////////////////////////////////
+	derivateVec.clear();
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (j == 0 || j == 1) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (j >= 2) {
+				derivate += " * " + std::to_string(j) + " * " + std::to_string(j - 1);
+			}
+			for (int x = 0; x < i; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j - 2; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+	
+	// loop through it, back to front
+	// -1 is used to jump over entrys that should be left out
+	std::string dtdtB = "dtdtB =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dtdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	// TODO just ask infront whether degree is 1
+	if (derivateVec.size() == 3 && derivateVec[0] == "-1" && 
+		derivateVec[1] == "-1" && derivateVec[2] == "-1")
+		dtdtB += " 0";
+	dtdtB += ";";
+
+	/////////////////////////////////////////////
+	// Calculate second partial derivate (s,t) //
+	/////////////////////////////////////////////
+	derivateVec.clear();
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= n - i; j++) {
+			if (i == 0 || j == 0) {
+				derivateVec.push_back("-1");
+				continue;
+			}
+			derivate.clear();
+			if (i >= 2) {
+				derivate += " * " + std::to_string(i);
+			}
+			if (j >= 2) {
+				derivate += " * " + std::to_string(j);
+			}
+			for (int x = 0; x < i - 1; x++) {
+				derivate += " * s";
+			}
+			for (int y = 0; y < j - 1; y++) {
+				derivate += " * t";
+			}
+			derivateVec.push_back(derivate);
+		}
+	}
+
+	// loop through it, back to front
+	// -1 is used to jump over entrys that should be left out
+	std::string dsdtB = "dsdtB =";
+	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
+		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
+			dsdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
+	}
+	// TODO just ask infront whether degree is 1
+	if (derivateVec.size() == 3 && derivateVec[0] == "-1" &&
+		derivateVec[1] == "-1" && derivateVec[2] == "-1")
+		dsdtB += " 0";
+	dsdtB += ";";
+	
 	/*
 	std::cerr << "\n\nQs" << std::endl;
 	std::cerr << combinedQString << std::endl;
@@ -284,6 +405,15 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 
 	std::cerr << "\ndBt" << std::endl;
 	std::cerr << dBt << std::endl;
+
+	std::cerr << "\ndsdsB" << std::endl;
+	std::cerr << dsdsB << std::endl;
+
+	std::cerr << "\ndtdtB" << std::endl;
+	std::cerr << dtdtB << std::endl;
+
+	std::cerr << "\ndsdtB" << std::endl;
+	std::cerr << dsdtB << std::endl;
 
 	std::cerr << "\nBuv" << std::endl;
 	std::cerr << combinedBuv << std::endl;
@@ -318,6 +448,12 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 			fileout << dBt;
 		} else if (strTemp.find("BEGIN BUV") != std::string::npos) {
 			fileout << combinedBuv;
+		} else if (strTemp.find("BEGIN dsdsB") != std::string::npos) {
+			fileout << dsdsB;
+		} else if (strTemp.find("BEGIN dsdtB") != std::string::npos) {
+			fileout << dsdtB;
+		} else if (strTemp.find("BEGIN dtdtB") != std::string::npos) {
+			fileout << dtdtB;
 		}
 	}
 

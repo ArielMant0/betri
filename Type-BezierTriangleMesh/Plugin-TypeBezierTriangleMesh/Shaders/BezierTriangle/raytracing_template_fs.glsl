@@ -33,6 +33,7 @@ struct hitinfo {
 	vec3 baryCoords;
 	vec3 normal;
 	vec3 position;
+	vec3 curve;
 } hit;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -187,51 +188,37 @@ void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 			hit.baryCoords = vec3(result, z);
 			hit.position = B_uv;
 			hit.normal = normalize(cross(dBs, dBt));
+
+			// Curvature calculation
+			// http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
+			// http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node29.html
+#ifdef SG_OUTPUT_CURVATURE
+			// BEGIN dsdsB
+			// END dsdtB
+
+			// BEGIN dsdtB
+			// END dsdtB
+
+			// BEGIN dtdtB
+			// END dtdtB
+
+			mat2 secFund = mat2(
+				dot(dsdsB, hit.normal), dot(dsdtB, hit.normal),
+				dot(dsdtB, hit.normal), dot(dtdtB, hit.normal)
+			);
+
+			float trace = secFund[0][0] + secFund[1][1];
+			float det = secFund[0][0] * secFund[1][1] - secFund[1][0] * secFund[1][0];
+
+			float l1 = trace * 0.5 + sqrt(trace * trace * 0.25 - det);
+			float l2 = trace * 0.5 - sqrt(trace * trace * 0.25 - det);
+
+			hit.curve = vec3(-l1, -l2, 0.0);
+#endif
+
 			return;
 		}
 	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Curvature
-///////////////////////////////////////////////////////////////////////////////
-// http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
-// http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node29.html
-vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction)
-{
-	// TODO refactor everything, this is a stupid doublication
-	vec3 q_1 = bt.cps[0] + bt.cps[2] - 2 * bt.cps[1];
-	vec3 q_2 = 2 * bt.cps[3] - 2 * bt.cps[1] - 2 * bt.cps[4] + 2 * bt.cps[2];
-	vec3 q_3 = bt.cps[5] - 2 * bt.cps[4] + bt.cps[2];
-	vec3 q_4 = 2 * bt.cps[4] - 2 * bt.cps[2];
-	vec3 q_5 = 2 * bt.cps[1] - 2 * bt.cps[2];
-	vec3 q_6 = bt.cps[2];
-
-
-	float s = hit.baryCoords.x;
-	float t = hit.baryCoords.y;
-
-	// second partial derivate by s and s
-	vec3 dBss = 2 * q_1;
-
-	// second partial derivate by s and t
-	vec3 dBst = q_2;
-
-	// second partial derivate by t and t
-	vec3 dBtt = 2 * q_3;
-
-	mat2 secFund = mat2(
-		dot(dBss, hit.normal), dot(dBst, hit.normal),
-		dot(dBst, hit.normal), dot(dBtt, hit.normal)
-	);
-
-	float trace = secFund[0][0] + secFund[1][1];
-	float det = secFund[0][0] * secFund[1][1] - secFund[1][0] * secFund[1][0];
-
-	float l1 = trace * 0.5 + sqrt(trace * trace * 0.25 - det);
-	float l2 = trace * 0.5 - sqrt(trace * trace * 0.25 - det);
-
-	return vec3(-l1, -l2, 0.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,12 +227,6 @@ vec3 calcCurvature(vec3 ray_origin, vec3 ray_direction)
 void main(void)
 {
 	// TODO var names
-	//vec3 tmp = (inverse(viewMatrix) * vec4(g_vCamPos, 1.0)).xyz;
-	//vec3 tmp = g_vCamPos;
-	//vec3 ray_direction = normalize((viewMatrix * vec4(vRayDirection,1.0)).xyz - tmp);
-	//vec3 ray_direction = normalize((inverse(viewMatrix) * g_mWV * vec4(vRayDirection,1.0)).xyz - tmp);
-	//vec3 ray_direction = normalize(g_mWV * vec4(vRayDirection,1.0)).xyz - tmp);
-
 	vec3 tmp = campos;
 	vec3 ray_direction = normalize(vec4(vRayDirection, 1.0).xyz - campos);
 	vec3 ray_origin = tmp;
@@ -318,7 +299,7 @@ void main(void)
 		color.rg = uv;
 #endif
 #ifdef SG_OUTPUT_CURVATURE
-		color.rgb = calcCurvature(ray_origin, ray_direction);
+		color.rgb = hit.curve;
 #endif
 		outFragment = vec4(color.rgb, 1.0);
 	} else {
