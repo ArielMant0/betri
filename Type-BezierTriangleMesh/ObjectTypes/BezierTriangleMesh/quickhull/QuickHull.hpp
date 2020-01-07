@@ -118,12 +118,12 @@ namespace quickhull {
 			// Find two most distant extreme points.
 			FloatType maxD = m_epsilonSquared;
 			std::pair<size_t, size_t> selectedPoints;
-			for (size_t i = 0;i < 6;i++) {
-				for (size_t j = i + 1;j < 6;j++) {
+			for (size_t i = 0; i < 6; i++) {
+				for (size_t j = i + 1; j < 6; j++) {
 					const FloatType d = m_vertexData[m_extremeValues[i]].getSquaredDistanceTo(m_vertexData[m_extremeValues[j]]);
 					if (d > maxD) {
 						maxD = d;
-						selectedPoints = { m_extremeValues[i],m_extremeValues[j] };
+						selectedPoints = { m_extremeValues[i], m_extremeValues[j] };
 					}
 				}
 			}
@@ -169,7 +169,7 @@ namespace quickhull {
 			maxI = 0;
 			const Vector3<FloatType> N = mathutils::getTriangleNormal(baseTriangleVertices[0], baseTriangleVertices[1], baseTriangleVertices[2]);
 			Plane<FloatType> trianglePlane(N, baseTriangleVertices[0]);
-			for (size_t i = 0;i < vCount;i++) {
+			for (size_t i = 0; i < vCount; i++) {
 				const FloatType d = std::abs(mathutils::getSignedDistanceToPlane(m_vertexData[i], trianglePlane));
 				if (d > maxD) {
 					maxD = d;
@@ -179,7 +179,7 @@ namespace quickhull {
 			if (maxD == m_epsilon) {
 				// All the points seem to lie on a 2D subspace of R^3. How to handle this? Well, let's add one extra point to the point cloud so that the convex hull will have volume.
 				m_planar = true;
-				const vec3 N = mathutils::getTriangleNormal(baseTriangleVertices[1], baseTriangleVertices[2], baseTriangleVertices[0]);
+				//const vec3 N = mathutils::getTriangleNormal(baseTriangleVertices[1], baseTriangleVertices[2], baseTriangleVertices[0]);
 				m_planarPointCloudTemp.clear();
 				m_planarPointCloudTemp.insert(m_planarPointCloudTemp.begin(), m_vertexData.begin(), m_vertexData.end());
 				const vec3 extraPoint = N + m_vertexData[0];

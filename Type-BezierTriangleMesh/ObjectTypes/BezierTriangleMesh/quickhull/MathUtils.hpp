@@ -23,7 +23,9 @@ namespace quickhull {
 		}
 		
 		template <typename T>
-		inline Vector3<T> getTriangleNormal(const Vector3<T>& a,const Vector3<T>& b,const Vector3<T>& c) {
+		inline Vector3<T> getTriangleNormal(
+			const Vector3<T>& a, const Vector3<T>& b, const Vector3<T>& c
+		) {
 			// We want to get (a-c).crossProduct(b-c) without constructing temp vectors
 			T x = a.x - c.x;
 			T y = a.y - c.y;
@@ -34,7 +36,7 @@ namespace quickhull {
 			T px = y * rhsz - z * rhsy ;
 			T py = z * rhsx - x * rhsz ;
 			T pz = x * rhsy - y * rhsx ;
-			return Vector3<T>(px,py,pz);
+			return Vector3<T>(px, py, pz);
 		}
 		
 		

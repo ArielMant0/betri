@@ -1868,8 +1868,8 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			break;
 		case betri::boundingVolumeType::ConvexHull:
 		case betri::boundingVolumeType::BoundingBillboard:
-			assert(vboSize >= vertexCount * surfaceDecl_.getVertexStride());
-			assert(indexCount >= bezierTriangleMesh_.n_faces() * numIndices * bytes);
+			//assert(vboSize >= vertexCount * surfaceDecl_.getVertexStride());
+			//assert(indexCount >= bezierTriangleMesh_.n_faces() * numIndices * bytes);
 			break;
 		default: break;
 	}
