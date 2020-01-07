@@ -2,7 +2,6 @@
 // Define Types
 ///////////////////////////////////////////////////////////////////////////////
 #define MAX_SCENE_BOUNDS 1000.0
-#define POSITIONS 4
 
 ///////////////////////////////////////////////////////////////////////////////
 // Header
@@ -39,37 +38,27 @@ struct hitinfo {
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
-#if POSITIONS == 4
-	vec2 baryCoords[POSITIONS] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
+#if GRAD > 1
+	vec2 baryCoords[4] = vec2[] ( vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0/3.0) );
 #else
-	vec2 baryCoords[POSITIONS] = vec2[] ( vec2(0.0, 0.0) );
+	vec2 baryCoords[1] = vec2[] ( vec2(0.0, 0.0) );
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Functions
 ///////////////////////////////////////////////////////////////////////////////
-#if POSITIONS == 4
+#if GRAD > 1
 void reorder(vec3 ray_origin, vec3 ray_direction)
 {
 	float dist = 0.0;
 
 	// TODO why is the order like this
-	float tmp[POSITIONS] = float[] (
+	float tmp[4] = float[] (
 		dot(bt.cps[0], ray_direction),
 		dot(bt.cps[CPSUM-1], ray_direction),
 		dot(bt.cps[GRAD], ray_direction),
 		dot((bt.cps[1] + bt.cps[3] + bt.cps[4]) / 3.0, ray_direction)
 	);
-
-	/*
-	float tmp[POSITIONS] = float[] (
-		length(bt.cp0 - ray_origin),
-		length(bt.cp5 - ray_origin),
-		length(bt.cp2 - ray_origin),
-		100.0
-		//length((bt.cp1 + bt.cp3 + bt.cp4) / 3.0 - ray_origin)
-	);
-	*/
 
 	for (int j = 1; j < baryCoords.length(); ++j)
 	{
@@ -101,7 +90,7 @@ void reorder(vec3 ray_origin, vec3 ray_direction)
  */
 void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 {
-#if POSITIONS == 4
+#if GRAD > 1
 	// TODO heavy on performance maybe not ordering but rather search for i min
 	reorder(ray_origin, ray_direction);
 #endif
@@ -234,7 +223,7 @@ void main(void)
 	///////////
 	// Setup //
 	///////////
-	hit = hitinfo(vec3(-1), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
+	hit = hitinfo(vec3(-1), vec3(0.0), vec3(0.0), vec3(0.0));
 
 	for (int i = 0; i < bt.cps.length(); i++)
 	{

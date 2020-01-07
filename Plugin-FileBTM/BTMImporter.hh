@@ -94,7 +94,7 @@ public:
     ~BTMImporter();
 
     /// add initial object
-    void addObject(BaseObject* _object);
+    void addObject(BaseObject* _object, unsigned int degree);
 
     unsigned int maxFaceValence() const { return maxFaceValence_; }
 

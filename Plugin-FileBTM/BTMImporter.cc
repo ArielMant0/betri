@@ -58,12 +58,13 @@ BTMImporter::BTMImporter() :
 //-----------------------------------------------------------------------------
 
 /// add a mesh
-void BTMImporter::addObject(BaseObject* _object)
+void BTMImporter::addObject(BaseObject* _object, unsigned int degree)
 {
 	BTMeshObject*  btMeshObj = dynamic_cast<BTMeshObject*> (_object);
 
     if (btMeshObj) {
 		btMesh_ = btMeshObj->mesh();
+		btMesh_->degree(degree);
 		object_ = _object;
 	} else {
         std::cerr << "Error: Cannot add object. Type is unknown!" << std::endl;

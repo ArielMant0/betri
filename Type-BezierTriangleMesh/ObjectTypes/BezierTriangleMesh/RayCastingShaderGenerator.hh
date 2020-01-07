@@ -308,7 +308,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 
 	// loop through it, back to front
 	// -1 is used to jump over entrys that should be left out
-	std::string dsdsB = "dsdsB =";
+	std::string dsdsB = "vec3 dsdsB =";
 	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dsdsB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
@@ -316,7 +316,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	// TODO just ask infront whether degree is 1
 	if (derivateVec.size() == 3 && derivateVec[0] == "-1" &&
 		derivateVec[1] == "-1" && derivateVec[2] == "-1")
-		dsdsB += " 0";
+		dsdsB += " vec3(0)";
 	dsdsB += ";";
 
 	///////////////////////////////////////////
@@ -345,7 +345,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	
 	// loop through it, back to front
 	// -1 is used to jump over entrys that should be left out
-	std::string dtdtB = "dtdtB =";
+	std::string dtdtB = "vec3 dtdtB =";
 	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dtdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
@@ -353,7 +353,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	// TODO just ask infront whether degree is 1
 	if (derivateVec.size() == 3 && derivateVec[0] == "-1" && 
 		derivateVec[1] == "-1" && derivateVec[2] == "-1")
-		dtdtB += " 0";
+		dtdtB += " vec3(0)";
 	dtdtB += ";";
 
 	/////////////////////////////////////////////
@@ -385,7 +385,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 
 	// loop through it, back to front
 	// -1 is used to jump over entrys that should be left out
-	std::string dsdtB = "dsdtB =";
+	std::string dsdtB = "vec3 dsdtB =";
 	for (int stringIt = 0; stringIt != derivateVec.size(); stringIt++) {
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dsdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
@@ -393,7 +393,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	// TODO just ask infront whether degree is 1
 	if (derivateVec.size() == 3 && derivateVec[0] == "-1" &&
 		derivateVec[1] == "-1" && derivateVec[2] == "-1")
-		dsdtB += " 0";
+		dsdtB += " vec3(0)";
 	dsdtB += ";";
 	
 	/*

@@ -9,10 +9,10 @@ layout(triangles, equal_spacing, ccw) in;
 uniform int tessAmount;
 uniform sampler2D controlPointTex;
 
-//uniform vec4 uvRange;
-
-// more then 12! is not possible because signed integer overflow
-// and therefore compilation errors
+///////////////////////////////////////////////////////////////////////////////
+// Utility
+///////////////////////////////////////////////////////////////////////////////
+// TODO
 uniform float FACTORIALS[13] = {
 	1.0, 1.0, 2.0, 6, 24, 120, // 0, 1, 2, 3, 4, 5
 	720, 5040, 40320, 362880, 3628800, // 6, 7, 8, 9, 10
@@ -31,15 +31,17 @@ uniform float FACTORIALS[13] = {
  */
 float myPow(float base, float expo) 
 {
-	if (base == 0.0 && expo == 0.0)
-	{
-		if (expo == 0.0)
-			return 1.0;
+	if (expo == 0.0)
+		return 1.0;
+	if (base == 0.0)
 		return 0.0;
-	}
+
 	return pow(base, expo);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Position
+///////////////////////////////////////////////////////////////////////////////
 /**
  * Get the amount of points that are in the levels below the parameter-level.
  * @param level the level in which the point is
@@ -72,7 +74,7 @@ vec3 getCP(int i, int j, int k)
 	return texelFetch(controlPointTex, controlPtID, 0).xyz;
 }
 
-vec3 offset = vec3(0.0);
+vec3 offset = vec3(0.0); // TODO remove offset
 
 /**
  * Get one Entry for a secific set of i,j,k (control points)
@@ -99,25 +101,34 @@ vec3 newPosition()
 {
 	vec3 sum = vec3(0.0);
 
-	// TODO should there be a special treatment for the points that are on the edges or corners? because it should in generell be easier to evaluate them
+	/*
+	ivec2 controlPtID = ivec2(0, gl_PrimitiveID);
+	vec3 cp0 = texelFetch(controlPointTex, controlPtID, 0).xyz;
 
-	// 0 0 2
-	// 0 1 1
-	// 0 2 0
-	// 1 0 1
-	// 1 1 0
-	// 2 0 0
+	controlPtID = ivec2(3, gl_PrimitiveID);
+	vec3 cp1 =  texelFetch(controlPointTex, controlPtID, 0).xyz;
+
+	controlPtID = ivec2(9, gl_PrimitiveID);
+	vec3 cp2 =  texelFetch(controlPointTex, controlPtID, 0).xyz;
+
+	sum = gl_TessCoord.x * cp0 + gl_TessCoord.y * cp1 + gl_TessCoord.z * cp2;
+	*/
+
+	// TODO should there be a special treatment for the points that are on 
+	// the edges or corners? because it should in generell be easier to 
+	// evaluate them
 	// i is the row-index
 	for (int i = 0; i <= DEGREE; i++)
 	{
 		// j is the column-index
 		for (int j = 0; j + i <= DEGREE; j++)
 		{
-			/*
-			TODO Both variant should be the same, which is more readable?
-			int k = DEGREE - i - j;
-			if (k >= 0) 
-			*/
+			
+			//TODO should not be needed anyway
+			//TODO Both variant should be the same, which is more readable?
+			//int k = DEGREE - i - j;
+			//if (k >= 0) 
+			
 			// k is directly dependent from i and j
 			for (int k = DEGREE - i - j; k + j + i == DEGREE && k >= 0; k++)
 			{
@@ -129,6 +140,69 @@ vec3 newPosition()
 	return sum;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Normal
+///////////////////////////////////////////////////////////////////////////////
+/**
+ * Get one Entry for a secific set of i,j,k (control points)
+ * multiply these with the barycentric coords
+ */
+float derives(int i, int j, int k)
+{
+	float deriv = float(i) * myPow(gl_TessCoord.x, float(i-1)) 
+		* myPow(gl_TessCoord.y, float(j))
+		* myPow(gl_TessCoord.z, float(k));
+
+	return deriv;
+}
+
+float derivet(int i, int j, int k)
+{
+	float deriv = myPow(gl_TessCoord.x, float(i))
+		* float(j) * myPow(gl_TessCoord.y, float(j-1))
+		* myPow(gl_TessCoord.z, float(k));
+
+	return deriv;
+}
+
+/**
+ * Sum over all combinations of ControlPoints
+ * To achive this we iterate the Points row-wise from left to right
+ * and from bottom to top.
+ */
+vec3 newNormal()
+{
+/*
+	vec3 ds = vec3(0.0);
+	vec3 dt = vec3(0.0);
+
+	// i is the row-index
+	for (int i = 0; i <= DEGREE; i++)
+	{
+		// j is the column-index
+		for (int j = 0; j + i <= DEGREE; j++)
+		{
+			int k = DEGREE - i - j;
+			vec3 entry = (FACTORIALS[DEGREE] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]))
+				* getCP(i, j, k);
+			float minusTerm = - float(k) * myPow(gl_TessCoord.x, float(i)) 
+				* myPow(gl_TessCoord.y, float(j)) 
+				* myPow(gl_TessCoord.z, float(k-1));
+			float sDeriv = derives(i, j, k) + minusTerm;
+			float tDeriv = derivet(i, j, k) + minusTerm;
+
+			ds += entry * sDeriv;
+			dt += entry * tDeriv;
+		}
+	}
+
+	return normalize(cross(ds, dt));*/
+	return vec3(1.0, 0.0, 0.0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Main
+///////////////////////////////////////////////////////////////////////////////
 void main()
 {
 	sg_MapIOBarycentric();
@@ -138,45 +212,7 @@ void main()
 	vec3 pos = newPosition();
 	gl_Position = g_mWVP * vec4(pos, 1.0);
 
-	/////////////
-	// Normale //
-	/////////////
-	vec3 toEval;
-	vec3 pos1;
-	vec3 pos2;
-
-	float stepSize = 1.0 / tessAmount;
-
-	// It is nessessary to distinguish between vertices that are
-	// in the face and those which are on a border, because for 
-	// these the vector needs to show in the other direction and 
-	// sometimes the order for the cross-product needs to be changed
-	// Otherwise the result is wrong i.e. flat triangle
-	if (gl_TessCoord.z < stepSize) {
-		if (gl_TessCoord.x < stepSize) {
-			offset = vec3(stepSize, -stepSize, 0.0);
-			pos2 = newPosition();
-			offset = vec3(0.0, -stepSize, stepSize);
-			pos1 = newPosition();
-		} else if (gl_TessCoord.y < stepSize) {
-			offset = vec3(-stepSize, stepSize, 0.0);
-			pos1 = newPosition();
-			offset = vec3(-stepSize, 0.0, stepSize);
-			pos2 = newPosition();
-		} else {
-			offset = vec3(-stepSize, 0.0, stepSize);
-			pos1 = newPosition();
-			offset = vec3(0.0, -stepSize, stepSize);
-			pos2 = newPosition();
-		}
-	} else {
-		offset = vec3(stepSize, 0.0, -stepSize);
-		pos1 = newPosition();
-		offset = vec3(0.0, stepSize, -stepSize);
-		pos2 = newPosition();
-	}
-
-	vec3 surfaceNormal = cross(normalize(pos1 - pos), normalize(pos2 - pos));
+	vec3 surfaceNormal = newNormal();
 
 #ifdef SG_OUTPUT_POSOS
 	SG_OUTPUT_POSOS = vec4(pos, 1);
