@@ -57,55 +57,58 @@ void voronoiInit(
 	remesher->weights(paramIndex);
 }
 
-void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
+bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
 
-	remesher->remesh();
+	bool success = remesher->remesh();
 
-	if (remesher->useColors()) {
-		object->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
-		);
-		ctrl->setObjectDrawMode(
-			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
-		);
-	}
+	object->setObjectDrawMode(
+		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+	);
+	ctrl->setObjectDrawMode(
+		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+	);
+
+	return success;
 }
 
-void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl)
+bool voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl, const bool steps, bool &done)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
-	remesher->partition();
+	bool success = remesher->partition(steps, done);
 
-	if (remesher->useColors()) {
+	if (success && remesher->useColors()) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED |
 			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 	}
+
+	return success;
 }
 
-bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps)
+bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps, bool &done)
 {
 
 	auto remesher = getVoronoiObject(object, ctrl);
-	bool done = remesher->dualize(steps);
+	bool success = remesher->dualize(done, steps);
 
-	if (remesher->useColors()) {
+	if (success && remesher->useColors()) {
 		object->setObjectDrawMode(
 			ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED |
 			ACG::SceneGraph::DrawModes::WIREFRAME
 		);
 	}
 
-	return done;
+	return success;
 }
 
-void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
+bool voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 {
 	auto remesher = getVoronoiObject(object, ctrl);
-	remesher->fitting();
+
+	bool success = remesher->fitting();
 
 	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
 	mesh->garbage_collection();
@@ -116,6 +119,8 @@ void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 	ctrl->setObjectDrawMode(
 		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 	);
+
+	return success;
 }
 
 VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl)

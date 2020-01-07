@@ -43,13 +43,13 @@ void voronoiInit(
 	const int paramWeights
 );
 
-void voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
+bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
 
-void voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl);
+bool voronoiPartition(BaseObjectData *object, BaseObjectData *ctrl, const bool steps, bool &done);
 
-bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps);
+bool voronoiDual(BaseObjectData *object, BaseObjectData *ctrl, bool steps, bool &done);
 
-void voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
+bool voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl);
 
 VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl);
 

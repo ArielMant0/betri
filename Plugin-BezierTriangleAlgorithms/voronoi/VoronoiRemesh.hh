@@ -53,16 +53,18 @@ public:
 	}
 
 	// performs all steps
-	void remesh();
+	bool remesh();
 
 	// partitions mesh into voronoi regions
-	void partition();
+	bool partition(const bool stepwise, bool &done);
 
-	// performs "dualizing" by finding paths on the mesh, can be performed stepwise
-	bool dualize(bool steps=false);
+	// performs dualizing
+	bool dualize(bool steps);
+	// performs dualizing stepwise
+	bool dualize(bool &done, bool steps);
 
 	// parametrize and fit to surface
-	void fitting();
+	bool fitting();
 
 	// -------------------------------------
 	// settings
@@ -84,6 +86,8 @@ public:
 	int weights() const { return m_paramWeights; }
 
 private:
+
+	bool calcPartition(const bool stepwise, bool &done);
 
 	void prepare();
 	void cleanup();
@@ -199,7 +203,7 @@ private:
 		return EH();
 	}
 
-	void grow(FaceDijkstra &q, const FH face, const FH predFace=FH(), Scalar distance=0.0)
+	void grow(FaceDijkstra &q, FH face, const FH predFace=FH(), Scalar distance=0.0)
 	{
 		id(face) = !predFace.is_valid() ? m_seeds.size() - 1 : id(predFace);
 		setColor(face, m_colors[id(face)]);
@@ -216,21 +220,24 @@ private:
 		q.insert(pair);
 	};
 
-	bool homeomorphicDisk(const FH f, const VH v, const ID tile) const
-	{
-		const auto isAdjTo = [&](const VH v, const ID tile) {
-			for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
-				if (id(*f) == tile) return true;
-			}
-			return false;
-		};
+	void growTiles(FaceDijkstra &q);
 
-		int countEdge = 0;
-		for (auto he = m_mesh.cfh_begin(f); he != m_mesh.cfh_end(f); ++he) {
-			if (id(m_mesh.opposite_face_handle(*he)) != tile) countEdge++;
-		}
-		return !(isAdjTo(v, tile) && countEdge == 2);
+	bool homeomorphicDisk(const FH f, const HH cross, const ID tile) const
+	{
+		HH left = m_mesh.next_halfedge_handle(cross);
+		HH right = m_mesh.next_halfedge_handle(left);
+
+		ID fh0 = id(m_mesh.opposite_face_handle(left));
+		ID fh1 = id(m_mesh.opposite_face_handle(right));
+
+		return !(fh0 != tile && fh1 != tile &&
+			adjToRegion(m_mesh.to_vertex_handle(left), tile)
+		);
 	}
+
+	bool partitionIsValid();
+
+	void findRegionCuts(std::vector<std::vector<std::vector<FH>>> &cuts);
 
 	void reduceCuts(FaceDijkstra &q);
 
@@ -258,16 +265,6 @@ private:
 		Color c = m_colors[id(f)];
 		c[3] = 0.5f;
 		setColor(f, c);
-
-		P p1 = m_mesh.calc_face_centroid(f);
-		for (auto he = m_mesh.fh_begin(f); he != m_mesh.fh_end(f); ++he) {
-			auto ff = m_mesh.face_handle(he);
-			P p2 = m_mesh.calc_face_centroid(ff);
-			double distance = (p1 - p2).norm();
-			if (distance < dist(ff)) {
-				grow(q, ff, f, distance);
-			}
-		}
 	}
 
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
@@ -343,10 +340,10 @@ private:
 	bool adjToSeedFace(const FaceHandle fh) const
 	{
 		for (auto v_it = m_mesh.cfv_begin(fh), v_e = m_mesh.cfv_end(fh); v_it != v_e; ++v_it) {
-			if (countAdjRegions(*v_it) > 2) return true;
-			/*for (auto f_it = m_mesh.cvf_begin(*v_it), f_e = m_mesh.cvf_end(*v_it); f_it != f_e; ++f_it) {
+			//if (countAdjRegions(*v_it) > 2) return true;
+			for (auto f_it = m_mesh.cvf_begin(*v_it), f_e = m_mesh.cvf_end(*v_it); f_it != f_e; ++f_it) {
 				if (isSeed(*f_it)) return true;
-			}*/
+			}
 		}
 		/*for (auto f_it = m_mesh.cff_begin(fh), f_e = m_mesh.cff_end(fh); f_it != f_e; ++f_it) {
 			if (isSeed(*f_it)) return true;
@@ -421,7 +418,7 @@ private:
 
 	bool addExtraSeed(FaceDijkstra &q);
 
-	void faceSP(FaceDijkstra &q);
+	bool faceSP(FaceDijkstra &q, const bool stepwise);
 
 	void ensureReachable(const ID id0);
 
@@ -480,6 +477,8 @@ private:
 	std::vector<FH> m_seeds;
 	std::vector<VH> m_ctrlVerts;
 	std::vector<VH> m_seedVerts;
+
+	FaceDijkstra m_q;
 
 	// property handles
 	OpenMesh::FPropHandleT<ID>			  m_region;

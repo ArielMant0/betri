@@ -7,6 +7,7 @@
 #include <qlabel.h>
 #include <qinputdialog.h>
 #include <qspinbox.h>
+#include <qmessagebox.h>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
 
@@ -41,6 +42,8 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 
 	QPushButton *patitionButton = new QPushButton(tr("Part."));
 	connect(patitionButton, SIGNAL(clicked()), this, SLOT(callPartition()));
+	QPushButton *partStepButton = new QPushButton(tr("Part. Step"));
+	connect(partStepButton, SIGNAL(clicked()), this, SLOT(callPartitionStep()));
 	QPushButton *dualStepButton = new QPushButton(tr("Dual Step"));
 	connect(dualStepButton, SIGNAL(clicked()), this, SLOT(callDualStep()));
 	QPushButton *dualButton = new QPushButton(tr("Dual"));
@@ -66,9 +69,10 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
-	voronoiLayout->addWidget(patitionButton, 1, 0, 2, 1);
-	voronoiLayout->addWidget(dualStepButton, 1, 1, 1, 1);
-	voronoiLayout->addWidget(dualButton, 2, 1, 1, 1);
+	voronoiLayout->addWidget(patitionButton, 1, 0, 1, 1);
+	voronoiLayout->addWidget(partStepButton, 2, 0, 1, 1);
+	voronoiLayout->addWidget(dualButton, 1, 1, 1, 1);
+	voronoiLayout->addWidget(dualStepButton, 2, 1, 1, 1);
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
 	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
 	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
@@ -216,33 +220,138 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				);
 			}
 
-			betri::voronoiRemesh(*o_it, ctrl_obj);
+			bool success = betri::voronoiRemesh(*o_it, ctrl_obj);
 
 			if (m_useTimer) {
 				m_timer.end();
 			}
 
-			BezierTMesh *cMesh = ctrlMeshObj->mesh();
+			if (success) {
+				BezierTMesh *cMesh = ctrlMeshObj->mesh();
 
-			if (m_vFlags[2]->isChecked()) {
-				cMesh = meshObj->mesh();
-				// remove tmp object
-				emit deleteObject(ctrl_id);
-				ctrl_obj = nullptr;
-			} else {
-				cMesh->setRenderable();
-				ctrlMeshObj->show();
-				meshObj->hide();
+				if (m_vFlags[2]->isChecked()) {
+					cMesh = meshObj->mesh();
+					// remove tmp object
+					emit deleteObject(ctrl_id);
+					ctrl_obj = nullptr;
+				} else {
+					cMesh->setRenderable();
+					ctrlMeshObj->show();
+					meshObj->hide();
+				}
+
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+
+				emit log(LOGINFO, "# --------------------------- #");
+				emit log(LOGINFO, "# Performed Voronoi Meshing!");
+				emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
+				emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
+				emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
+				emit log(LOGINFO, "# --------------------------- #");
+			}
+		} else {
+			QMessageBox error;
+			error.addButton(QMessageBox::Button::Ok);
+			error.setText("voronoi meshing failed");
+			error.exec();
+		}
+	}
+}
+
+void BezierTriangleAlgorithmsPlugin::callPartitionStep()
+{
+	// init object iterator
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::TARGET_OBJECTS,
+		DATA_BEZIER_TRIANGLE_MESH
+	);
+
+	if (o_it != PluginFunctions::objectsEnd()) {
+
+		BTMeshObject *meshObj = dynamic_cast<BTMeshObject*>(*o_it);
+
+		bool ok = true;
+		int seedCount;
+
+		if (m_vinit.find(meshObj->id()) == m_vinit.end()) {
+
+			if (applyTargetDegree(*o_it)) {
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
 			}
 
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
+			int minValue = meshObj->mesh()->n_faces()*0.01;
+			seedCount = QInputDialog::getInt(
+				m_tool,
+				"Voronoi Meshing",
+				"Please enter the minimum number of seeds: ",
+				// value, min value
+				minValue, 0,
+				// max value, steps
+				meshObj->mesh()->n_faces(), 1, &ok
+			);
+		}
 
-			emit log(LOGINFO, "# --------------------------- #");
-			emit log(LOGINFO, "# Performed Voronoi Remeshing!");
-			emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
-			emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
-			emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
-			emit log(LOGINFO, "# --------------------------- #");
+		if (ok) {
+			int ctrl_id;
+			BTMeshObject *ctrlMeshObj;
+
+			if (m_vinit.find(meshObj->id()) == m_vinit.end()) {
+
+				emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+				PluginFunctions::getObject(ctrl_id, ctrl_obj);
+				ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+				ctrlMeshObj->setName("control mesh");
+				ctrlMeshObj->hide();
+				ctrlMeshObj->target(false);
+
+				betri::voronoiInit(
+					*o_it,
+					ctrl_obj,
+					seedCount,
+					m_vFlags[0]->isChecked(),
+					m_vFlags[1]->isChecked(),
+					m_vFlags[2]->isChecked(),
+					m_vparam->currentIndex()
+				);
+
+				m_vinit.insert(meshObj->id());
+			}
+
+			if (m_useTimer) {
+				m_timer.filename(
+					meshObj->path().toStdString() +
+					"/voronoi-times.txt"
+				);
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.start(
+					info.name + " " +
+					info.vertices + " " +
+					info.edges + " " +
+					info.faces + " " +
+					info.partition
+				);
+			}
+
+			bool done;
+			bool success = betri::voronoiPartition(*o_it, ctrl_obj, true, done);
+
+			if (m_useTimer) {
+				m_timer.end("partition step");
+			}
+
+			if (success) {
+
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+
+				emit log(LOGINFO, "# --------------------------- #");
+				emit log(LOGINFO, "# Performed partitioning!");
+				emit log(LOGINFO, "# --------------------------- #");
+			} else {
+				QMessageBox error;
+				error.addButton(QMessageBox::Button::Ok);
+				error.setText("error: partitioning failed");
+				error.exec();
+			}
 		}
 	}
 }
@@ -264,7 +373,8 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 			m_timer.lapStart();
 		}
 
-		bool done = betri::voronoiDual(*o_it, ctrl_obj, true);
+		bool done;
+		bool success = betri::voronoiDual(*o_it, ctrl_obj, true, done);
 
 		if (m_useTimer) {
 			m_timer.lapEnd("dualize step");
@@ -274,17 +384,20 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 
 		// only show control mesh obj if its complete
 		if (done) {
-			emit log(LOGINFO, "Finished Dualizing!");
 
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
-			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+			if (success) {
+				emit log(LOGINFO, "Finished Dualizing!");
 
-			// TODO: does not work for some reason
-			ctrlMeshObj->mesh()->setRenderable();
-			ctrlMeshObj->show();
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+				emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
 
-			//m_voronoiSteps[1]->setDisabled(true);
-			//m_voronoiSteps[2]->setDisabled(true);
+				// TODO: does not work for some reason
+				ctrlMeshObj->mesh()->setRenderable();
+				ctrlMeshObj->show();
+
+			} else {
+				emit log(LOGERR, "Dualizing failed!");
+			}
 		} else {
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
@@ -308,20 +421,27 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 			m_timer.lapStart();
 		}
 
-		betri::voronoiDual(*o_it, ctrl_obj, false);
+		bool done;
+		bool success = betri::voronoiDual(*o_it, ctrl_obj, false, done);
 
 		if (m_useTimer) {
 			m_timer.lapEnd("dualize");
 		}
 
-		emit log(LOGINFO, "Performed Dualizing!");
+		if (success && done) {
 
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+			emit log(LOGINFO, "Performed Dualizing!");
 
-		// TODO: does not work for some reason
-		ctrlMeshObj->mesh()->setRenderable();
-		ctrlMeshObj->show();
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+			emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
+
+			// TODO: does not work for some reason
+			ctrlMeshObj->mesh()->setRenderable();
+			ctrlMeshObj->show();
+
+		} else {
+			emit log(LOGERR, "Dualizing failed!");
+		}
 	}
 }
 
@@ -343,34 +463,41 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 			m_timer.lapStart();
 		}
 
-		betri::voronoiFitting(*o_it, ctrl_obj);
+		bool success = betri::voronoiFitting(*o_it, ctrl_obj);
 
 		if (m_useTimer) {
 			m_timer.end("fitting");
 		}
 
-		BezierTMesh *cMesh = ctrlMeshObj->mesh();
+		m_vinit.erase(meshObj->id());
 
-		if (m_vFlags[2]->isChecked()) {
-			cMesh = meshObj->mesh();
-			// remove tmp object
-			emit deleteObject(ctrlMeshObj->id());
-			ctrl_obj = nullptr;
+		if (success) {
+
+			BezierTMesh *cMesh = ctrlMeshObj->mesh();
+
+			if (m_vFlags[2]->isChecked()) {
+				cMesh = meshObj->mesh();
+				// remove tmp object
+				emit deleteObject(ctrlMeshObj->id());
+				ctrl_obj = nullptr;
+			} else {
+				meshObj->hide();
+
+				cMesh->setRenderable();
+				ctrlMeshObj->show();
+			}
+
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
+
+			emit log(LOGINFO, "# --------------------------- #");
+			emit log(LOGINFO, "# Performed Fitting!");
+			emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
+			emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
+			emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
+			emit log(LOGINFO, "# --------------------------- #");
 		} else {
-			meshObj->hide();
-
-			cMesh->setRenderable();
-			ctrlMeshObj->show();
+			emit log(LOGERR, "Fitting failed!");
 		}
-
-		emit updatedObject(meshObj->id(), UPDATE_ALL);
-
-		emit log(LOGINFO, "# --------------------------- #");
-		emit log(LOGINFO, "# Performed Fitting!");
-		emit log(LOGINFO, tr("# Vertices: %1").arg(cMesh->n_vertices()));
-		emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
-		emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
-		emit log(LOGINFO, "# --------------------------- #");
 	}
 
 	for (auto button : m_voronoiSteps) {
@@ -389,43 +516,54 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 	if (o_it != PluginFunctions::objectsEnd()) {
 
 		int ctrl_id;
+		BTMeshObject *ctrlMeshObj;
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 
-		if (applyTargetDegree(*o_it)) {
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
-		}
+		bool ok = true;
+		int seedCount;
 
-		bool ok;
-		int minValue = meshObj->mesh()->n_faces()*0.01;
-		int seedCount = QInputDialog::getInt(
-			m_tool,
-			"Voronoi Meshing",
-			"Please enter the minimum number of seeds: ",
-			// value, min value
-			minValue, 0,
-			// max value, steps
-			meshObj->mesh()->n_faces(), 1, &ok
-		);
+		if (m_vinit.find(meshObj->id()) == m_vinit.end()) {
+
+			if (applyTargetDegree(*o_it)) {
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+			}
+
+			int minValue = meshObj->mesh()->n_faces()*0.01;
+			seedCount = QInputDialog::getInt(
+				m_tool,
+				"Voronoi Meshing",
+				"Please enter the minimum number of seeds: ",
+				// value, min value
+				minValue, 0,
+				// max value, steps
+				meshObj->mesh()->n_faces(), 1, &ok
+			);
+		}
 
 		if (ok) {
 
-			emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-			PluginFunctions::getObject(ctrl_id, ctrl_obj);
-			BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
+			if (m_vinit.find(meshObj->id()) == m_vinit.end()) {
 
-			ctrlMeshObj->setName(meshObj->name() + "_ctrl");
-			ctrlMeshObj->hide();
-			ctrlMeshObj->target(false);
+				emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
+				PluginFunctions::getObject(ctrl_id, ctrl_obj);
+				BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
-			betri::voronoiInit(
-				*o_it,
-				ctrl_obj,
-				seedCount,
-				m_vFlags[0]->isChecked(),
-				m_vFlags[1]->isChecked(),
-				m_vFlags[2]->isChecked(),
-				m_vparam->currentIndex()
-			);
+				ctrlMeshObj->setName(meshObj->name() + "_ctrl");
+				ctrlMeshObj->hide();
+				ctrlMeshObj->target(false);
+
+				betri::voronoiInit(
+					*o_it,
+					ctrl_obj,
+					seedCount,
+					m_vFlags[0]->isChecked(),
+					m_vFlags[1]->isChecked(),
+					m_vFlags[2]->isChecked(),
+					m_vparam->currentIndex()
+				);
+
+				m_vinit.insert(meshObj->id());
+			}
 
 			if (m_useTimer) {
 				m_timer.filename(
@@ -442,16 +580,25 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				);
 			}
 
-			betri::voronoiPartition(*o_it, ctrl_obj);
+			bool done;
+			bool success = betri::voronoiPartition(*o_it, ctrl_obj, false, done);
 
 			if (m_useTimer) {
 				m_timer.lapEnd("partition");
 			}
 
-			emit log(LOGINFO, "Performed Voronoi Partition!");
+			if (success) {
 
-			//emit updatedObject(meshObj->id(), UPDATE_COLOR);
-			emit updatedObject(meshObj->id(), UPDATE_ALL);
+				emit log(LOGINFO, "Performed Voronoi Partition!");
+
+				//emit updatedObject(meshObj->id(), UPDATE_COLOR);
+				emit updatedObject(meshObj->id(), UPDATE_ALL);
+			} else {
+				QMessageBox error;
+				error.addButton(QMessageBox::Button::Ok);
+				error.setText("error: partitioning failed");
+				error.exec();
+			}
 		}
 	}
 }

@@ -886,72 +886,90 @@ bool VoronoiRemesh::addExtraSeed(FaceDijkstra &q)
 	return false;
 }
 
-void VoronoiRemesh::faceSP(FaceDijkstra & q)
+void VoronoiRemesh::growTiles(FaceDijkstra &q)
 {
-	const auto growTiles = [&]() {
+	int count = 0, added = 0;
+	// grow tiles until M is covered or COND 1 is violated
+	while (!q.empty()) {
 
-		int count = 0, added = 0;
-		// grow tiles until M is covered or COND 1 is violated
-		while (!q.empty()) {
+		auto it = q.begin();
+		auto face = (*it).second;
+		q.erase(it);
 
-			auto it = q.begin();
-			auto face = (*it).second;
-			q.erase(it);
+		P p1 = m_mesh.calc_face_centroid(face);
 
-			P p1 = m_mesh.calc_face_centroid(face);
+		bool stop = false;
+		// iterate over all incident halfedges of this face
+		for (auto he = m_mesh.fh_begin(face); he != m_mesh.fh_end(face) && !stop; ++he) {
 
-			bool stop = false;
-			// iterate over all incident halfedges of this face
-			for (auto he = m_mesh.fh_begin(face); he != m_mesh.fh_end(face) && !stop; ++he) {
+			FH f = m_mesh.opposite_face_handle(*he);
+			EH edge = m_mesh.edge_handle(*he);
 
-				FH f = m_mesh.opposite_face_handle(*he);
-				EH edge = m_mesh.edge_handle(*he);
+			const P p2 = m_mesh.calc_face_centroid(f);
+			const P edgeM = m_mesh.calc_edge_midpoint(edge);
 
-				const P p2 = m_mesh.calc_face_centroid(f);
-				const P edgeM = m_mesh.calc_edge_midpoint(edge);
+			// distance to the next face
+			const double update = dist(face) + (p1 - edgeM).norm() + (p2 - edgeM).norm();
 
-				// distance to the next face
-				const double update = dist(face) + (p1 - edgeM).norm() + (p2 - edgeM).norm();
+			// update neighbor face distance if the value can be improved
+			if (update < dist(f)) {
 
-				// update neighbor face distance if the value can be improved
-				if (update < dist(f)) {
-					auto opp = m_mesh.opposite_halfedge_handle(*he);
-					auto next = m_mesh.next_halfedge_handle(opp);
-					auto v = m_mesh.to_vertex_handle(next);
-					// COND 1: if not homeomorphic to disk (new face is adj to boundary across
-					// which lies a face of the same tile) add face as new seed
-					if (!homeomorphicDisk(f, v, id(face))) {
+				auto opp = m_mesh.opposite_halfedge_handle(*he);
+				auto next = m_mesh.next_halfedge_handle(opp);
+				auto v = m_mesh.to_vertex_handle(next);
+
+				// COND 1: if not homeomorphic to disk add face as new seed
+				if (!homeomorphicDisk(f, m_mesh.opposite_halfedge_handle(*he), id(face))) {
+
+					bool okay = true;
+					for (auto v_it = m_mesh.cfv_begin(f), v_e = m_mesh.cfv_end(f);
+						v_it != v_e; ++v_it
+					) {
+						if (countAdjRegions(*v_it) > 2) {
+							okay = false;
+						}
+					}
+
+					if (okay) {
 						addSeed(q, f);
 						stop = true;
 						count++;
-						break;
 					}
+					break;
+				} else {
 					grow(q, f, face, update);
 					added++;
 				}
 			}
 		}
-		std::cerr << "disk topology added " << count << " seeds\n";
-		std::cerr << "face dijkstra updated " << added << " faces\n";
-	};
+	}
+	std::cerr << "disk topology added " << count << " seeds\n";
+	std::cerr << "face dijkstra updated " << added << " faces\n";
+}
 
+
+bool VoronoiRemesh::faceSP(FaceDijkstra & q, const bool stepwise)
+{
 	do {
-		growTiles();
+		// grow regions until whole mesh is covered
+		growTiles(q);
+
+		// COND 3: if one vertex is adj to more than 3 regions, add one adj face as a new seed face
+		reduceAdjRegions(q);
+
+		if (debugCancel()) return false;
+
+		growTiles(q);
 
 		// COND 2: if more than one shared boundary per pair of tiles exists, add one of the
 		// faces adj to the cut as a new seed face
 		reduceCuts(q);
 
-		if (debugCancel()) return;
+		if (debugCancel()) return false;
 
-		growTiles();
+	} while (!stepwise && !q.empty());
 
-		// COND 3: if one vertex is adj to more than 3 regions, add one adj face as a new seed face
-		reduceAdjRegions(q);
-
-		if (debugCancel()) return;
-
-	} while (!q.empty());
+	return q.empty();
 }
 
 void VoronoiRemesh::ensureReachable(const ID id0)
@@ -1100,52 +1118,127 @@ void VoronoiRemesh::findShortestPath(const VH vh, const ID id0)
 
 }
 
+bool VoronoiRemesh::partitionIsValid()
+{
+	int count1 = 0, count2 = 0;
+
+	for (VH vh : m_mesh.vertices()) {
+		if (countAdjRegions(vh) > 3) {
+			count1++;
+		}
+	}
+
+	std::vector<std::vector<std::vector<FH>>> cuts;
+	findRegionCuts(cuts);
+
+	size_t bef = m_seeds.size();
+
+	for (size_t i = 0; i < cuts.size(); ++i) {
+		for (size_t j = 0; j < cuts[i].size(); ++j) {
+			if (cuts[i][j].size() > 1) {
+				count2++;
+			}
+		}
+	}
+
+	if (count1 > 0) {
+		std::cerr << count1 << " vertices have more than 3 adj regions" << std::endl;
+	}
+	if (count2 > 0) {
+		std::cerr << count2 << " pairs of regions share more than 1 cut" << std::endl;
+	}
+
+	return count1 == 0 && count2 == 0;
+}
+
  //////////////////////////////////////////////////////////
  // create voronoi partition
  //////////////////////////////////////////////////////////
-void VoronoiRemesh::partition()
+bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 {
-	// prepare (reset)
-	m_seeds.clear();
-	m_colors.clear();
-	m_seedVerts.clear();
-	m_ctrlVerts.clear();
+	int i = 0;
+	constexpr int MAX_ATTEMPTS = 1;
 
-	m_nvertices = 0;
-	m_nedges = 0;
-	m_vertexIdx = 0;
+	if (m_q.empty()) {
+		// prepare (reset)
+		m_seeds.clear();
+		m_colors.clear();
+		m_seedVerts.clear();
+		m_ctrlVerts.clear();
 
-	m_errorMsg = "";
+		m_nvertices = 0;
+		m_nedges = 0;
+		m_vertexIdx = 0;
 
-	// special "priority-queue" for dijkstra
-	FaceDijkstra q;
+		m_errorMsg = "";
+		m_debugCancel = false;
 
-	const double INF = std::numeric_limits<double>::max();
-	// initialize face properties
-	for (FH face : m_mesh.faces()) {
-		pred(face) = FH();
-		id(face) = -1;
-		dist(face) = INF;
-		q.insert({ INF, face });
+		const double INF = std::numeric_limits<double>::max();
+		// initialize face properties
+		for (FH face : m_mesh.faces()) {
+			pred(face) = FH();
+			id(face) = -1;
+			dist(face) = INF;
+		}
+
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<size_t> dis(0u, m_mesh.n_faces() - 1);
+
+		while (m_seeds.size() < 5) {
+			FH next = m_mesh.face_handle(dis(gen));
+			if (!isSeed(next) && !adjToSeedFace(next)) {
+				addSeed(m_q, next);
+			}
+		}
 	}
 
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<size_t> dis(0u, m_mesh.n_faces()-1);
-	addSeed(q, m_mesh.face_handle(dis(gen)));
-
-	faceSP(q);
-
+	// attempt max MAX_ATTEMPTS times before we give up #hacky
+	for (; i < MAX_ATTEMPTS; ++i) {
+		std::cerr << "\nPartition: Iteration " << i << '\n' << std::endl;
 #ifdef BEZIER_DEBUG
-	if (debugCancel()) return;
+		if (useColors()) {
+			for (VH vh : m_mesh.vertices()) {
+				m_mesh.set_color(vh, { 0.f, 0.f, 0.f, 1.f });
+			}
+		}
 #endif
+		std::cerr << std::endl;
+		if (calcPartition(stepwise, done)) {
+			// partition was successfull
+			break;
+		}
+	}
 
-	int iter = 2;
-	// add a new seed if we still need for partitions
-	while (m_seeds.size() < m_minPartition && addExtraSeed(q)) {
-		faceSP(q);
-		std::cerr << "partition iteration " << iter++ << std::endl;
-		if (debugCancel()) return;
+	// i can only be MAX_ATTEMPTS if we never found a valid partition
+	return i != MAX_ATTEMPTS;
+}
+bool VoronoiRemesh::calcPartition(const bool stepwise, bool &done)
+{
+	done = faceSP(m_q, stepwise);
+
+	if (debugCancel()) {
+		return false;
+	}
+
+	if ((!stepwise || done) && !partitionIsValid()) {
+		std::cerr << "INVALID PARTITION\n";
+		return false;
+	}
+
+	if (stepwise && !done) {
+		return true;
+	}
+
+	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
+	std::cerr << " faces as seeds" << std::endl;
+
+	int iter = 0;
+	// add a new seed if we still need more partitions
+	while (!stepwise && m_seeds.size() < minPartition() && addExtraSeed(m_q)) {
+		faceSP(m_q, false);
+		std::cerr << "partition iteration " << ++iter << std::endl;
+		if (debugCancel()) return false;
 	}
 
 	if (m_useColors) {
@@ -1161,12 +1254,6 @@ void VoronoiRemesh::partition()
 			}
 		}
 	}
-
-	m_nvertices = m_mesh.n_vertices();
-	m_nedges = m_mesh.n_edges();
-
-	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
-	std::cerr << " faces as seeds" << std::endl;
 
 	m_seedVerts.clear();
 	m_seedVerts.reserve(m_seeds.size());
@@ -1210,14 +1297,13 @@ void VoronoiRemesh::partition()
 
 	splitClosedPaths(std::set<ID>());
 
-#ifdef BEZIER_DEBUG
-	if (debugCancel()) return;
-#endif
+	m_nvertices = m_mesh.n_vertices();
+	m_nedges = m_mesh.n_edges();
 
 	// calculate shortest distances for all vertices
 	vertexDijkstra();
 
-	debugCancel();
+	return true;
 }
 
 void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
@@ -1327,6 +1413,14 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 //////////////////////////////////////////////////////////
 // create base mesh
 //////////////////////////////////////////////////////////
+bool VoronoiRemesh::dualize(bool &done, bool steps)
+{
+	bool success = dualize(steps);
+	done = m_vertexIdx == m_mesh.n_vertices();
+
+	return success;
+}
+
 bool VoronoiRemesh::dualize(bool steps)
 {
 	std::unordered_set<ID> check;
@@ -1365,7 +1459,6 @@ bool VoronoiRemesh::dualize(bool steps)
 			// add the face
 			const FH fh = m_ctrl.add_face(points[0], points[1], points[2], true);
 
-#ifdef BEZIER_DEBUG
 			if (!fh.is_valid()) {
 				m_mesh.set_color(m_seedVerts[seedIDs[0]], { 0.5f, 1.f, 0.5f, 0.f });
 				m_mesh.set_color(m_seedVerts[seedIDs[1]], { 0.5f, 1.f, 0.5f, 0.f });
@@ -1374,7 +1467,6 @@ bool VoronoiRemesh::dualize(bool steps)
 				debugCancel("face not valid");
 				return false;
 			}
-#endif
 
 			for (size_t j = 0; j < 3; ++j) {
 				const ID id1 = seedIDs[j];
@@ -1422,19 +1514,19 @@ bool VoronoiRemesh::dualize(bool steps)
 	// if we finished, assign interior vertices
 	if (m_vertexIdx == m_mesh.n_vertices()) {
 		// TODO: make sure this doesnt happen in partition
-		if (m_ctrl.n_faces() < 3) return true;
+		if (m_ctrl.n_faces() < 3) return false;
 
 		// perform assignment
 		assignInnerVertices();
 	}
 
-	return m_vertexIdx == m_mesh.n_vertices();
+	return true;
 }
 
 //////////////////////////////////////////////////////////
 // parameterization (harmonic map) + surface fitting
 //////////////////////////////////////////////////////////
-void VoronoiRemesh::fitting()
+bool VoronoiRemesh::fitting()
 {
 	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
 	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
@@ -1452,16 +1544,14 @@ void VoronoiRemesh::fitting()
 		if (!param.solveLocal(face)) {
 			std::cerr << "parametrization for face " << face << " failed\n";
 			debugCancel("parametrization failed");
-			return;
+			return false;
 		}
-		std::cerr << "\nfinished parametrization for face " << face << "\n";
 
 		if (!fit.solveLocal(face, m_interpolate)) {
 			std::cerr << "fitting for face " << face << " failed\n";
 			debugCancel("fitting failed");
-			return;
+			return false;
 		}
-		std::cerr << "\nfinished fitting for face " << face << "\n";
 	}
 
 	if (m_interpolate) {
@@ -1481,23 +1571,26 @@ void VoronoiRemesh::fitting()
 		// update normals
 		m_ctrl.update_normals();
 	}
+
+	return true;
 }
 
-void VoronoiRemesh::remesh()
+bool VoronoiRemesh::remesh()
 {
-	partition();
+	bool done;
+	// create partition
+	if (!partition(false, done))
+		return false;
 
-	// stop if cancel was requested
-	if (debugCancel())
-		return;
+	// dualize partition
+	if (!dualize(false))
+		return false;
 
-	dualize();
+	// do parametrization and fittin
+	if(!fitting())
+		return false;
 
-	// stop if cancel was requested
-	if (debugCancel())
-		return;
-
-	fitting();
+	return true;
 
 	std::cerr << "----------- DONE -----------" << std::endl;
 }
@@ -1518,16 +1611,14 @@ void VoronoiRemesh::resetPath(FaceDijkstra &q, const FH face)
 	}
 }
 
-void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
+void VoronoiRemesh::findRegionCuts(std::vector<std::vector<std::vector<FH>>>& cuts)
 {
-	std::cerr << "----------------------------------------------\nreducing cuts\n";
-
-	std::vector<std::vector<std::vector<FH>>> cuts;
+	cuts.clear();
 	cuts.reserve(m_seeds.size());
 	for (int i = 0; i < m_seeds.size(); ++i) {
 		std::vector<std::vector<FH>> vec;
 		vec.reserve(m_seeds.size() - i - 1);
-		for (int j = 0; j < m_seeds.size()-i-1; ++j) {
+		for (int j = 0; j < m_seeds.size() - i - 1; ++j) {
 			vec.push_back(std::vector<FH>());
 		}
 		cuts.push_back(vec);
@@ -1639,6 +1730,19 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 		}
 	}
 
+	// remove marks from all edges
+	std::for_each(m_mesh.edges_begin(), m_mesh.edges_end(), [&](const EH eh) {
+		mark(eh, false);
+	});
+}
+
+void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
+{
+	std::cerr << "----------------------------------------------\nreducing cuts\n";
+
+	std::vector<std::vector<std::vector<FH>>> cuts;
+	findRegionCuts(cuts);
+
 	size_t bef = m_seeds.size();
 
 	for (size_t i = 0; i < cuts.size(); ++i) {
@@ -1650,7 +1754,7 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 			int k = (int)cuts[i][j].size() - 1;
 			int count = 0;
 
-			// look at all cut faces
+			// look at 1 cut face
 			while (k >= 0 && count == 0) {
 
 				last = cuts[i][j][k];
@@ -1659,9 +1763,7 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 					!isSeed(last)) {
 					count++;
 					addSeed(q, last);
-					//std::cerr << "added " << m_seeds.size() - bef << " new seeds\n";
-					//std::cerr << "----------------------------------------------\n";
-					//return;
+					//return; // TODO: remove?
 				}
 				k--;
 			}
@@ -1670,11 +1772,6 @@ void VoronoiRemesh::reduceCuts(FaceDijkstra &q)
 
 	std::cerr << "added " << m_seeds.size()-bef << " new seeds\n";
 	std::cerr << "----------------------------------------------\n";
-
-	// remove marks from all edges
-	std::for_each(m_mesh.edges_begin(), m_mesh.edges_end(), [&](const EH eh) {
-		mark(eh, false);
-	});
 }
 
 void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
@@ -1684,78 +1781,53 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 	// remove a region completely
 	const auto removeRegion = [&](FH face) {
 
-		std::set<FH> remove;
-		remove.insert(face);
-
-		Scalar INF = std::numeric_limits<Scalar>::max();
-		ID rId = id(face);
-
-		id(face) = -1;
-		pred(face) = FH();
-		dist(face) = INF;
-
-		std::cerr << "\tremoving region " << rId << std::endl;
-
-		while (!remove.empty()) {
-
-			FH top = *remove.begin();
-			remove.erase(top);
-
-			for (auto f_it = m_mesh.cff_begin(top), f_e = m_mesh.cff_end(top);
-				f_it != f_e; ++f_it
-			) {
-				if (id(*f_it) == rId) {
-
-					id(*f_it) = -1;
-					pred(*f_it) = FH();
-					dist(*f_it) = INF;
-					remove.insert(*f_it);
-
-				} else if (id(*f_it) >= 0) {
-					std::cerr << "\t\t" << id(*f_it) << "\n";
-					grow(q, *f_it, pred(*f_it), dist(*f_it));
-				}
-			}
-		}
+		const ID toRemove = id(face);
+		const Scalar INF = std::numeric_limits<Scalar>::max();
 
 		for (FH fh : m_mesh.faces()) {
-			if (id(fh) > rId) {
+			if (id(fh) == toRemove) {
+				id(fh) = -1;
+				pred(fh) = FH();
+				dist(fh) = INF;
+			} else if (id(fh) > toRemove) {
 				id(fh) = id(fh) - 1;
 			}
 		}
 
-		FH seedFace = m_seeds[rId];
-		m_seeds.erase(m_seeds.begin() + rId);
-
-		assert(std::find(m_seeds.begin(), m_seeds.end(), seedFace) == m_seeds.end());
+		m_seeds.erase(m_seeds.begin() + toRemove);
+		m_colors.erase(m_colors.begin() + toRemove);
 	};
 
 	int count = 0;
 
-	for (VH v : m_mesh.vertices()) {
-		if (countAdjRegions(v) > 3) {
+	for (int i = 0; i < m_mesh.n_vertices(); ++i) {
 
-			Scalar maxDist = 0.0;
+		VH v = m_mesh.vertex_handle(i);
+
+		int regionCount = countAdjRegions(v);
+
+		if (regionCount > 3) {
+
 			FH target;
-			int before = m_seeds.size();
 
 			for (auto f = m_mesh.cvf_begin(v); f != m_mesh.cvf_end(v); ++f) {
-				if (!isSeed(*f) && dist(*f) > maxDist) {
+				if (!isSeed(*f)) {
 					target = *f;
-					maxDist = dist(*f);
+					break;
 				}
 			}
+
 			if (!target.is_valid()) {
 				m_mesh.set_color(v, { 1.f, 0.5f, 0.5f, 1.f });
+				std::cerr << " - already added " << count << " seeds -" << std::endl;
 				debugCancel("too many seeds around vertex");
 				return;
+
 			} else {
 				addSeed(q, target);
-				assert(m_seeds.size() > before);
+				count++;
+				//return; // TODO: remove?
 			}
-			count++;
-			std::cerr << "\tadded " << count << " seeds\n";
-			return;
 		}
 	}
 

@@ -8,10 +8,12 @@
 
 #include <OpenFlipper/common/Types.hh>
 
-#include <qlineedit.h> // TODO
-#include <qpushbutton.h> // TODO
+#include <qlineedit.h>
+#include <qpushbutton.h>
 #include <qcheckbox.h>
 #include <qcombobox.h>
+
+#include <set>
 
 #include "AlgorithmTimer.hh"
 
@@ -55,6 +57,9 @@ private:
 	QComboBox *m_vparam;
 	std::array<QCheckBox*, 2> m_dFlags;
 
+	// whether sth started ... TODO
+	std::set<int> m_vinit;
+
 	bool m_useTimer;
 	AlgorithmTimer m_timer;
 
@@ -92,6 +97,7 @@ private slots:
 	// voronoi meshing functions
 	void callVoronoi();
 	void callPartition();
+	void callPartitionStep();
 	void callDualStep();
 	void callDual();
 	void callFitting();
