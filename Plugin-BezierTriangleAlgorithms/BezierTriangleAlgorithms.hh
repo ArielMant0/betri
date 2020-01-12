@@ -40,6 +40,7 @@ void voronoiInit(
 	const bool useColors,
 	const bool interpolate,
 	const bool overwrite,
+	const bool splits,
 	const int paramWeights
 );
 

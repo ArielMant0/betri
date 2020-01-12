@@ -651,14 +651,14 @@ static void addConvexHullFromPoints(
 	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
 	std::vector<size_t> hull2;
 	if (qh.m_planar) {
-		hull2 = findConvexHull2D(faceControlP);
+		//hull2 = findConvexHull2D(faceControlP);
 	}
 
 	//////////////////
 	// Convert Mesh //
 	//////////////////
 	TriMesh reducedMesh;
-	if (qh.m_planar) {
+	/*if (qh.m_planar) {
 		std::vector<BezierTMesh::VertexHandle> vh;
 		for (auto index : hull2) {
 			auto v = faceControlP[index];
@@ -666,7 +666,7 @@ static void addConvexHullFromPoints(
 		}
 
 		reducedMesh.add_face(vh);
-	} else {
+	} else {*/
 		for (auto v : hull.m_vertices) {
 			reducedMesh.add_vertex({ v.x, v.y, v.z });
 		}
@@ -680,7 +680,7 @@ static void addConvexHullFromPoints(
 			TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
 			reducedMesh.add_face(vh1, vh2, vh3);
 		}
-	}
+	//}
 
 	//////////////////
 	// Setup Buffer //

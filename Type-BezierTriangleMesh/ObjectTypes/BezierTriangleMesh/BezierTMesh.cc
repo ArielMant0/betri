@@ -478,6 +478,10 @@ BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool 
 		set_face_handle(hes[i+3], f);
 		set_face_handle(prev, f);
 
+		if (i != 0) {
+			recalculateCPs(f);
+		}
+
 		if (copy) {
 			copy_all_properties(fh, f, false);
 			set_color(f, color(fh));

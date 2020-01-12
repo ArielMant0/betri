@@ -47,6 +47,7 @@ void voronoiInit(
 	const bool useColors,
 	const bool interpolate,
 	const bool overwrite,
+	const bool splits,
 	const int paramIndex
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
@@ -55,6 +56,7 @@ void voronoiInit(
 	remesher->interpolate(interpolate);
 	remesher->overwrite(overwrite);
 	remesher->weights(paramIndex);
+	remesher->splits(splits);
 }
 
 bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)

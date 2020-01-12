@@ -53,7 +53,7 @@ private:
 	QWidget *m_tool;
 	// TODO: disable other buttons
 	std::vector<QPushButton*> m_voronoiSteps;
-	std::array<QCheckBox*, 3> m_vFlags;
+	std::array<QCheckBox*, 4> m_vFlags;
 	QComboBox *m_vparam;
 	std::array<QCheckBox*, 2> m_dFlags;
 

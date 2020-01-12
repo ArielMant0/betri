@@ -79,6 +79,9 @@ public:
 	void overwrite(bool use) { m_overwrite = use; }
 	bool overwrite() const { return m_overwrite; }
 
+	void splits(bool use) { m_splits = use; }
+	bool splits() const { return m_splits; }
+
 	void minPartition(size_t part) { m_minPartition = part; }
 	size_t minPartition() const { return m_minPartition; }
 
@@ -91,6 +94,8 @@ private:
 
 	void prepare();
 	void cleanup();
+
+	void splitLongEdges();
 
 	bool debugCancel() const
 	{
@@ -466,7 +471,7 @@ private:
 
 	std::string m_errorMsg;
 
-	bool m_useColors, m_overwrite, m_debugCancel, m_interpolate;
+	bool m_useColors, m_overwrite, m_debugCancel, m_interpolate, m_splits;
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
 	// 0 = uniform, 1 = contangent
 	int m_paramWeights;

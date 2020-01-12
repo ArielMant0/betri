@@ -10,6 +10,7 @@
 #include <qmessagebox.h>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
+#include <OpenFlipper/Utils/Memory/RAMInfo.hh>
 
 #include "OpenFlipper/BasePlugin/PluginFunctions.hh"
 
@@ -61,11 +62,14 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vFlags[1] = new QCheckBox(tr("interpolate"));
 	m_vFlags[2] = new QCheckBox(tr("overwrite mesh"));
 	m_vFlags[2]->setChecked(true); // default
+	m_vFlags[3] = new QCheckBox(tr("split long edges"));
+	m_vFlags[3]->setChecked(true); // default
 
 	QLabel *modeLabel = new QLabel(tr("Parametrization Weights"));
 	m_vparam = new QComboBox();
 	m_vparam->addItem("uniform");
 	m_vparam->addItem("cotangent");
+	m_vparam->setCurrentIndex(1); // default cotangent
 
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
@@ -77,8 +81,9 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
 	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
 	voronoiLayout->addWidget(m_vFlags[2], 5, 0);
-	voronoiLayout->addWidget(modeLabel, 6, 0, 1, 1);
-	voronoiLayout->addWidget(m_vparam, 6, 1, 1, 1);
+	voronoiLayout->addWidget(m_vFlags[3], 6, 0);
+	voronoiLayout->addWidget(modeLabel, 7, 0, 1, 1);
+	voronoiLayout->addWidget(m_vparam, 7, 1, 1, 2);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -172,7 +177,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
 
-		bool ok;
+		bool ok = true;
 		int minValue = meshObj->mesh()->n_faces()*0.01;
 		int seedCount = QInputDialog::getInt(
 			m_tool,
@@ -185,6 +190,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 		);
 
 		if (ok) {
+
 			int ctrl_id;
 			BTMeshObject *ctrlMeshObj;
 
@@ -202,6 +208,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				m_vFlags[0]->isChecked(),
 				m_vFlags[1]->isChecked(),
 				m_vFlags[2]->isChecked(),
+				m_vFlags[3]->isChecked(),
 				m_vparam->currentIndex()
 			);
 
@@ -223,7 +230,12 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			bool success = betri::voronoiRemesh(*o_it, ctrl_obj);
 
 			if (m_useTimer) {
-				m_timer.end();
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.end(
+					"\tvertices: " + info.vertices +
+					"\n\tedges: " + info.edges +
+					"\n\tfaces: " + info.faces
+				);
 			}
 
 			if (success) {
@@ -311,32 +323,43 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 					m_vFlags[0]->isChecked(),
 					m_vFlags[1]->isChecked(),
 					m_vFlags[2]->isChecked(),
+					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex()
 				);
 
 				m_vinit.insert(meshObj->id());
+
+				if (m_useTimer) {
+					m_timer.filename(
+						meshObj->path().toStdString() +
+						"/voronoi-times.txt"
+					);
+					auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+					m_timer.start(
+						info.name + " " +
+						info.vertices + " " +
+						info.edges + " " +
+						info.faces + " " +
+						info.partition
+					);
+				}
+			} else {
+				if (m_useTimer) {
+					m_timer.lapStart();
+				}
 			}
 
-			if (m_useTimer) {
-				m_timer.filename(
-					meshObj->path().toStdString() +
-					"/voronoi-times.txt"
-				);
-				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
-				m_timer.start(
-					info.name + " " +
-					info.vertices + " " +
-					info.edges + " " +
-					info.faces + " " +
-					info.partition
-				);
-			}
 
 			bool done;
 			bool success = betri::voronoiPartition(*o_it, ctrl_obj, true, done);
 
 			if (m_useTimer) {
-				m_timer.end("partition step");
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.lapEnd(
+					"\tPARTITION STEP: vertices: " + info.vertices +
+					"\n\tedges: " + info.edges +
+					"\n\tfaces: " + info.faces
+				);
 			}
 
 			if (success) {
@@ -377,7 +400,12 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 		bool success = betri::voronoiDual(*o_it, ctrl_obj, true, done);
 
 		if (m_useTimer) {
-			m_timer.lapEnd("dualize step");
+			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+			m_timer.lapEnd(
+				"\tDUALIZE STEP vertices: " + info.vertices +
+				"\n\tedges: " + info.edges +
+				"\n\tfaces: " + info.faces
+			);
 		}
 
 		emit log(LOGINFO, "Performed Dualizing Step!");
@@ -425,7 +453,12 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		bool success = betri::voronoiDual(*o_it, ctrl_obj, false, done);
 
 		if (m_useTimer) {
-			m_timer.lapEnd("dualize");
+			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+			m_timer.lapEnd(
+				"\tDUALIZE vertices: " + info.vertices +
+				"\n\tedges: " + info.edges +
+				"\n\tfaces: " + info.faces
+			);
 		}
 
 		if (success && done) {
@@ -466,7 +499,12 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		bool success = betri::voronoiFitting(*o_it, ctrl_obj);
 
 		if (m_useTimer) {
-			m_timer.end("fitting");
+			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+			m_timer.end(
+				"\tFITTING vertices: " + info.vertices +
+				"\n\tedges: " + info.edges +
+				"\n\tfaces: " + info.faces
+			);
 		}
 
 		m_vinit.erase(meshObj->id());
@@ -522,23 +560,20 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 		bool ok = true;
 		int seedCount;
 
-		if (m_vinit.find(meshObj->id()) == m_vinit.end()) {
-
-			if (applyTargetDegree(*o_it)) {
-				emit updatedObject(meshObj->id(), UPDATE_ALL);
-			}
-
-			int minValue = meshObj->mesh()->n_faces()*0.01;
-			seedCount = QInputDialog::getInt(
-				m_tool,
-				"Voronoi Meshing",
-				"Please enter the minimum number of seeds: ",
-				// value, min value
-				minValue, 0,
-				// max value, steps
-				meshObj->mesh()->n_faces(), 1, &ok
-			);
+		if (applyTargetDegree(*o_it)) {
+			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}
+
+		int minValue = meshObj->mesh()->n_faces()*0.01;
+		seedCount = QInputDialog::getInt(
+			m_tool,
+			"Voronoi Meshing",
+			"Please enter the minimum number of seeds: ",
+			// value, min value
+			minValue, 0,
+			// max value, steps
+			meshObj->mesh()->n_faces(), 1, &ok
+		);
 
 		if (ok) {
 
@@ -559,6 +594,7 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 					m_vFlags[0]->isChecked(),
 					m_vFlags[1]->isChecked(),
 					m_vFlags[2]->isChecked(),
+					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex()
 				);
 
@@ -584,7 +620,12 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 			bool success = betri::voronoiPartition(*o_it, ctrl_obj, false, done);
 
 			if (m_useTimer) {
-				m_timer.lapEnd("partition");
+				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
+				m_timer.lapEnd(
+					"\tPARTITION vertices: " + info.vertices +
+					"\n\tedges: " + info.edges +
+					"\n\tfaces: " + info.faces
+				);
 			}
 
 			if (success) {
@@ -717,7 +758,12 @@ void BezierTriangleAlgorithmsPlugin::callDecimation()
 		betri::decimation(meshObj, false, m_dFlags[1]->isChecked());
 
 		if (m_useTimer) {
-			m_timer.end();
+			auto info = betri::decimationInfo(meshObj);
+			m_timer.end(
+				"\tvertices: " + info.vertices +
+				"\n\tedges: " + info.edges +
+				"\n\tfaces: " + info.faces
+			);
 		}
 
 		emit log(LOGINFO, "# --------------------------- #");
