@@ -10,13 +10,14 @@ constexpr std::array<Vec2, 3> CORNER_UV = { { Vec2(0., 0.), Vec2(1., 0.), Vec2(0
 void DecimationParametrization::prepare()
 {
 	// note: we take the degree+1 so we always sample inside the triangle
-	m_sampleUVs = getRandomUVs(40, true);
-	//m_sampleUVs = getSampleUVs(6);
+	m_sampleUVs = getRandomUVs(m_samples, true);
 
+#ifdef BEZIER_DEBUG
 	std::cerr << "calculated sample uvs:\n";
 	for (Vec2 &uv : m_sampleUVs) {
 		std::cerr << '\t' << uv << '\n';
 	}
+#endif
 }
 
 void DecimationParametrization::cleanup()
@@ -279,8 +280,6 @@ bool DecimationParametrization::test(BezierTMesh *mesh)
 
 	auto sampleUVs = getSampleUVs(degree);
 
-	std::cerr << std::endl;
-
 	for (auto &pair : faces) {
 
 		// only calculate for remaining faces
@@ -316,7 +315,7 @@ bool DecimationParametrization::test(BezierTMesh *mesh)
 	return true;
 }
 
-std::vector<Vec2> DecimationParametrization::getSampleUVs(size_t degree)
+std::vector<Vec2> DecimationParametrization::getSampleUVs(const size_t degree)
 {
 	std::vector<Vec2> uvs;
 	uvs.reserve(pointsFromDegree(degree));
@@ -334,10 +333,8 @@ std::vector<Vec2> DecimationParametrization::getSampleUVs(size_t degree)
 }
 
 // https://cs.stackexchange.com/a/3229
-std::vector<Vec2> DecimationParametrization::getRandomUVs(size_t n, bool sampleUniform)
+std::vector<Vec2> DecimationParametrization::getRandomUVs(const size_t n, bool sampleUniform)
 {
-	//return { {Vec2(0., 0.), Vec2(1., 0.), Vec2(0., 1.) } };
-
 	std::vector<Vec2> uvs;
 
 	if (sampleUniform) {

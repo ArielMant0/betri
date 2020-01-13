@@ -6,7 +6,6 @@
 #include <qgroupbox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
-#include <qspinbox.h>
 #include <qmessagebox.h>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
@@ -71,6 +70,12 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vparam->addItem("cotangent");
 	m_vparam->setCurrentIndex(1); // default cotangent
 
+	QLabel *sampleLabelV = new QLabel(tr("Max. Fitting Samples"));
+	m_numSamples[0] = new QSpinBox;
+	m_numSamples[0]->setValue(30);
+	m_numSamples[0]->setMinimum(0);
+
+	// set layout
 	QGridLayout *voronoiLayout = new QGridLayout;
 	voronoiLayout->addWidget(voronoiButton, 0, 0, 1, 3);
 	voronoiLayout->addWidget(patitionButton, 1, 0, 1, 1);
@@ -78,12 +83,14 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(dualButton, 1, 1, 1, 1);
 	voronoiLayout->addWidget(dualStepButton, 2, 1, 1, 1);
 	voronoiLayout->addWidget(fittingButton, 1, 2, 2, 1);
-	voronoiLayout->addWidget(m_vFlags[0], 3, 0);
-	voronoiLayout->addWidget(m_vFlags[1], 4, 0);
-	voronoiLayout->addWidget(m_vFlags[2], 5, 0);
-	voronoiLayout->addWidget(m_vFlags[3], 6, 0);
-	voronoiLayout->addWidget(modeLabel, 7, 0, 1, 1);
-	voronoiLayout->addWidget(m_vparam, 7, 1, 1, 2);
+	voronoiLayout->addWidget(m_vFlags[0], 3, 0, 1, 1);
+	voronoiLayout->addWidget(m_vFlags[1], 3, 1, 1, 1);
+	voronoiLayout->addWidget(m_vFlags[2], 4, 0, 1, 1);
+	voronoiLayout->addWidget(m_vFlags[3], 4, 1, 1, 1);
+	voronoiLayout->addWidget(modeLabel, 5, 0, 1, 1);
+	voronoiLayout->addWidget(m_vparam, 5, 1, 1, 2);
+	voronoiLayout->addWidget(sampleLabelV, 6, 0, 1, 1);
+	voronoiLayout->addWidget(m_numSamples[0], 6, 1, 1, 2);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -101,12 +108,19 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_dFlags[0] = new QCheckBox(tr("display error"));
 	m_dFlags[1] = new QCheckBox(tr("interpolate"));
 
+	QLabel *sampleLabelD = new QLabel(tr("Fitting Samples"));
+	m_numSamples[1] = new QSpinBox;
+	m_numSamples[1]->setValue(40);
+	m_numSamples[1]->setMinimum(betri::pointsFromDegree(betri::globalDegree()));
+
 	QGridLayout *deciLayout = new QGridLayout;
 	deciLayout->addWidget(deciInitButton, 0, 0);
-	deciLayout->addWidget(deciButton, 1, 0);
-	deciLayout->addWidget(deciStepButton, 2, 0);
-	deciLayout->addWidget(m_dFlags[0], 3, 0);
-	deciLayout->addWidget(m_dFlags[1], 4, 0);
+	deciLayout->addWidget(deciButton, 1, 0, 1, 1);
+	deciLayout->addWidget(deciStepButton, 1, 1, 1, 1);
+	deciLayout->addWidget(m_dFlags[0], 2, 0);
+	deciLayout->addWidget(m_dFlags[1], 3, 0);
+	deciLayout->addWidget(sampleLabelD, 4, 0, 1, 1);
+	deciLayout->addWidget(m_numSamples[1], 4, 1, 1, 1);
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -141,6 +155,7 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 void BezierTriangleAlgorithmsPlugin::setTargetDegree(int degree)
 {
 	betri::globalDegree((size_t)std::max(1, degree));
+	//m_numSamples[1]->setMinimum((int)betri::pointsFromDegree(betri::globalDegree()));
 }
 
 bool BezierTriangleAlgorithmsPlugin::applyTargetDegree(BaseObject *meshObj)
@@ -209,7 +224,8 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				m_vFlags[1]->isChecked(),
 				m_vFlags[2]->isChecked(),
 				m_vFlags[3]->isChecked(),
-				m_vparam->currentIndex()
+				m_vparam->currentIndex(),
+				m_numSamples[0]->value()
 			);
 
 			if (m_useTimer) {
@@ -260,12 +276,13 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				emit log(LOGINFO, tr("# Edges: %1").arg(cMesh->n_edges()));
 				emit log(LOGINFO, tr("# Faces: %1").arg(cMesh->n_faces()));
 				emit log(LOGINFO, "# --------------------------- #");
+			} else {
+				emit log(LOGERR, "Voronoi meshing failed");
+				QMessageBox error;
+				error.addButton(QMessageBox::Button::Close);
+				error.setText("voronoi meshing failed");
+				error.exec();
 			}
-		} else {
-			QMessageBox error;
-			error.addButton(QMessageBox::Button::Ok);
-			error.setText("voronoi meshing failed");
-			error.exec();
 		}
 	}
 }
@@ -324,7 +341,8 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 					m_vFlags[1]->isChecked(),
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
-					m_vparam->currentIndex()
+					m_vparam->currentIndex(),
+					m_numSamples[0]->value()
 				);
 
 				m_vinit.insert(meshObj->id());
@@ -344,6 +362,9 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 					);
 				}
 			} else {
+				auto remesher = betri::getVoronoiObject(meshObj, ctrlMeshObj);
+				remesher->useColors(m_vFlags[0]->isChecked());
+
 				if (m_useTimer) {
 					m_timer.lapStart();
 				}
@@ -370,8 +391,9 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 				emit log(LOGINFO, "# Performed partitioning!");
 				emit log(LOGINFO, "# --------------------------- #");
 			} else {
+				emit log(LOGERR, "Voronoi partition failed");
 				QMessageBox error;
-				error.addButton(QMessageBox::Button::Ok);
+				error.addButton(QMessageBox::Button::Close);
 				error.setText("error: partitioning failed");
 				error.exec();
 			}
@@ -425,6 +447,10 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 
 			} else {
 				emit log(LOGERR, "Dualizing failed!");
+				QMessageBox error;
+				error.addButton(QMessageBox::Button::Close);
+				error.setText("dualizing failed");
+				error.exec();
 			}
 		} else {
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
@@ -472,8 +498,12 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 			ctrlMeshObj->mesh()->setRenderable();
 			ctrlMeshObj->show();
 
-		} else {
+		} else if (!success) {
 			emit log(LOGERR, "Dualizing failed!");
+			QMessageBox error;
+			error.addButton(QMessageBox::Button::Close);
+			error.setText("dualizing failed");
+			error.exec();
 		}
 	}
 }
@@ -491,6 +521,11 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		auto remesher = betri::getVoronoiObject(meshObj, ctrlMeshObj);
+		remesher->interpolate(m_vFlags[1]->isChecked());
+		remesher->overwrite(m_vFlags[2]->isChecked());
+		remesher->weights(m_vparam->currentIndex());
+		remesher->fittingSamples(m_numSamples[0]->value());
 
 		if (m_useTimer) {
 			m_timer.lapStart();
@@ -535,6 +570,10 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 			emit log(LOGINFO, "# --------------------------- #");
 		} else {
 			emit log(LOGERR, "Fitting failed!");
+			QMessageBox error;
+			error.addButton(QMessageBox::Button::Close);
+			error.setText("fitting failed");
+			error.exec();
 		}
 	}
 
@@ -595,7 +634,8 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 					m_vFlags[1]->isChecked(),
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
-					m_vparam->currentIndex()
+					m_vparam->currentIndex(),
+					m_numSamples[0]->value()
 				);
 
 				m_vinit.insert(meshObj->id());
@@ -635,8 +675,9 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				//emit updatedObject(meshObj->id(), UPDATE_COLOR);
 				emit updatedObject(meshObj->id(), UPDATE_ALL);
 			} else {
+				emit log(LOGERR, "Voronoi partition failed");
 				QMessageBox error;
-				error.addButton(QMessageBox::Button::Ok);
+				error.addButton(QMessageBox::Button::Close);
 				error.setText("error: partitioning failed");
 				error.exec();
 			}
@@ -720,7 +761,12 @@ void BezierTriangleAlgorithmsPlugin::callDecimationInit()
 		);
 
 		if (okay) {
-			betri::decimationInit(meshObj, target, m_dFlags[0]->isChecked());
+			betri::decimationInit(
+				meshObj,
+				target,
+				m_numSamples[1]->value(),
+				m_dFlags[0]->isChecked()
+			);
 
 			emit updatedObject(meshObj->id(), UPDATE_ALL);
 		}

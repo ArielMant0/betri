@@ -39,6 +39,7 @@ public:
 		m_interpolate(false),
 		m_vertexIdx(0u),
 		m_minPartition(10u),
+		m_fittingSamples(30u),
 		m_colors(),
 		m_seeds(),
 		m_ctrlVerts()
@@ -82,8 +83,11 @@ public:
 	void splits(bool use) { m_splits = use; }
 	bool splits() const { return m_splits; }
 
-	void minPartition(size_t part) { m_minPartition = part; }
+	void minPartition(size_t number) { m_minPartition = number; }
 	size_t minPartition() const { return m_minPartition; }
+
+	void fittingSamples(size_t number) { m_fittingSamples = number; }
+	size_t fittingSamples() const { return m_fittingSamples; }
 
 	void weights(int which) { m_paramWeights = which; }
 	int weights() const { return m_paramWeights; }
@@ -472,7 +476,7 @@ private:
 	std::string m_errorMsg;
 
 	bool m_useColors, m_overwrite, m_debugCancel, m_interpolate, m_splits;
-	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition;
+	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition, m_fittingSamples;
 	// 0 = uniform, 1 = contangent
 	int m_paramWeights;
 

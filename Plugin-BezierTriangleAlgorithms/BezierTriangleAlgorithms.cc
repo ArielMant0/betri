@@ -1,6 +1,4 @@
 #include "BezierTriangleAlgorithms.hh"
-#include "voronoi/VoronoiRemeshPerObjectData.hh"
-#include "decimation/DecimationPerObjectData.hh"
 
 #include "voronoi/VoronoiFitting.hh"
 #include "voronoi/VoronoiParametrization.hh"
@@ -48,7 +46,8 @@ void voronoiInit(
 	const bool interpolate,
 	const bool overwrite,
 	const bool splits,
-	const int paramIndex
+	const int paramIndex,
+	const size_t fittingSamples
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
@@ -57,6 +56,7 @@ void voronoiInit(
 	remesher->overwrite(overwrite);
 	remesher->weights(paramIndex);
 	remesher->splits(splits);
+	remesher->fittingSamples(fittingSamples);
 }
 
 bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -65,12 +65,14 @@ bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
 
 	bool success = remesher->remesh();
 
-	object->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
-	);
-	ctrl->setObjectDrawMode(
-		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
-	);
+	if (success) {
+		object->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+		);
+		ctrl->setObjectDrawMode(
+			ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
+		);
+	}
 
 	return success;
 }
@@ -165,18 +167,19 @@ Decimation* getDecimationObject(BaseObjectData *object)
 	return decimator;
 }
 
-void decimationInit(BaseObjectData *object, size_t complexity, bool color)
-{
+void decimationInit(
+	BaseObjectData *object,
+	const size_t complexity,
+	const size_t fittingSamples,
+	const bool color
+) {
 	auto decimator = getDecimationObject(object);
 	decimator->initialize(complexity);
 	decimator->useColors(color);
-
-	if (color) {
-		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
-	}
+	decimator->fittingSamples(fittingSamples);
 }
 
-bool decimation(BaseObjectData *object, bool steps, bool interpolate)
+bool decimation(BaseObjectData *object, const bool steps, const bool interpolate)
 {
 	auto decimator = getDecimationObject(object);
 	decimator->interpolate(interpolate);
@@ -185,6 +188,8 @@ bool decimation(BaseObjectData *object, bool steps, bool interpolate)
 
 	if (decimator->useColors()) {
 		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_POINTS_COLORED);
+	} else {
+		object->setObjectDrawMode(ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED);
 	}
 
 	return done;

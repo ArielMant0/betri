@@ -221,8 +221,9 @@ bool Decimation::decimate(bool stepwise)
 
 	if (!done && m_q->empty()) {
 
-		// prepare fitting by telling it barycentric coordinates
-		// used for surface sampling
+		m_param.samples(m_fittingSamples);
+		m_param.prepare();
+		// prepare fitting by telling it barycentric coordinates used for surface sampling
 		m_fit.setBarycentricCoords(m_param.getBarycentricCoords());
 		// calculate fitting errors
 		calculateErrors();

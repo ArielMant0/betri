@@ -20,10 +20,10 @@ public:
 
 	// TODO: need other handle?
 	explicit DecimationParametrization(BezierTMesh &mesh) :
-		Parametrization(mesh), m_mapper(mesh, OpenMesh::VPropHandleT<Vec2>())
-	{
-		prepare();
-	}
+		Parametrization(mesh),
+		m_mapper(mesh, OpenMesh::VPropHandleT<Vec2>()),
+		m_samples(40u)
+	{}
 
 	~DecimationParametrization()
 	{
@@ -36,6 +36,9 @@ public:
     // add/remove needed properties for weights, texture coords etc.
 	void prepare() override;
 	void cleanup() override;
+
+	void samples(size_t number) { m_samples = number; }
+	size_t samples() const { return m_samples; }
 
 	bool solveLocal(
 		const VertexHandle from,
@@ -53,8 +56,8 @@ public:
 
 private:
 
-	static std::vector<Vec2> getSampleUVs(size_t degree);
-	static std::vector<Vec2> getRandomUVs(size_t n, bool sampleUniform=false);
+	static std::vector<Vec2> getSampleUVs(const size_t degree);
+	static std::vector<Vec2> getRandomUVs(const size_t n, bool sampleUniform=false);
 
 	static Vec3 bary2D(const Vec2 &uv, const NGonFace &corners)
 	{
@@ -105,6 +108,8 @@ private:
 
 	/// maps boundary vertices (to some convex polygon dictated by the mapper class)
 	NGonMapper<Vec2> m_mapper;
+
+	size_t m_samples;
 };
 
 }

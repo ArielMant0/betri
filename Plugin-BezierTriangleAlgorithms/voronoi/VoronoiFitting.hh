@@ -18,7 +18,7 @@ public:
 		BezierTMesh &c,
 		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
-		size_t sampleCount=0
+		size_t sampleCount=30
 	) :
         Fitting(m),
 		m_ctrl(c),
@@ -27,7 +27,7 @@ public:
 		m_cpNum(0)
 	{
 		// make sure we sample at least as many points on the surface as there are control points
-		m_samples = std::max(sampleCount, (size_t)30);
+		m_samples = sampleCount;
 		prepare();
 	}
 

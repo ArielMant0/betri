@@ -1197,13 +1197,13 @@ bool VoronoiRemesh::partitionIsValid()
  //////////////////////////////////////////////////////////
 bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 {
-	if (m_splits) {
+	if (m_splits && m_q.empty()) {
 		splitLongEdges();
 	}
 
 	int i = 0;
 	bool success = false;
-	constexpr int MAX_ATTEMPTS = 1;
+	constexpr int MAX_ATTEMPTS = 2;
 
 	// attempt max MAX_ATTEMPTS times before we give up #hacky
 	do {
@@ -1569,7 +1569,7 @@ bool VoronoiRemesh::dualize(bool steps)
 bool VoronoiRemesh::fitting()
 {
 	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
-	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt);
+	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt, m_fittingSamples);
 
 	size_t degree = m_mesh.degree();
 	size_t cpNums = pointsFromDegree(degree);
@@ -1618,6 +1618,7 @@ bool VoronoiRemesh::fitting()
 bool VoronoiRemesh::remesh()
 {
 	bool done;
+
 	// create partition
 	if (!partition(false, done))
 		return false;
@@ -1630,9 +1631,9 @@ bool VoronoiRemesh::remesh()
 	if(!fitting())
 		return false;
 
-	return true;
-
 	std::cerr << "----------- DONE -----------" << std::endl;
+
+	return true;
 }
 
 void VoronoiRemesh::resetPath(FaceDijkstra &q, const FH face)

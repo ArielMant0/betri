@@ -15,6 +15,7 @@ public:
 		m_mesh(mesh),
 		m_complexity(m_mesh.n_vertices()),
 		m_nverts(m_mesh.n_vertices()),
+		m_fittingSamples(40u),
 		m_q(nullptr),
 		m_param(mesh),
 		m_fit(mesh),
@@ -50,6 +51,9 @@ public:
 
 	void complexity(size_t target) { m_complexity = target; }
 	size_t complexity() const { return m_complexity; }
+
+	void fittingSamples(size_t number) { m_fittingSamples = number; }
+	size_t fittingSamples() const { return m_fittingSamples; }
 
 private:
 
@@ -152,7 +156,7 @@ private:
 	bool m_cancel, m_interpolate, m_useColors;
 
 	// desired complexity and current vertex count
-	size_t m_complexity, m_nverts;
+	size_t m_complexity, m_nverts, m_fittingSamples;
 
 	// error statistics
 	Scalar m_minError, m_avgError, m_maxError;

@@ -1,5 +1,8 @@
 #include <ObjectTypes/BezierTriangleMesh/BezierTriangleMesh.hh>
 
+#include "voronoi/VoronoiRemeshPerObjectData.hh"
+#include "decimation/DecimationPerObjectData.hh"
+
 namespace betri
 {
 
@@ -33,6 +36,8 @@ struct DecimationInfo
 // voronoi
 //////////////////////////////////////////
 
+VoronoiRemesh* getVoronoiObject(BaseObjectData *object, BaseObjectData *ctrl);
+
 void voronoiInit(
 	BaseObjectData *object,
 	BaseObjectData *ctrl,
@@ -41,7 +46,8 @@ void voronoiInit(
 	const bool interpolate,
 	const bool overwrite,
 	const bool splits,
-	const int paramWeights
+	const int paramWeights,
+	const size_t fittingSamples
 );
 
 bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -58,9 +64,16 @@ VoronoiInfo voronoiInfo(BaseObjectData *object, BaseObjectData *ctrl);
 // decimation
 //////////////////////////////////////////
 
-void decimationInit(BaseObjectData *object, size_t complexity, bool color=true);
+Decimation* getDecimationObject(BaseObjectData *object);
 
-bool decimation(BaseObjectData *object, bool steps, bool interpolate);
+void decimationInit(
+	BaseObjectData *object,
+	const size_t complexity,
+	const size_t fittingSamples,
+	const bool color=true
+);
+
+bool decimation(BaseObjectData *object, const bool steps, const bool interpolate);
 
 DecimationInfo decimationInfo(BaseObjectData *object);
 

@@ -12,6 +12,7 @@
 #include <qpushbutton.h>
 #include <qcheckbox.h>
 #include <qcombobox.h>
+#include <qspinbox.h>
 
 #include <set>
 
@@ -35,7 +36,12 @@ public:
 
 	BezierTriangleAlgorithmsPlugin() : m_tool(0), m_useTimer(false) {}
 
-	~BezierTriangleAlgorithmsPlugin() {};
+	~BezierTriangleAlgorithmsPlugin()
+	{
+		if (m_tool != nullptr) {
+			delete m_tool;
+		}
+	};
 
 	QString name() { return QString("BezierTriangleAlgorithmsPlugin"); };
 
@@ -51,11 +57,17 @@ private:
 private:
 
 	QWidget *m_tool;
-	// TODO: disable other buttons
+	// voronoi parameters
 	std::vector<QPushButton*> m_voronoiSteps;
+	// colors, interpolate, overwrite, splits
 	std::array<QCheckBox*, 4> m_vFlags;
 	QComboBox *m_vparam;
+
+	// decimation parameters
 	std::array<QCheckBox*, 2> m_dFlags;
+
+	// both
+	std::array<QSpinBox*, 2> m_numSamples;
 
 	// whether sth started ... TODO
 	std::set<int> m_vinit;

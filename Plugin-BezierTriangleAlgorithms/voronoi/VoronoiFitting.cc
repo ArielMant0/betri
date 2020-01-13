@@ -49,8 +49,12 @@ bool VoronoiFitting::solveLocal(const FaceHandle face, const bool interpolate)
 
 	Vertices inner, outVerts;
 
+	if (m_samples == 0) {
+		m_samples = nv_inner_ + ttv(face).boundarySize - 3;
+	}
+
 	Vertices *orig = &ttv(face).inner;
-	// use corner vertices (minus 3 because we store corners mutliple times)
+	// use boundary vertices (minus 3 because we store corners mutliple twice)
 	size_t outSize = std::min(ttv(face).boundarySize-3, m_samples/3);
 	size_t inSize = std::max(nv_inner_, std::min(orig->size(), m_samples-outSize));
 
