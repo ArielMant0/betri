@@ -206,7 +206,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (betri::option(betri::BezierOption::CULL_FACES)) {
 			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
-			_state.cullFace(GL_BACK);
+			if (renderOption == betri::TESSELLATION_TYPE::CPU || renderOption == betri::TESSELLATION_TYPE::NONE)
+				_state.cullFace(GL_FRONT);
+			else
+				_state.cullFace(GL_BACK);
 		}
 
 		ro.initFromState(&_state);

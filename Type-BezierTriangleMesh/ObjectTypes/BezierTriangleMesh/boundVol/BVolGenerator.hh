@@ -667,15 +667,18 @@ static void addConvexHullFromPoints(
 	std::vector<BezierTMesh::Point> &faceControlP
 )
 {
-	quickhull::QuickHull<float> qh;
+	quickhull::QuickHull<double> qh;
 
-	std::vector<float> points;
+	std::vector<double> points;
 	points.reserve(controlPointsPerFace * 3);
+
 	for (auto p : faceControlP) {
 		points.push_back(p[0]);
 		points.push_back(p[1]);
 		points.push_back(p[2]);
 	}
+	//std::unique(points.begin(), points.end());
+
 	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
 	std::vector<size_t> hull2;
 	if (qh.m_planar) {
@@ -688,6 +691,10 @@ static void addConvexHullFromPoints(
 	// Convert Mesh //
 	//////////////////
 	TriMesh reducedMesh;
+	reducedMesh.request_vertex_status();
+	reducedMesh.request_halfedge_status();
+	reducedMesh.request_edge_status();
+	reducedMesh.request_face_status();
 	/*
 	if (qh.m_planar) {
 		std::vector<BezierTMesh::VertexHandle> vh;
@@ -698,17 +705,31 @@ static void addConvexHullFromPoints(
 
 		reducedMesh.add_face(vh);
 	} else {*/
-		for (auto v : hull.m_vertices) {
-			reducedMesh.add_vertex({ v.x, v.y, v.z });
+		for (auto &v : hull.m_vertices) {
+			TriMesh::VertexHandle vh = reducedMesh.add_vertex({ v.x, v.y, v.z });
 		}
 
-		for (auto f : hull.m_faces) {
+		for (auto &f : hull.m_faces) {
 			auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
 			auto he2 = hull.m_halfEdges[he1.m_next];
 			auto he3 = hull.m_halfEdges[he2.m_next];
+
 			TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
 			TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
 			TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
+
+			if (he1.m_endVertex == he2.m_endVertex || he2.m_endVertex == he3.m_endVertex || he3.m_endVertex == he1.m_endVertex)
+				continue;
+
+			assert(f.m_halfEdgeIndex != he1.m_next);
+			assert(he1.m_next != he2.m_next);
+			assert(he2.m_next != f.m_halfEdgeIndex);
+
+			assert(he1.m_endVertex != he2.m_endVertex);
+			assert(he2.m_endVertex != he3.m_endVertex);
+			assert(he3.m_endVertex != he1.m_endVertex);
+
+			assert(vh1 != vh2 && vh2 != vh3 && vh3 != vh1);
 			reducedMesh.add_face(vh1, vh2, vh3);
 		}
 	//}
