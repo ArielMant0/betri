@@ -93,6 +93,12 @@ namespace quickhull {
 		bool operator!=(const Vector3& o) const {
 			return x != o.x || y != o.y || z != o.z;
 		}
+
+		// TODOF
+		bool operator==(const Vector3& o) const
+		{
+			return !(x != o);
+		}
 		
 		// Projection onto another vector
 		Vector3 projection(const Vector3& o) const {

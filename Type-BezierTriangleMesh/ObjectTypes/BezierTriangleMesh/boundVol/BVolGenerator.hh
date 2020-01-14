@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream> // TODO weg damit
 #include <set>
+#include <queue>
 
 #include "../BezierTMesh.hh"
 #include "../BezierMathUtil.hh"
@@ -494,12 +495,12 @@ static void addPrismVolumeFromPoints(
 
 ///////////////////////////////////////////////////////////////////////////////
 // ConvexHull
-///////////////////////////////////////////////////////////////////////////////
 // https://www.cs.jhu.edu/~misha/Spring16/06.pdf
 // Angle calculation
 // https://math.stackexchange.com/questions/878785/how-to-find-an-angle-in-range0-360-between-2-vectors
 // https://stackoverflow.com/questions/21483999/using-atan2-to-find-angle-between-two-vectors
-// since the points lie on a plane we can ignore one component?!
+///////////////////////////////////////////////////////////////////////////////
+// Gift wrapping
 static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &faceControlP)
 {
 	std::vector<size_t> convexHull;
@@ -606,28 +607,162 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 	return convexHull;
 }
 
+// Gift wrapping
+static std::vector<size_t> findConvexHull2DGW(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	std::vector<size_t> convexHull;
+
+	auto corner0 = faceControlP[0];
+	auto corner1 = faceControlP[3];
+	auto corner2 = faceControlP[9];
+
+	assert(corner0 != corner1);
+	assert(corner1 != corner2);
+	assert(corner2 != corner0);
+
+	auto edge1 = normalize(corner1 - corner0);
+	// Input is normalized so cross output will be too?
+	// https://iliaskapouranis.com/2018/12/16/about-the-cross-product-and-normalization/
+	// This does not work, input not orthogonal, therefore normalize
+	// necessary (example (0.7, 0.7, 0.0) x (1.0, 0.0, 0.0))
+	auto normal = normalize(cross(edge1, normalize(corner2 - corner0)));
+	auto edge2 = cross(normal, edge1);
+
+	// Just in case that the points do not lie in a plane
+	std::vector<BezierTMesh::Point> dottedPoints(faceControlP.size());
+	// Search for biggest x as one of the points of the convex hull
+	auto start = BezierTMesh::Point(-INFINITY);
+	auto last = BezierTMesh::Point(-INFINITY);
+	int index;
+	float maxX = -INFINITY;
+
+	for (size_t j = 0; j < faceControlP.size(); j++) {
+		// Save planar points in vector
+		auto p = faceControlP[j] - dot(faceControlP[j], normal) * normal;
+		dottedPoints[j] = p;
+		// Search for right most point but highest if same "rightness"
+		// This is done because this is a guaranteed point on the CHull
+		float dotEdge1 = dot(p, edge1);
+		if (dotEdge1 > maxX || (dotEdge1 == maxX && dot(p, edge2) > dot(start, edge2))) {
+			start = p;
+			maxX = dotEdge1;
+			index = j;
+		}
+	}
+
+	last = start + edge2;
+
+	int itCount = 0;
+	size_t lastIndex = 0;
+	BezierTMesh::Point tmp;
+	BezierTMesh::Point pos = start;
+	// Search as long as there is no loop
+	do {
+		auto angleMax = 1.0;
+		auto vector1 = last - pos;
+		auto normVec1 = vector1;
+
+		for (size_t j = 0; j < dottedPoints.size(); j++) {
+			auto pointNow = dottedPoints.at(j);
+			auto vector2 = pointNow - pos;
+			auto normVec2 = vector2;
+
+			// If it is the same point continue
+			if (length(vector2) == 0.0)
+				continue;
+			auto angle = dot(normalize(normVec1), normalize(normVec2));
+			auto vector3 = tmp - pos;
+			if (angle < angleMax || (angle == angleMax && length(vector2) > length(vector3))) {
+				angleMax = angle;
+				tmp = pointNow;
+				lastIndex = j;
+			}
+		}
+		convexHull.push_back(lastIndex);
+		last = pos;
+		pos = tmp;
+		assert(itCount++ < dottedPoints.size());
+	} while (lastIndex != index);
+
+	assert(convexHull.size() <= dottedPoints.size());
+	assert(convexHull.size() >= 3);
+
+	return convexHull;
+}
+
+// Graham Scan
+// TODO incomplete
+// https://de.wikipedia.org/wiki/Graham_Scan
+static std::vector<size_t> findConvexHull2DGS(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	std::vector<size_t> convexHull;
+
+	auto corner0 = faceControlP[0];
+	auto corner1 = faceControlP[3];
+	auto corner2 = faceControlP[9];
+
+	assert(corner0 != corner1);
+	assert(corner1 != corner2);
+	assert(corner2 != corner0);
+
+	auto edge1 = normalize(corner1 - corner0);
+	// Input is normalized so cross output will be too?
+	// https://iliaskapouranis.com/2018/12/16/about-the-cross-product-and-normalization/
+	// This does not work, input not orthogonal, therefore normalize
+	// necessary (example (0.7, 0.7, 0.0) x (1.0, 0.0, 0.0))
+	auto normal = normalize(cross(edge1, normalize(corner2 - corner0)));
+	auto edge2 = cross(normal, edge1);
+
+	// Just in case that the points do not lie in a plane
+	std::vector<BezierTMesh::Point> dottedPoints(faceControlP.size());
+	BezierTMesh::Point start;
+	int index;
+	float maxX = -INFINITY;
+
+	for (size_t j = 0; j < faceControlP.size(); j++) {
+		// Save planar points in vector
+		auto p = faceControlP[j];
+		dottedPoints[j] = p - dot(p, normal) * normal;
+		// Search for right most point but highest if same "rightness"
+		// This is done because this is a guaranteed point on the CHull
+		float dotEdge1 = dot(p, edge1);
+		if (dotEdge1 > maxX || (dotEdge1 == maxX && dot(p, edge2) > dot(start, edge2))) {
+			start = p;
+			maxX = dotEdge1;
+			index = j;
+		}
+	}
+
+	using pi = std::pair<double, int>;
+	std::priority_queue<pi, std::vector<pi>, std::greater<pi>> q;
+
+	// Sort after the angle
+	for (size_t j = 0; j < dottedPoints.size(); j++) {
+		q.push(std::make_pair(dot(dottedPoints[j] - start, edge2), j));
+	}
+
+	// Loop through all angles and choose the one which is nearst to 180 degree
+	// until the start point is found again
+	/*
+	int pt1;
+	int pt2;
+	do {
+		pt1 = q.top().second;
+		q.pop();
+		pt2 = q.top().second;
+		q.pop();
+		if ()
+			convexHull.push_back(pt1);
+		assert(convexHull.size() < faceControlP.size());
+	} while (last != index);
+	*/
+	return convexHull;
+}
+
 // Quick Hull
 // http://algolist.ru/maths/geom/convhull/qhull3d.php
 // http://www.cogsci.rpi.edu/~destem/gamearch/quickhull.pdf
-/*
-static std::vector<BezierTMesh::Point> findConvexHull(std::vector<BezierTMesh::Point> &faceControlP)
-{
-	// Pick start by finding point with lowest y
-	auto p1 = faceControlP[0];
-	//auto p0 = faceControlP[0];
-	int m = 0;
-
-	auto C = std::vector<BezierTMesh::Point>();
-	C.push_back(p1);
-
-	for (int t = 1; t < log(log(faceControlP.size())); t++) {
-		m = int(pow(2, pow(2, t)));
-	}
-
-	return C;
-}
-*/
-
+// Source: https://github.com/akuukka/quickhull/blob/master/QuickHull.hpp
 static void addConvexHullFromPoints(
 	const int controlPointsPerFace,
 	const int grad,
@@ -639,18 +774,23 @@ static void addConvexHullFromPoints(
 	std::vector<BezierTMesh::Point> &faceControlP
 )
 {
-	quickhull::QuickHull<float> qh;
+	quickhull::QuickHull<double> qh;
 
-	std::vector<float> points;
+	std::vector<double> points;
 	points.reserve(controlPointsPerFace * 3);
+
 	for (auto p : faceControlP) {
 		points.push_back(p[0]);
 		points.push_back(p[1]);
 		points.push_back(p[2]);
 	}
+	//std::unique(points.begin(), points.end());
+
 	auto hull = qh.getConvexHullAsMesh(points.data(), controlPointsPerFace, true);
 	std::vector<size_t> hull2;
 	if (qh.m_planar) {
+		return;
+		//std::cerr << "jo" << std::endl;
 		//hull2 = findConvexHull2D(faceControlP);
 	}
 
@@ -658,7 +798,12 @@ static void addConvexHullFromPoints(
 	// Convert Mesh //
 	//////////////////
 	TriMesh reducedMesh;
-	/*if (qh.m_planar) {
+	reducedMesh.request_vertex_status();
+	reducedMesh.request_halfedge_status();
+	reducedMesh.request_edge_status();
+	reducedMesh.request_face_status();
+	/*
+	if (qh.m_planar) {
 		std::vector<BezierTMesh::VertexHandle> vh;
 		for (auto index : hull2) {
 			auto v = faceControlP[index];
@@ -667,17 +812,31 @@ static void addConvexHullFromPoints(
 
 		reducedMesh.add_face(vh);
 	} else {*/
-		for (auto v : hull.m_vertices) {
-			reducedMesh.add_vertex({ v.x, v.y, v.z });
+		for (auto &v : hull.m_vertices) {
+			TriMesh::VertexHandle vh = reducedMesh.add_vertex({ v.x, v.y, v.z });
 		}
 
-		for (auto f : hull.m_faces) {
+		for (auto &f : hull.m_faces) {
 			auto he1 = hull.m_halfEdges[f.m_halfEdgeIndex];
 			auto he2 = hull.m_halfEdges[he1.m_next];
 			auto he3 = hull.m_halfEdges[he2.m_next];
+
 			TriMesh::VertexHandle vh1 = reducedMesh.vertex_handle(he1.m_endVertex);
 			TriMesh::VertexHandle vh2 = reducedMesh.vertex_handle(he2.m_endVertex);
 			TriMesh::VertexHandle vh3 = reducedMesh.vertex_handle(he3.m_endVertex);
+
+			if (he1.m_endVertex == he2.m_endVertex || he2.m_endVertex == he3.m_endVertex || he3.m_endVertex == he1.m_endVertex)
+				continue;
+
+			assert(f.m_halfEdgeIndex != he1.m_next);
+			assert(he1.m_next != he2.m_next);
+			assert(he2.m_next != f.m_halfEdgeIndex);
+
+			assert(he1.m_endVertex != he2.m_endVertex);
+			assert(he2.m_endVertex != he3.m_endVertex);
+			assert(he3.m_endVertex != he1.m_endVertex);
+
+			assert(vh1 != vh2 && vh2 != vh3 && vh3 != vh1);
 			reducedMesh.add_face(vh1, vh2, vh3);
 		}
 	//}

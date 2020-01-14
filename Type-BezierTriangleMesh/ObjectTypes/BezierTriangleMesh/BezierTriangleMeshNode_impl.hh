@@ -203,11 +203,15 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		//ACG::GLState::enable(GL_CULL_FACE);
 		//ACG::GLState::cullFace(GL_BACK);
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
-		if (betri::option(betri::BezierOption::CULL_FACES)) {
+		if (betri::option(betri::BezierOption::CULL_FACES) > 0) {
 			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
-			_state.cullFace(GL_BACK);
-		}
+			if (renderOption == betri::TESSELLATION_TYPE::CPU || renderOption == betri::TESSELLATION_TYPE::NONE)
+				_state.cullFace(GL_FRONT);
+			else
+				_state.cullFace(GL_BACK);
+		} else 
+			_state.disable(GL_CULL_FACE);
 
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
@@ -1101,17 +1105,12 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 		OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData()
 	);
 
-	surfaceVBO_.del();
-	surfaceIBO_.del();
-
-	updateSurfaceDecl();
-
-	// TODO Performance verbessern indem in den vertex buffer alle vertices gepackt werden und dann
-	// beim index buffer die indices direkt genutzt werden
-
-	// TODO
-	// Make it possible to CPU + GPU tessellation
-	// or CPU + Raytracing
+	//if (betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard || i == 0) {
+		surfaceVBO_.del();
+		surfaceIBO_.del();
+	
+		updateSurfaceDecl();
+	//}
 
 	// Generate a VBO from the Mesh without CPU tesselation
 	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
@@ -1167,14 +1166,14 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	}
 
 	if (vboSize)
-		controlNetVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+		controlNetVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
 
 	vboData.clear();
 
 	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
 
 	int bottomTriangles = betri::gaussSum(grad());
-	// TODO unterschiedliche Faces k�nnen unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
+	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();
@@ -1215,7 +1214,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	}
 
 	if (numIndices)
-		controlNetLineIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+		controlNetLineIBO_.upload(numIndices * 4, iboData.data(), GL_STATIC_DRAW);
 
 	controlNetLineIndices_ = numIndices;
 
@@ -1420,7 +1419,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	int vertexCount = bezierTriangleMesh_.n_faces() * VERTEXSUM;
 
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
-	std::vector<float> vboData(vboSize); // float: 4 bytes
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
 	// write counter
 	int elementOffset = 0;
@@ -1523,7 +1522,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	}
 
 	if (vboSize)
-		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+		surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
 
 	vboData.clear();
 
@@ -1572,7 +1571,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	assert(idxOffset == numIndices);
 
 	if (numIndices)
-		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+		surfaceIBO_.upload(numIndices * 4, iboData.data(), GL_STATIC_DRAW);
 
 	surfaceIndexCount_ = numIndices;
 
@@ -1594,7 +1593,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	//assert(bezierTriangleMesh_.n_faces() == 5);
 
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
-	std::vector<float> vboData(vboSize); // float: 4 bytes
+	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
 	// write counter
 	int elementOffset = 0;
@@ -1670,7 +1669,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	}
 
 	if (vboSize)
-		surfaceVBO_.upload(vboSize, &vboData[0], GL_STATIC_DRAW);
+		surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
 
 	vboData.clear();
 
@@ -1686,7 +1685,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 
 	// TODO i think the numIndices should be *4 and the numIndices-count itself is wrong, try to compare it with idxOffset
 	if (numIndices)
-		surfaceIBO_.upload(numIndices * 4, &iboData[0], GL_STATIC_DRAW);
+		surfaceIBO_.upload(numIndices * 4, iboData.data(), GL_STATIC_DRAW);
 
 	surfaceIndexCount_ = numIndices;
 
@@ -1694,16 +1693,15 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 }
 
 //-----------------------------------------------------------------------------
-
 /**
  * Create a simple VBO from this Mesh.
  */
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 {
-	///////////////////////////////////////////////////////////////////////////
-	// Setup VBO and IBO
-	///////////////////////////////////////////////////////////////////////////
+	///////////////////////
+	// Setup VBO and IBO //
+	///////////////////////
 
 	// TODO different bounding volumes
 	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
@@ -1725,17 +1723,15 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	int indexCount = bezierTriangleMesh_.n_faces() * numIndices;
 
 	// create index buffer
-	//std::vector<int> iboData(indexCount);
 	std::vector<int> iboData;
 	iboData.reserve(indexCount);
 	// create vertex buffer
-	//std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 	std::vector<float> vboData;
 	vboData.reserve(vboSize / 4);
 
-	///////////////////////////////////////////////////////////////////////////
-	// Fill with boundingbox data
-	///////////////////////////////////////////////////////////////////////////
+	////////////////////////////////
+	// Fill with boundingbox data //
+	////////////////////////////////
 
 	int vboIndex = 0;
 	int iboIndex = 0;
@@ -1858,30 +1854,40 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 		face_index++;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	// Upload VBO and IBO and cleanup
-	///////////////////////////////////////////////////////////////////////////
-
-	vboSize = vboData.size() * (surfaceDecl_.getVertexStride() / 4); // bytes;
-	indexCount = iboData.size() * 4;
+	////////////////////////////////////
+	// Upload VBO and IBO and cleanup //
+	////////////////////////////////////
+	constexpr int bytes = 4;
+	vboSize = vboData.size() * bytes;
+	indexCount = iboData.size() * bytes;
 
 	// in bytes
 	switch (bVolume) {
 		case betri::boundingVolumeType::AABB:
 		case betri::boundingVolumeType::PrismVolume:
 		case betri::boundingVolumeType::BoundingTetraeder:
-			assert(vboData.size() * 4 == vertexCount * surfaceDecl_.getVertexStride());
-			assert(indexCount == bezierTriangleMesh_.n_faces() * numIndices * 4);
+			assert(vboSize == vertexCount * surfaceDecl_.getVertexStride());
+			assert(indexCount == bezierTriangleMesh_.n_faces() * numIndices * bytes);
 			break;
 		case betri::boundingVolumeType::ConvexHull:
-			assert(vboData.size() * 4 >= vertexCount * surfaceDecl_.getVertexStride());
-			assert(indexCount >= bezierTriangleMesh_.n_faces() * numIndices * 4);
+		case betri::boundingVolumeType::BoundingBillboard:
+			//assert(vboSize >= vertexCount * surfaceDecl_.getVertexStride());
+			//assert(indexCount >= bezierTriangleMesh_.n_faces() * numIndices * bytes);
 			break;
 		default: break;
 	}
 
-	if (vboSize)
-		surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
+	if (vboSize) {
+		//if (bVolume == betri::boundingVolumeType::BoundingBillboard) {
+			//if (i == 0)
+		//		surfaceVBO_.upload(vboSize, vboData.data(), GL_STREAM_DRAW);
+			//else
+			//	surfaceVBO_.uploadSubData(0, vboSize, vboData.data());
+			//i++;
+		//}
+		//else
+			surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
+	}
 
 	vboData.clear();
 

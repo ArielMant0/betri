@@ -26,7 +26,9 @@ namespace quickhull {
 
 		// Construct a plane using normal N and any point P on the plane
 		Plane(const Vector3<T>& N, const Vector3<T>& P) : m_N(N), m_D(-N.dotProduct(P)), m_sqrNLength(m_N.x*m_N.x+m_N.y*m_N.y+m_N.z*m_N.z) {
-			
+			m_N = N / N.getLength(); // TODOF
+			m_D = -m_N.dotProduct(P); // TODOF
+			m_sqrNLength = 1; // TODOF
 		}
 	};
 
