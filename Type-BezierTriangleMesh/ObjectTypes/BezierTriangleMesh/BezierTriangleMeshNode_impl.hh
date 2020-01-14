@@ -203,14 +203,15 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		//ACG::GLState::enable(GL_CULL_FACE);
 		//ACG::GLState::cullFace(GL_BACK);
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
-		if (betri::option(betri::BezierOption::CULL_FACES)) {
+		if (betri::option(betri::BezierOption::CULL_FACES) > 0) {
 			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
 			if (renderOption == betri::TESSELLATION_TYPE::CPU || renderOption == betri::TESSELLATION_TYPE::NONE)
 				_state.cullFace(GL_FRONT);
 			else
 				_state.cullFace(GL_BACK);
-		}
+		} else 
+			_state.disable(GL_CULL_FACE);
 
 		ro.initFromState(&_state);
 		ro.setupShaderGenFromDrawmode(props);
@@ -1692,7 +1693,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 }
 
 //-----------------------------------------------------------------------------
-static int i = 0;
 /**
  * Create a simple VBO from this Mesh.
  */
@@ -1878,14 +1878,14 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	}
 
 	if (vboSize) {
-		if (bVolume == betri::boundingVolumeType::BoundingBillboard) {
+		//if (bVolume == betri::boundingVolumeType::BoundingBillboard) {
 			//if (i == 0)
-				surfaceVBO_.upload(vboSize, vboData.data(), GL_STREAM_DRAW);
+		//		surfaceVBO_.upload(vboSize, vboData.data(), GL_STREAM_DRAW);
 			//else
 			//	surfaceVBO_.uploadSubData(0, vboSize, vboData.data());
 			//i++;
-		}
-		else
+		//}
+		//else
 			surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
 	}
 

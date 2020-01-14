@@ -505,6 +505,113 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 {
 	std::vector<size_t> convexHull;
 
+	// Search for biggest x as one of the points of the convex hull
+
+	auto start = BezierTMesh::Point(-INFINITY);
+	auto last = BezierTMesh::Point(-INFINITY);
+
+	for (auto p : faceControlP) {
+		if (p[0] > start[0] || (p[0] >= start[0] && p[1] < start[1])) {
+			start = p;
+		}
+	}
+
+	for (auto p : faceControlP) {
+		if (p[0] > last[0] && (p[0] < start[0] || p[1] > start[1])) {
+			last = p;
+		}
+	}
+
+	/*
+	// Bounding Plane
+	auto min = BezierTMesh::Point(std::numeric_limits<float>::max());
+	auto max = BezierTMesh::Point(-std::numeric_limits<float>::max());
+	for (auto p : faceControlP) {
+		if (p[0] < min[0])
+			min[0] = p[0];
+		else if (p[0] > max[0])
+			max[0] = p[0];
+		if (p[1] < min[1])
+			min[1] = p[1];
+		else if (p[1] > max[1])
+			max[1] = p[1];
+		if (p[2] < min[2])
+			min[2] = p[2];
+		else if (p[2] > max[2])
+			max[2] = p[2];
+	}
+
+	// TODO degree dependent
+	auto normal = normalize(cross(faceControlP[2] - faceControlP[0], faceControlP[faceControlP.size() - 1] - faceControlP[0]));
+	auto diag1 = max - min;
+	auto diag2 = cross(diag1, normal);
+
+	//std::cerr << "-----------------------------" << std::endl;
+	auto start = BezierTMesh::Point(min);
+	auto last = BezierTMesh::Point(std::numeric_limits<float>::max());
+	for (auto p : faceControlP) {
+		//std::cerr << p << " --- " << (min - p) << " --- " << (min - start) << std::endl;
+		if (length(min - p) > length(min - start))
+			start = p;
+	}
+	// TODO this could work too but direction is missing
+	//last = start + BezierTMesh::Point(-1.0, 1.0, 0.0);
+	last = start + normalize(diag2);
+	*/
+
+	/*
+	std::cerr << "\n min + max " << std::endl;
+	std::cerr << min << " " << max << std::endl;
+
+	std::cerr << "\n diag1 + diag2 + normal " << std::endl;
+	std::cerr << diag1 << " " << diag2 << " " << normal << std::endl;
+
+	std::cerr << "\n start + last " << std::endl;
+	std::cerr << start << " " << last << std::endl;
+	*/
+
+	int itCount = 0;
+	size_t lastIndex = 0;
+	BezierTMesh::Point tmp;
+	BezierTMesh::Point pos = start;
+	// Search as long as there is no loop
+	do {
+		auto angleMax = 1.0;
+		auto vector1 = last - pos;
+		auto normVec1 = vector1;
+
+		for (size_t j = 0; j < faceControlP.size(); j++) {
+			auto pointNow = faceControlP.at(j);
+			auto vector2 = pointNow - pos;
+			auto normVec2 = vector2;
+
+			// If it is the same point continue
+			if (length(vector2) == 0.0)
+				continue;
+			auto angle = dot(normalize(normVec1), normalize(normVec2));
+			auto vector3 = tmp - pos;
+			if (angle < angleMax || (angle == angleMax && length(vector2) > length(vector3))) {
+				angleMax = angle;
+				tmp = pointNow;
+				lastIndex = j;
+			}
+		}
+		convexHull.push_back(lastIndex);
+		last = pos;
+		pos = tmp;
+		assert(itCount++ < faceControlP.size());
+	} while (pos != start);
+
+	assert(convexHull.size() <= faceControlP.size());
+
+	return convexHull;
+}
+
+// Gift wrapping
+static std::vector<size_t> findConvexHull2DGW(std::vector<BezierTMesh::Point> &faceControlP)
+{
+	std::vector<size_t> convexHull;
+
 	auto corner0 = faceControlP[0];
 	auto corner1 = faceControlP[3];
 	auto corner2 = faceControlP[9];
@@ -586,7 +693,7 @@ static std::vector<size_t> findConvexHull2D(std::vector<BezierTMesh::Point> &fac
 // Graham Scan
 // TODO incomplete
 // https://de.wikipedia.org/wiki/Graham_Scan
-static std::vector<size_t> findConvexHull2D2(std::vector<BezierTMesh::Point> &faceControlP)
+static std::vector<size_t> findConvexHull2DGS(std::vector<BezierTMesh::Point> &faceControlP)
 {
 	std::vector<size_t> convexHull;
 

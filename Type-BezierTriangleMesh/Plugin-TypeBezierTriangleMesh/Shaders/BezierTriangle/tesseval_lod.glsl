@@ -172,7 +172,7 @@ float derivet(int i, int j, int k)
  */
 vec3 newNormal()
 {
-/*
+
 	vec3 ds = vec3(0.0);
 	vec3 dt = vec3(0.0);
 
@@ -196,8 +196,8 @@ vec3 newNormal()
 		}
 	}
 
-	return normalize(cross(ds, dt));*/
-	return vec3(1.0, 0.0, 0.0);
+	return normalize(cross(ds, dt));
+	//return vec3(1.0, 0.0, 0.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
