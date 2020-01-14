@@ -203,7 +203,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		//ACG::GLState::enable(GL_CULL_FACE);
 		//ACG::GLState::cullFace(GL_BACK);
 		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
-		if (betri::option(betri::BezierOption::CULL_FACES) > 0) {
+		if (betri::option(betri::BezierOption::CULL_FACES) > 0 &&
+			(
+				renderOption != betri::TESSELLATION_TYPE::RAYTRACING ||
+				betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard
+			)
+		) {
 			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
 			if (renderOption == betri::TESSELLATION_TYPE::CPU || renderOption == betri::TESSELLATION_TYPE::NONE)
