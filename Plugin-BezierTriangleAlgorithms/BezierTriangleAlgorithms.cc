@@ -47,7 +47,8 @@ void voronoiInit(
 	const bool overwrite,
 	const bool splits,
 	const int paramIndex,
-	const size_t fittingSamples
+	const size_t fittingSamples,
+	const int fittingSolver
 ) {
 	auto remesher = getVoronoiObject(object, ctrl);
 	remesher->minPartition(count);
@@ -57,6 +58,7 @@ void voronoiInit(
 	remesher->weights(paramIndex);
 	remesher->splits(splits);
 	remesher->fittingSamples(fittingSamples);
+	remesher->fittingSolver((Fitting::Solver)fittingSolver);
 }
 
 bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl)
@@ -171,12 +173,14 @@ void decimationInit(
 	BaseObjectData *object,
 	const size_t complexity,
 	const size_t fittingSamples,
+	const int fittingSolver,
 	const bool color
 ) {
 	auto decimator = getDecimationObject(object);
 	decimator->initialize(complexity);
 	decimator->useColors(color);
 	decimator->fittingSamples(fittingSamples);
+	decimator->fittingSolver((Fitting::Solver)fittingSolver);
 }
 
 bool decimation(BaseObjectData *object, const bool steps, const bool interpolate)

@@ -62,9 +62,11 @@ private:
 	// colors, interpolate, overwrite, splits
 	std::array<QCheckBox*, 4> m_vFlags;
 	QComboBox *m_vparam;
+	QComboBox *m_vfit;
 
 	// decimation parameters
 	std::array<QCheckBox*, 2> m_dFlags;
+	QComboBox *m_dfit;
 
 	// both
 	std::array<QSpinBox*, 2> m_numSamples;

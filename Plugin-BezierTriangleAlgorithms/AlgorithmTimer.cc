@@ -42,6 +42,7 @@ void AlgorithmTimer::lapEnd(std::string msg)
 void AlgorithmTimer::end(std::string msg)
 {
 	lapEnd(msg);
+	m_stream << '\n';
 	m_stream.flush();
 	m_stream.close();
 }

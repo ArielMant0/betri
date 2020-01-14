@@ -47,7 +47,8 @@ void voronoiInit(
 	const bool overwrite,
 	const bool splits,
 	const int paramWeights,
-	const size_t fittingSamples
+	const size_t fittingSamples,
+	const int fittingSolver
 );
 
 bool voronoiRemesh(BaseObjectData *object, BaseObjectData *ctrl);
@@ -70,6 +71,7 @@ void decimationInit(
 	BaseObjectData *object,
 	const size_t complexity,
 	const size_t fittingSamples,
+	const int fittingSolver,
 	const bool color=true
 );
 

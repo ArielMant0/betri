@@ -1,4 +1,5 @@
 #include "../common/Common.hh"
+#include "VoronoiFitting.hh"
 #include "ShortestPath.hh"
 
 #include <OpenFlipper/libs_required/ACG/Utils/HaltonColors.hh>
@@ -40,6 +41,7 @@ public:
 		m_vertexIdx(0u),
 		m_minPartition(10u),
 		m_fittingSamples(30u),
+		m_fittingSolver(Fitting::Solver::adaptive),
 		m_colors(),
 		m_seeds(),
 		m_ctrlVerts()
@@ -88,6 +90,9 @@ public:
 
 	void fittingSamples(size_t number) { m_fittingSamples = number; }
 	size_t fittingSamples() const { return m_fittingSamples; }
+
+	void fittingSolver(Fitting::Solver solver) { m_fittingSolver = solver; }
+	Fitting::Solver fittingSolver() const { return m_fittingSolver; }
 
 	void weights(int which) { m_paramWeights = which; }
 	int weights() const { return m_paramWeights; }
@@ -479,6 +484,7 @@ private:
 	size_t m_nvertices, m_nedges, m_vertexIdx, m_minPartition, m_fittingSamples;
 	// 0 = uniform, 1 = contangent
 	int m_paramWeights;
+	Fitting::Solver m_fittingSolver;
 
 	ACG::HaltonColors m_colGen;
 

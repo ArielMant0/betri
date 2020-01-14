@@ -213,6 +213,9 @@ void Decimation::initialize(size_t complexity)
 
 	// build priority queue...
 	m_q->clear();
+
+	// set the fitting solver
+	m_fit.solver(m_fittingSolver);
 }
 
 bool Decimation::decimate(bool stepwise)

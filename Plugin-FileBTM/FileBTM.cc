@@ -362,9 +362,6 @@ bool FileBTMPlugin::parseASCII(
     QFileInfo f(_objectName);
     object->setName(f.fileName());
 
-    // Set initial object
-    _importer.addObject(object);
-
     std::string line;
     std::istringstream sstr;
 
@@ -380,6 +377,9 @@ bool FileBTMPlugin::parseASCII(
     sstr >> nV;
     sstr >> nF;
     sstr >> dummy;
+
+    // Set initial object
+    _importer.addObject(object, degree);
 
     // reserve memory
     _importer.reserve(nV, nF * _importer.maxFaceValence() /*Upper bound*/, nF);
@@ -524,9 +524,6 @@ bool FileBTMPlugin::parseBinary(
     QFileInfo f(_objectName);
     object->setName(f.fileName());
 
-    // Set initial object
-    _importer.addObject(object);
-
     // read header line
     std::string header;
     getCleanLine(_in,header);
@@ -536,6 +533,9 @@ bool FileBTMPlugin::parseBinary(
     readValue(_in, nV);
     readValue(_in, nF);
     readValue(_in, dummy);
+
+    // Set initial object
+    _importer.addObject(object, degree);
 
     // reserve memory
     _importer.reserve(nV, nF * _importer.maxFaceValence() /*Upper bound*/, nF);

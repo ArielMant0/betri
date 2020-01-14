@@ -48,25 +48,7 @@ bool VoronoiFitting::solveLocal(const FaceHandle face, const bool interpolate)
 	size_t degree = m_mesh.degree();
 
 	Vertices inner, outVerts;
-
-	if (m_samples == 0) {
-		m_samples = nv_inner_ + ttv(face).boundarySize - 3;
-	}
-
 	Vertices *orig = &ttv(face).inner;
-	// use boundary vertices (minus 3 because we store corners mutliple twice)
-	size_t outSize = std::min(ttv(face).boundarySize-3, m_samples/3);
-	size_t inSize = std::max(nv_inner_, std::min(orig->size(), m_samples-outSize));
-
-	inner.reserve(inSize);
-	outVerts.reserve(outSize);
-
-	sortInner(face);
-	// samples that lie inside the face
-	size_t mod = orig->size() / inSize;
-	for (size_t i = 0; i < orig->size() && inner.size() < inSize; i += mod) {
-		inner.push_back(orig->at(i));
-	}
 
 	const ShortestPath &ab = ShortestPath::path(ttv(face)[0], ttv(face)[1]);
 	const ShortestPath &bc = ShortestPath::path(ttv(face)[1], ttv(face)[2]);
@@ -75,30 +57,62 @@ bool VoronoiFitting::solveLocal(const FaceHandle face, const bool interpolate)
 	auto &listA = ab.list(bc);
 	auto &listB = bc.list();
 	auto &listC = ca.list(bc.end());
+	size_t sizeA = listA.size() - 1;
+	size_t sizeB = listB.size() - 1;
+	size_t sizeC = listC.size() - 1;
+
+	// use max number of samples
+	if (m_samples == 0) {
+		m_samples = orig->size() + ttv(face).boundarySize - 3;
+	}
+
+	size_t outSize = sizeA + sizeB + sizeC;
+	size_t inSize = orig->size();
+	// if there are more points than allowed, scale back
+	if (inSize + outSize > m_samples) {
+		outSize = m_samples*0.25 < outSize ? m_samples*0.25 : outSize;
+		inSize = m_samples-outSize;
+		// in case we don't have enough inner vertices
+		if (inSize > orig->size()) {
+			inSize = orig->size();
+			outSize = std::min(m_samples-inSize, sizeA + sizeB + sizeC);
+		}
+	}
+	assert(inSize <= orig->size());
+	assert(outSize <= ttv(face).boundarySize-3);
+
+	inner.reserve(inSize);
+	outVerts.reserve(outSize);
+
+	sortInner(face);
+	// samples that lie inside the face
+	size_t mod = std::max((size_t)1, orig->size() / inSize);
+	for (size_t i = 0; i < orig->size() && inner.size() < inSize; i += mod) {
+		inner.push_back(orig->at(i));
+	}
 
 	// samples that lie on the border
 	if (outSize > 0) {
-
-		size_t perPath = outSize / 3;
 		// sample in regular intervals (easy here because vectors are already sorted after uv)
-		mod = std::max((size_t)1, (listA.size()-1) / perPath);
-		for (size_t i = 0; i < listA.size() && outVerts.size() <= perPath; i+=mod) {
-			outVerts.push_back(listA[i]);
-		}
-		mod = std::max((size_t)1, (listB.size()-1) / perPath);
-		for (size_t i = 0; i < listB.size() && outVerts.size() <= 2 * perPath; i+=mod) {
-			outVerts.push_back(listB[i]);
-		}
-		mod = std::max((size_t)1, (listC.size()-1) / perPath);
-		for (size_t i = 0; i < listC.size() && outVerts.size() < outSize; i+=mod) {
-			outVerts.push_back(listC[i]);
+		mod = std::max((size_t)1, outSize / (sizeA + sizeB + sizeC));
+
+		for (size_t i = 0; i < outSize; i+=mod) {
+			if (i < sizeA) {
+				outVerts.push_back(listA[i]);
+			} else if (i - sizeA < sizeB) {
+				outVerts.push_back(listB[i-sizeA]);
+			} else if (i - sizeA - sizeB < sizeC) {
+				outVerts.push_back(listC[i-sizeA-sizeB]);
+			}
 		}
 	}
 	assert(outVerts.size() == outSize);
 	assert(inner.size() == inSize);
 
 	size_t matSize = inSize + outSize;
-	assert(matSize >= nv_inner_ && "matrix must have at least # control point entries");
+	assert(matSize >= nv_inner_ && "matrix must have at least #control point entries");
+
+	std::cerr << "\tsolving fitting system of size " << matSize << " x " << nv_inner_ << std::endl;
 
 	// system matrix
 	EigenMatT A(matSize, nv_inner_);
@@ -153,9 +167,9 @@ bool VoronoiFitting::solveLocal(const FaceHandle face, const bool interpolate)
 	// solve
 	// --------------------------------------------
 
-	bool success = solveSystem(A, rhsx, resultX);
-	success = solveSystem(A, rhsy, resultY) && success;
-	success = solveSystem(A, rhsz, resultZ) && success;
+	bool success = solveSystem(A, rhsx, resultX, m_solver);
+	success = solveSystem(A, rhsy, resultY, m_solver) && success;
+	success = solveSystem(A, rhsz, resultZ, m_solver) && success;
 
 	// --------------------------------------------
 	// write back data

@@ -1,7 +1,6 @@
 #include "VoronoiRemesh.hh"
 
 #include "VoronoiParametrization.hh"
-#include "VoronoiFitting.hh"
 
 #include <queue>
 #include <unordered_set>
@@ -1203,39 +1202,41 @@ bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 
 	int i = 0;
 	bool success = false;
-	constexpr int MAX_ATTEMPTS = 2;
+	constexpr int MAX_ATTEMPTS = 3;
 
 	// attempt max MAX_ATTEMPTS times before we give up #hacky
 	do {
-		// prepare (reset)
-		m_seeds.clear();
-		m_colors.clear();
-		m_seedVerts.clear();
-		m_ctrlVerts.clear();
+		if (!stepwise || m_q.empty()) {
+			// prepare (reset)
+			m_seeds.clear();
+			m_colors.clear();
+			m_seedVerts.clear();
+			m_ctrlVerts.clear();
 
-		m_nvertices = 0;
-		m_nedges = 0;
-		m_vertexIdx = 0;
+			m_nvertices = 0;
+			m_nedges = 0;
+			m_vertexIdx = 0;
 
-		m_errorMsg = "";
-		m_debugCancel = false;
+			m_errorMsg = "";
+			m_debugCancel = false;
 
-		const double INF = std::numeric_limits<double>::max();
-		// initialize face properties
-		for (FH face : m_mesh.faces()) {
-			pred(face) = FH();
-			id(face) = -1;
-			dist(face) = INF;
-		}
+			const double INF = std::numeric_limits<double>::max();
+			// initialize face properties
+			for (FH face : m_mesh.faces()) {
+				pred(face) = FH();
+				id(face) = -1;
+				dist(face) = INF;
+			}
 
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<size_t> dis(0u, m_mesh.n_faces() - 1);
-
-		while (m_seeds.size() < 2) {
-			FH next = m_mesh.face_handle(dis(gen));
-			if (!isSeed(next) && !adjToSeedFace(next)) {
-				addSeed(m_q, next);
+			std::random_device rd;
+			std::mt19937 gen(rd());
+			std::uniform_int_distribution<size_t> dis(0u, m_mesh.n_faces() - 1);
+			// find two random seeds
+			while (m_seeds.size() < 2) {
+				FH next = m_mesh.face_handle(dis(gen));
+				if (!isSeed(next) && !adjToSeedFace(next)) {
+					addSeed(m_q, next);
+				}
 			}
 		}
 
@@ -1250,7 +1251,6 @@ bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 
 	} while (!stepwise && ++i < MAX_ATTEMPTS);
 
-	// i can only be MAX_ATTEMPTS if we never found a valid partition
 	return success;
 }
 bool VoronoiRemesh::calcPartition(const bool stepwise, bool &done)
@@ -1270,16 +1270,15 @@ bool VoronoiRemesh::calcPartition(const bool stepwise, bool &done)
 		return true;
 	}
 
-	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
-	std::cerr << " faces as seeds" << std::endl;
-
 	int iter = 0;
 	// add a new seed if we still need more partitions
 	while (!stepwise && m_seeds.size() < minPartition() && addExtraSeed(m_q)) {
 		faceSP(m_q, false);
-		std::cerr << "partition iteration " << ++iter << std::endl;
 		if (debugCancel()) return false;
 	}
+
+	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
+	std::cerr << " faces as seeds" << std::endl;
 
 	if (m_useColors) {
 		BezierTMesh::Color boundaryColor(0.f, 0.f, 0.f, 1.f);
@@ -1569,7 +1568,8 @@ bool VoronoiRemesh::dualize(bool steps)
 bool VoronoiRemesh::fitting()
 {
 	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
-	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt, m_fittingSamples);
+	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt, fittingSamples());
+	fit.solver(fittingSolver());
 
 	size_t degree = m_mesh.degree();
 	size_t cpNums = pointsFromDegree(degree);

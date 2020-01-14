@@ -6,7 +6,7 @@
 #include <qgroupbox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
-#include <qmessagebox.h>
+#include <qerrormessage.h>
 
 #include <OpenFlipper/common/GlobalOptions.hh>
 #include <OpenFlipper/Utils/Memory/RAMInfo.hh>
@@ -26,12 +26,17 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 		"btalgorithms.png"
 	);
 
+	m_tool->setStyleSheet("QPushButton { padding: 5px; } ");
+	// TODO: change margin/padding/sth
+	//"QComboBox, QSpinBox { margin-left: 10px; }");
+
+	QLabel *degLabel = new QLabel(tr("Target Degree"));
 	QSpinBox *degBox = new QSpinBox;
+	degBox->setMinimum(1);
+	degBox->setMaximum(10);
+	degBox->setValue(betri::globalDegree()); // must be before connect
 	connect(degBox, SIGNAL(valueChanged(int)), this, SLOT(setTargetDegree(int)));
 
-	degBox->setValue(betri::globalDegree());
-
-	// https://doc.qt.io/qt-5/qtwidgets-widgets-lineedits-example.html
 	///////////////////////////////////////////////////////////////////////////
 	// Voronoi meshing group
 	///////////////////////////////////////////////////////////////////////////
@@ -70,10 +75,17 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_vparam->addItem("cotangent");
 	m_vparam->setCurrentIndex(1); // default cotangent
 
+	QLabel *vsolverLabel = new QLabel(tr("Fitting Solver"));
+	m_vfit = new QComboBox();
+	m_vfit->addItem("normal equations");
+	m_vfit->addItem("qr decomposition");
+	m_vfit->addItem("adaptive");
+	m_vfit->setCurrentIndex(2); // default adaptive
+
 	QLabel *sampleLabelV = new QLabel(tr("Max. Fitting Samples"));
 	m_numSamples[0] = new QSpinBox;
-	m_numSamples[0]->setValue(30);
 	m_numSamples[0]->setMinimum(0);
+	m_numSamples[0]->setValue(0);
 
 	// set layout
 	QGridLayout *voronoiLayout = new QGridLayout;
@@ -89,8 +101,10 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	voronoiLayout->addWidget(m_vFlags[3], 4, 1, 1, 1);
 	voronoiLayout->addWidget(modeLabel, 5, 0, 1, 1);
 	voronoiLayout->addWidget(m_vparam, 5, 1, 1, 2);
-	voronoiLayout->addWidget(sampleLabelV, 6, 0, 1, 1);
-	voronoiLayout->addWidget(m_numSamples[0], 6, 1, 1, 2);
+	voronoiLayout->addWidget(vsolverLabel, 6, 0, 1, 1);
+	voronoiLayout->addWidget(m_vfit, 6, 1, 1, 2);
+	voronoiLayout->addWidget(sampleLabelV, 7, 0, 1, 1);
+	voronoiLayout->addWidget(m_numSamples[0], 7, 1, 1, 2);
 	voronoiGroup->setLayout(voronoiLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -108,19 +122,28 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_dFlags[0] = new QCheckBox(tr("display error"));
 	m_dFlags[1] = new QCheckBox(tr("interpolate"));
 
+	QLabel *dsolverLabel = new QLabel(tr("Fitting Solver"));
+	m_dfit = new QComboBox();
+	m_dfit->addItem("normal equations");
+	m_dfit->addItem("qr decomposition");
+	m_dfit->addItem("adaptive");
+	m_dfit->setCurrentIndex(2); // default adaptive
+
 	QLabel *sampleLabelD = new QLabel(tr("Fitting Samples"));
 	m_numSamples[1] = new QSpinBox;
 	m_numSamples[1]->setValue(40);
 	m_numSamples[1]->setMinimum(betri::pointsFromDegree(betri::globalDegree()));
 
 	QGridLayout *deciLayout = new QGridLayout;
-	deciLayout->addWidget(deciInitButton, 0, 0);
+	deciLayout->addWidget(deciInitButton, 0, 0, 1, 2);
 	deciLayout->addWidget(deciButton, 1, 0, 1, 1);
 	deciLayout->addWidget(deciStepButton, 1, 1, 1, 1);
 	deciLayout->addWidget(m_dFlags[0], 2, 0);
 	deciLayout->addWidget(m_dFlags[1], 3, 0);
-	deciLayout->addWidget(sampleLabelD, 4, 0, 1, 1);
-	deciLayout->addWidget(m_numSamples[1], 4, 1, 1, 1);
+	deciLayout->addWidget(dsolverLabel, 4, 0, 1, 1);
+	deciLayout->addWidget(m_dfit, 4, 1, 1, 1);
+	deciLayout->addWidget(sampleLabelD, 5, 0, 1, 1);
+	deciLayout->addWidget(m_numSamples[1], 5, 1, 1, 1);
 	deciGroup->setLayout(deciLayout);
 
 	///////////////////////////////////////////////////////////////////////////
@@ -130,7 +153,7 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	connect(testButton, SIGNAL(clicked()), this, SLOT(testAlgorithm()));
 
 	///////////////////////////////////////////////////////////////////////////
-	// Tijmer
+	// Timer
 	///////////////////////////////////////////////////////////////////////////
 	QCheckBox *useTimer = new QCheckBox(tr("time algorithm"));
 	connect(useTimer, QOverload<bool>::of(&QCheckBox::toggled), this, [&](bool use) {
@@ -142,11 +165,12 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	///////////////////////////////////////////////////////////////////////////
 
 	QGridLayout *grid = new QGridLayout();
-	grid->addWidget(degBox, 0, 0);
+	grid->addWidget(degLabel, 0, 0, 1, 1);
+	grid->addWidget(degBox, 0, 1, 1, 1);
 	grid->addWidget(useTimer, 1, 0);
-	grid->addWidget(voronoiGroup, 2, 0);
-	grid->addWidget(deciGroup, 3, 0);
-	grid->addWidget(testButton, 4, 0);
+	grid->addWidget(voronoiGroup, 2, 0, 1, 2);
+	grid->addWidget(deciGroup, 3, 0, 1, 2);
+	grid->addWidget(testButton, 4, 0, 1, 2);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Algorithms"), m_tool, toolIcon);
@@ -154,8 +178,8 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 
 void BezierTriangleAlgorithmsPlugin::setTargetDegree(int degree)
 {
-	betri::globalDegree((size_t)std::max(1, degree));
-	//m_numSamples[1]->setMinimum((int)betri::pointsFromDegree(betri::globalDegree()));
+	betri::globalDegree(degree);
+	m_numSamples[1]->setMinimum((int)betri::pointsFromDegree(degree));
 }
 
 bool BezierTriangleAlgorithmsPlugin::applyTargetDegree(BaseObject *meshObj)
@@ -225,6 +249,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				m_vFlags[2]->isChecked(),
 				m_vFlags[3]->isChecked(),
 				m_vparam->currentIndex(),
+				m_vfit->currentIndex(),
 				m_numSamples[0]->value()
 			);
 
@@ -248,7 +273,7 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 			if (m_useTimer) {
 				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 				m_timer.end(
-					"\tvertices: " + info.vertices +
+					"\n\tvertices: " + info.vertices +
 					"\n\tedges: " + info.edges +
 					"\n\tfaces: " + info.faces
 				);
@@ -278,9 +303,8 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				emit log(LOGINFO, "# --------------------------- #");
 			} else {
 				emit log(LOGERR, "Voronoi meshing failed");
-				QMessageBox error;
-				error.addButton(QMessageBox::Button::Close);
-				error.setText("voronoi meshing failed");
+				QErrorMessage error;
+				error.showMessage("The voronoi meshing algorithm failed.");
 				error.exec();
 			}
 		}
@@ -342,6 +366,7 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex(),
+					m_vfit->currentIndex(),
 					m_numSamples[0]->value()
 				);
 
@@ -377,24 +402,25 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 			if (m_useTimer) {
 				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 				m_timer.lapEnd(
-					"\tPARTITION STEP: vertices: " + info.vertices +
+					"\n\tPARTITION STEP: vertices: " + info.vertices +
 					"\n\tedges: " + info.edges +
 					"\n\tfaces: " + info.faces
 				);
 			}
 
 			if (success) {
-
 				emit updatedObject(meshObj->id(), UPDATE_ALL);
 
-				emit log(LOGINFO, "# --------------------------- #");
-				emit log(LOGINFO, "# Performed partitioning!");
-				emit log(LOGINFO, "# --------------------------- #");
+				if (done) {
+					emit log(LOGINFO, "Performed partitioning step (DONE)!");
+				} else {
+					emit log(LOGINFO, "Performed partitioning step!");
+				}
+
 			} else {
 				emit log(LOGERR, "Voronoi partition failed");
-				QMessageBox error;
-				error.addButton(QMessageBox::Button::Close);
-				error.setText("error: partitioning failed");
+				QErrorMessage error;
+				error.showMessage("The partitioning step failed.");
 				error.exec();
 			}
 		}
@@ -424,7 +450,7 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 		if (m_useTimer) {
 			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 			m_timer.lapEnd(
-				"\tDUALIZE STEP vertices: " + info.vertices +
+				"\n\tDUALIZE STEP vertices: " + info.vertices +
 				"\n\tedges: " + info.edges +
 				"\n\tfaces: " + info.faces
 			);
@@ -447,9 +473,8 @@ void BezierTriangleAlgorithmsPlugin::callDualStep()
 
 			} else {
 				emit log(LOGERR, "Dualizing failed!");
-				QMessageBox error;
-				error.addButton(QMessageBox::Button::Close);
-				error.setText("dualizing failed");
+				QErrorMessage error;
+				error.showMessage("The dualizing step failed.");
 				error.exec();
 			}
 		} else {
@@ -481,7 +506,7 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 		if (m_useTimer) {
 			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 			m_timer.lapEnd(
-				"\tDUALIZE vertices: " + info.vertices +
+				"\n\tDUALIZE vertices: " + info.vertices +
 				"\n\tedges: " + info.edges +
 				"\n\tfaces: " + info.faces
 			);
@@ -500,9 +525,8 @@ void BezierTriangleAlgorithmsPlugin::callDual()
 
 		} else if (!success) {
 			emit log(LOGERR, "Dualizing failed!");
-			QMessageBox error;
-			error.addButton(QMessageBox::Button::Close);
-			error.setText("dualizing failed");
+			QErrorMessage error;
+			error.showMessage("The dualizing failed.");
 			error.exec();
 		}
 	}
@@ -521,11 +545,13 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		BTMeshObject *meshObj = PluginFunctions::btMeshObject(*o_it);
 		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
 
+		// update values in case they were changed between steps
 		auto remesher = betri::getVoronoiObject(meshObj, ctrlMeshObj);
 		remesher->interpolate(m_vFlags[1]->isChecked());
 		remesher->overwrite(m_vFlags[2]->isChecked());
 		remesher->weights(m_vparam->currentIndex());
 		remesher->fittingSamples(m_numSamples[0]->value());
+		remesher->fittingSolver((betri::Fitting::Solver)m_vfit->currentIndex());
 
 		if (m_useTimer) {
 			m_timer.lapStart();
@@ -536,7 +562,7 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 		if (m_useTimer) {
 			auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 			m_timer.end(
-				"\tFITTING vertices: " + info.vertices +
+				"\n\tFITTING vertices: " + info.vertices +
 				"\n\tedges: " + info.edges +
 				"\n\tfaces: " + info.faces
 			);
@@ -570,9 +596,8 @@ void BezierTriangleAlgorithmsPlugin::callFitting()
 			emit log(LOGINFO, "# --------------------------- #");
 		} else {
 			emit log(LOGERR, "Fitting failed!");
-			QMessageBox error;
-			error.addButton(QMessageBox::Button::Close);
-			error.setText("fitting failed");
+			QErrorMessage error;
+			error.showMessage("The fitting failed.");
 			error.exec();
 		}
 	}
@@ -635,6 +660,7 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex(),
+					m_vfit->currentIndex(),
 					m_numSamples[0]->value()
 				);
 
@@ -662,7 +688,7 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 			if (m_useTimer) {
 				auto info = betri::voronoiInfo(meshObj, ctrlMeshObj);
 				m_timer.lapEnd(
-					"\tPARTITION vertices: " + info.vertices +
+					"\n\tPARTITION vertices: " + info.vertices +
 					"\n\tedges: " + info.edges +
 					"\n\tfaces: " + info.faces
 				);
@@ -676,9 +702,8 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				emit updatedObject(meshObj->id(), UPDATE_ALL);
 			} else {
 				emit log(LOGERR, "Voronoi partition failed");
-				QMessageBox error;
-				error.addButton(QMessageBox::Button::Close);
-				error.setText("error: partitioning failed");
+				QErrorMessage error;
+				error.showMessage("The partition failed.");
 				error.exec();
 			}
 		}
@@ -765,6 +790,7 @@ void BezierTriangleAlgorithmsPlugin::callDecimationInit()
 				meshObj,
 				target,
 				m_numSamples[1]->value(),
+				m_dfit->currentIndex(),
 				m_dFlags[0]->isChecked()
 			);
 
@@ -806,7 +832,7 @@ void BezierTriangleAlgorithmsPlugin::callDecimation()
 		if (m_useTimer) {
 			auto info = betri::decimationInfo(meshObj);
 			m_timer.end(
-				"\tvertices: " + info.vertices +
+				"\n\tvertices: " + info.vertices +
 				"\n\tedges: " + info.edges +
 				"\n\tfaces: " + info.faces
 			);

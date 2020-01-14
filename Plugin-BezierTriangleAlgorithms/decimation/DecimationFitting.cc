@@ -93,9 +93,9 @@ bool DecimationFitting::solveLocal(
 	// solve
 	// --------------------------------------------
 
-	bool success = solveSystem(A, rhsx, resultX);
-	success = solveSystem(A, rhsy, resultY) && success;
-	success = solveSystem(A, rhsz, resultZ) && success;
+	bool success = solveSystem(A, rhsx, resultX, m_solver);
+	success = solveSystem(A, rhsy, resultY, m_solver) && success;
+	success = solveSystem(A, rhsz, resultZ, m_solver) && success;
 
 	// --------------------------------------------
 	// write back data

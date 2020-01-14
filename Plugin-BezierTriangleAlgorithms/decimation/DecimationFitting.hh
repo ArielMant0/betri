@@ -11,7 +11,9 @@ public:
 
 	DecimationFitting() = delete;
 
-	DecimationFitting(BezierTMesh &mesh) : Fitting(mesh) {}
+	DecimationFitting(BezierTMesh &mesh, Solver solver=Solver::normal_equation) : Fitting(mesh) {
+		m_solver = solver;
+	}
 
 	bool solve() override;
 

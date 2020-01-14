@@ -18,7 +18,8 @@ public:
 		BezierTMesh &c,
 		OpenMesh::FPropHandleT<TriToVertex> &ttv,
 		OpenMesh::VPropHandleT<VertexToTri> &vtt,
-		size_t sampleCount=30
+		size_t sampleCount=30,
+		Solver solver=Solver::normal_equation
 	) :
         Fitting(m),
 		m_ctrl(c),
@@ -26,6 +27,7 @@ public:
 		m_vtt(vtt),
 		m_cpNum(0)
 	{
+		m_solver = solver;
 		// make sure we sample at least as many points on the surface as there are control points
 		m_samples = sampleCount;
 		prepare();
