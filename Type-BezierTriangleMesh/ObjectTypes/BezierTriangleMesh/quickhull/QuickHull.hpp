@@ -492,7 +492,7 @@ namespace quickhull {
 
 					if (!(A != B && B != C && C != A)) {
 						for (int i = 0; i < m_vertexData.size(); i++) {
-							std::cerr << m_vertexData[i] << std::endl;
+							//std::cerr << m_vertexData[i] << std::endl;
 						}
 						return; // TODOF
 					}
