@@ -167,9 +167,18 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		updateKnotVectorSelectionTexture(_state);
 
 	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
-	if (Benchmarker::instance()->active())
+	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
+
+	if (Benchmarker::instance()->active()) {
 		renderOption = Benchmarker::instance()->renderMode();
-	if (Benchmarker::instance()->update())
+		bVolume = Benchmarker::instance()->bVolume();
+	}
+
+	if (Benchmarker::instance()->update() || (
+			bVolume == betri::boundingVolumeType::BoundingBillboard && 
+			renderOption == betri::TESSELLATION_TYPE::RAYTRACING
+		)
+	)
 		invalidateSurfaceMesh_ = true;
 
 	size_t layer = 0;
@@ -206,12 +215,12 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (betri::option(betri::BezierOption::CULL_FACES) > 0 &&
 			(
 				renderOption != betri::TESSELLATION_TYPE::RAYTRACING ||
-				betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard
+				bVolume != betri::boundingVolumeType::BoundingBillboard
 			)
 		) {
 			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
-			if (renderOption == betri::TESSELLATION_TYPE::CPU || renderOption == betri::TESSELLATION_TYPE::NONE)
+			if (renderOption == betri::TESSELLATION_TYPE::CPU)
 				_state.cullFace(GL_FRONT);
 			else
 				_state.cullFace(GL_BACK);
@@ -1098,11 +1107,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
 	// TODO this is dump
-	if (!invalidateSurfaceMesh_ &&
-		(
-			meshOption != betri::TESSELLATION_TYPE::RAYTRACING ||
-			betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard)
-		)
+	if (!invalidateSurfaceMesh_)
 		return;
 
 	updateRaycastingFormula(

@@ -353,8 +353,8 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 		(perfCheckboxes[2])->setChecked(false); // Tetrahedron
 		(perfCheckboxes[3])->setChecked(true); // AABB
 		(perfCheckboxes[4])->setChecked(true); // Prism
-		(perfCheckboxes[5])->setChecked(false); // Chull
-		(perfCheckboxes[6])->setChecked(false); // Billboard
+		(perfCheckboxes[5])->setChecked(true); // Chull
+		(perfCheckboxes[6])->setChecked(true); // Billboard
 	}
 	);
 
