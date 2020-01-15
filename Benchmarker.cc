@@ -217,7 +217,7 @@ std::string Benchmarker::generateFileName(
 )
 {
 	std::string sys = "";
-	if (cpuName.compare("AMD Ryzen") == 0 &&
+	if (cpuName.compare("AMD Ryzen 3 1300X Quad-Core Processor") == 0 &&
 		gpuName.compare("GeForce GTX 1050 Ti/PCIe/SSE2") == 0
 	) {
 		sys = "Sys1";
