@@ -7,10 +7,9 @@
 namespace betri
 {
 
-// TODO tesselation one or two l?
 enum BezierOption : int
 {
-	TESSELLATION_TYPE = 0, // TODO this should propably not be called tesselation type
+	TESSELLATION_TYPE = 0,
 	TESSELLATION_AMOUNT,
 	TESSELLATION_ADAPTIVE,
 	BOUNDING_VOLUME,
@@ -41,8 +40,6 @@ enum VIS_MODE : int
 	UV,
 	CURVATURE
 };
-
-//extern std::array<int, BezierOption::N> s_options;
 
 int option(BezierOption b);
 
