@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cmath>
-#include <iostream> // TODO weg damit
-#include <set> // TODO weg damit
+#include <iostream>
+#include <set>
 
 namespace betri
 {
@@ -98,7 +98,6 @@ static inline int cpIndex(int i, int j, unsigned int degree)
 	return sum + j;
 }
 
-// TODO: remove inline
 static inline BezierTMesh::Point evalSurface(std::vector<BezierTMesh::Point> &cps, BezierTMesh::Point &bary, unsigned int degree)
 {
 	BezierTMesh::Point point(0.0);

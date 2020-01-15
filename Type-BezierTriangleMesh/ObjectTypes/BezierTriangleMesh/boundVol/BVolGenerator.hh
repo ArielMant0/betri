@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include <iostream> // TODO weg damit
+#include <iostream>
 #include <set>
 #include <queue>
 
@@ -16,8 +16,6 @@ namespace betri
 ///////////////////////////////////////////////////////////////////////////////
 // BoundingVolume Helper Functions
 ///////////////////////////////////////////////////////////////////////////////
-
-// TODO this is accesseable without by betri::AABB
 enum boundingVolumeType
 {
 	BoundingTetraeder = 0,

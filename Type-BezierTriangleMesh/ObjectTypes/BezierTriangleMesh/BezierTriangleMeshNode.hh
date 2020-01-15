@@ -15,7 +15,7 @@
 
 #include <QImage>
 
-#include <OpenFlipper/BasePlugin/PluginFunctions.hh> // TODO
+#include <OpenFlipper/BasePlugin/PluginFunctions.hh>
 
 #include <ACG/GL/globjects.hh>
 #include <ACG/GL/VertexDeclaration.hh>
@@ -389,8 +389,8 @@ private:
 	std::map<int, GLuint>* textureMap_;
 
 	MeshT& bezierTriangleMesh_;
-	GLState *state_; // TODO should this be here ?
-	DrawModes::DrawModeProperties drawModeProps_; // TODO should this be here ?
+	GLState *state_;
+	DrawModes::DrawModeProperties drawModeProps_;
 
 //===========================================================================
 /** @name Draw-mesh handling

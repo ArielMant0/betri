@@ -17,7 +17,6 @@
 
 //== CLASS DEFINITION =========================================================
 
-// TODO
 /** Constructor for BSpline Surface Objects. This object class gets a Separator Node giving
 *  the root node to which it should be connected. The spline surface is generated internally
 *  and all nodes for visualization will be added below the scenegraph node.\n
