@@ -31,10 +31,10 @@ void Benchmarker::startFrame()
 		// start query
 		switch (testType_) {
 			case TEST_TYPE::FTIME: glBeginQuery(
-				GL_TIME_ELAPSED, queries_[shifted_ - 1][current_query_]); 
+				GL_TIME_ELAPSED, queries_[shifted_ - 1][current_query_]);
 				break;
 			case TEST_TYPE::OCCL: glBeginQuery(
-				GL_SAMPLES_PASSED, queries_[shifted_ - 1][current_query_]); 
+				GL_SAMPLES_PASSED, queries_[shifted_ - 1][current_query_]);
 				break;
 			default:
 				std::cerr << __FUNCTION__ << " nothing done" << std::endl; // TODO
@@ -50,7 +50,7 @@ void Benchmarker::endFrame()
 			case TEST_TYPE::FTIME: glEndQuery(GL_TIME_ELAPSED); break;
 			case TEST_TYPE::OCCL: glEndQuery(GL_SAMPLES_PASSED); break;
 			default: // TODO
-				std::cerr << __FUNCTION__ << " nothing done" << std::endl; 
+				std::cerr << __FUNCTION__ << " nothing done" << std::endl;
 		}
 
 		// advance query counter
@@ -189,6 +189,7 @@ void Benchmarker::advanceRenderMode()
 // https://weseetips.wordpress.com/tag/c-get-cpu-name/
 std::string Benchmarker::getCPUName()
 {
+#ifdef WIN32
 	// Get extended ids.
 	int CPUInfo[4] = { -1 };
 	__cpuid(CPUInfo, 0x80000000);
@@ -208,6 +209,9 @@ std::string Benchmarker::getCPUName()
 			memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
 		}
 	}
+#else
+	constexpr char *CPUBrandString("only available on windows");
+#endif
 
 	return std::string(CPUBrandString);
 }
@@ -261,16 +265,16 @@ std::string Benchmarker::generateFileName(
 
 	std::string againstType;
 	switch (againstType_) {
-		case 0: 
-			againstType = "Frame" + meshName_ + 
+		case 0:
+			againstType = "Frame" + meshName_ +
 				"D" + std::to_string(degree_) +
 				"Tc" + std::to_string(triangleCount_);
 			break;
-		case 1: againstType = "Tc" + meshName_ + "D" + std::to_string(degree_); 
+		case 1: againstType = "Tc" + meshName_ + "D" + std::to_string(degree_);
 			break;
-		case 2: againstType = "Degree" + meshName_ + 
+		case 2: againstType = "Degree" + meshName_ +
 			"Tc" + std::to_string(triangleCount_); break;
-		case 3: againstType = "Genus" + 
+		case 3: againstType = "Genus" +
 			("Tc" + std::to_string(triangleCount_)) +
 			"D" + std::to_string(degree_); break;
 		default: againstType = "";
@@ -355,7 +359,7 @@ void Benchmarker::dumpToFile()
 						queries_[j][i], GL_QUERY_RESULT, &result);
 
 					switch (testType_) {
-						case TEST_TYPE::FTIME: 
+						case TEST_TYPE::FTIME:
 							fileout << "," << result * 1.e-6; break;
 						case TEST_TYPE::OCCL: fileout << "," << result; break;
 					}
