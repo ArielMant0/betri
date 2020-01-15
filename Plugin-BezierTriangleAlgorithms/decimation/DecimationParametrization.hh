@@ -16,13 +16,13 @@ class DecimationParametrization : public Parametrization
 {
 public:
 
+	// typedefs
 	using NGonFace = std::array<Vec2, 3>;
 
-	// TODO: need other handle?
 	explicit DecimationParametrization(BezierTMesh &mesh) :
 		Parametrization(mesh),
 		m_mapper(mesh, OpenMesh::VPropHandleT<Vec2>()),
-		m_samples(40u)
+		m_samples(40u) // default that will be overriden by plugin
 	{}
 
 	~DecimationParametrization()
@@ -52,8 +52,6 @@ public:
 		return m_sampleUVs;
 	}
 
-	static bool test(BezierTMesh *mesh=nullptr);
-
 private:
 
 	static std::vector<Vec2> getSampleUVs(const size_t degree);
@@ -61,9 +59,6 @@ private:
 
 	static Vec3 bary2D(const Vec2 &uv, const NGonFace &corners)
 	{
-		//std::cerr << "corners:\n\t" << corners[0] << "\n\t" << corners[1];
-		//std::cerr << "\n\t" << corners[2] << "\npoint: " << uv << std::endl;
-
 		Vec2 ba = corners[1] - corners[0];
 		Vec2 ca = corners[2] - corners[0];
 		Vec2 pa = uv - corners[0];
@@ -74,6 +69,7 @@ private:
 			return Vec3(-1., -1, -1.);
 		}
 
+		// use +1-1 for accuracy
 		Vec3 result(
 			0.,
 			1.0 + ((pa[0] * ca[1] - pa[1] * ca[0]) / denom) - 1.0,
@@ -84,13 +80,9 @@ private:
 		return result;
 	}
 
-	static Vec2 trianglePoint(const Vec2 &uv, const NGonFace &points)
+	static inline Vec2 trianglePoint(const Vec2 &uv, const NGonFace &points)
 	{
 		Scalar w = 1. - uv[0] - uv[1];
-
-		//std::cerr << __FUNCTION__ << "\n\tuv " << uv << " " << w;
-		//std::cerr << "\n\t pos " << points[0] << " " << points[1] << " " << points[2] << "\n";
-
 		return points[0] * uv[0] + points[1] * uv[1] + points[2] * w;
 	}
 

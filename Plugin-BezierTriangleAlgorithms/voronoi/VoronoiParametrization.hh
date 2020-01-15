@@ -73,8 +73,6 @@ public:
 		OpenMesh::PropertyManager<OpenMesh::VPropHandleT<bool>, BezierTMesh> &inFace
 	);
 
-	static bool test(BezierTMesh *mesh=nullptr);
-
 	static constexpr char *vweightName = "vWeightProp";
 	static constexpr char *eweightName = "eWeightProp";
 	static constexpr char *sysidName = "sysidProp";

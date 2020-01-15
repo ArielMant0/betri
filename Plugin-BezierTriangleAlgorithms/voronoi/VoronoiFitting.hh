@@ -40,8 +40,6 @@ public:
 
 	bool solveLocal(const FaceHandle face, const bool interpolate);
 
-	static bool test(BezierTMesh *mesh=nullptr);
-
 private:
 
 	void sortInner(const FaceHandle face);

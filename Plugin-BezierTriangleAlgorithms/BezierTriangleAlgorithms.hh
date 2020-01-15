@@ -6,14 +6,6 @@
 namespace betri
 {
 
-enum class TestOptions
-{
-	voronoi_fit,
-	voronoi_param,
-	decimation_fit,
-	decimation_param
-};
-
 struct VoronoiInfo
 {
 	std::string name;
@@ -78,11 +70,5 @@ void decimationInit(
 bool decimation(BaseObjectData *object, const bool steps, const bool interpolate);
 
 DecimationInfo decimationInfo(BaseObjectData *object);
-
-//////////////////////////////////////////
-// tests
-//////////////////////////////////////////
-
-bool test(TestOptions which, BezierTMesh *mesh=nullptr);
 
 }

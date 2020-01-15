@@ -99,6 +99,8 @@ public:
 
 private:
 
+	void reset();
+
 	bool calcPartition(const bool stepwise, bool &done);
 
 	void prepare();
@@ -220,7 +222,10 @@ private:
 	void grow(FaceDijkstra &q, FH face, const FH predFace=FH(), Scalar distance=0.0)
 	{
 		id(face) = !predFace.is_valid() ? m_seeds.size() - 1 : id(predFace);
-		setColor(face, m_colors[id(face)]);
+		// must be enclosed by if because of the array access
+		if (useColors()) {
+			setColor(face, getRegionColor(face));
+		}
 		pred(face) = predFace;
 
 		assert(!predFace.is_valid() || face != pred(pred(face)));
@@ -270,15 +275,17 @@ private:
 	{
 		assert(!isSeed(f));
 		m_seeds.push_back(f);
-		if (m_useColors) {
+		if (useColors()) {
 			m_colors.push_back(m_colGen.generateNextColor());
 		}
 		grow(q, f);
 
-		// reduce alpha so seed faces are visible
-		Color c = m_colors[id(f)];
-		c[3] = 0.5f;
-		setColor(f, c);
+		if (useColors()) {
+			// reduce alpha so seed faces are visible
+			Color c = getRegionColor(f);
+			c[3] = 0.5f;
+			setColor(f, c);
+		}
 	}
 
 	static void copyMesh(BezierTMesh &src, BezierTMesh &dest);
@@ -328,8 +335,7 @@ private:
 
 	bool isSeedVertex(const VH vh) const
 	{
-		assert(id(vh) >= 0 || id(vh) == BORDER_ID);
-		if (id(vh) == BORDER_ID) return false;
+		if (id(vh) < 0) return false;
 
 		return m_seedVerts[id(vh)] == vh;
 	}
@@ -442,39 +448,27 @@ private:
 
 	void setShortestPath(const VH vh);
 
-	void setColor(VH vh, const Color &color) const
+	template <typename T>
+	void setColor(T handle, const Color &color) const
 	{
 		if (useColors()) {
-			m_mesh.set_color(vh, color);
+			m_mesh.set_color(handle, color);
 		}
 	}
 
-	void setColor(HH hh, const Color &color) const
+	template <typename T>
+	Color getRegionColor(T handle) const
 	{
-		if (useColors()) {
-			m_mesh.set_color(hh, color);
+		ID index = id(handle);
+		if (useColors() && index >= 0 && index < m_colors.size()) {
+			return m_colors[index];
 		}
-	}
-
-	void setColor(EH eh, const Color &color) const
-	{
-		if (useColors()) {
-			m_mesh.set_color(eh, color);
-		}
-	}
-
-	void setColor(FH fh, const Color &color) const
-	{
-		if (useColors()) {
-			m_mesh.set_color(fh, color);
-		}
+		return Color();
 	}
 
 	// -------------------------------------------------------------- //
 	// member variables
 	// -------------------------------------------------------------- //
-
-	static constexpr ID BORDER_ID = -2;
 
 	BezierTMesh &m_mesh, &m_ctrl;
 

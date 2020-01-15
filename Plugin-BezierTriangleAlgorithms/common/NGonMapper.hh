@@ -17,18 +17,20 @@ public:
 
 	void map(std::vector<Path*> &paths) override
 	{
+#ifdef BEZIER_DEBUG
 		// make sure all paths overlap at the beginning/end
 		for (size_t i = 0; i < paths.size(); ++i) {
 			auto p0 = paths[(i > 0 ? i - 1 : paths.size() - 1)];
 			auto p1 = paths[i];
 			assert(p0->back() == p1->front());
 		}
+#endif
 
 		if (paths.size() == 3) {
 			return mapTriangle(paths);
 		}
 
-		const Scalar ru = 0.5; // ri / std::cos(M_PI / paths.size()); // outer radius
+		constexpr Scalar ru = 0.5; // outer radius
 		const Scalar angle = (2.0 * M_PI) / paths.size();
 		const Scalar sideLen = 2.0 * ru * std::sin(M_PI / paths.size());
 		const Vec2 trans(ru, ru);
@@ -49,6 +51,7 @@ public:
 			Vec2 next = trans + Vec2(ru * sin(angle*k), ru * cos(angle*k));
 			Vec2 dir = (next - t).normalize();
 
+			// assign uv coordinates
 			for (size_t j = 0; j < path->size(); ++j) {
 				VertexHandle vh = path->at(j);
 
@@ -70,22 +73,24 @@ public:
 	static Vec2 middle(size_t n)
 	{
 		switch (n) {
+			// triangle midpoint
 			case 3: return middle();
+			// midpoint for every other ngon
 			default: return Vec2(0.5f, 0.5f);
 		}
 	}
 
-	static Scalar perimeter(size_t n)
+	static inline Scalar perimeter(size_t n)
 	{
 		return n * sideLength(n);
 	}
 
-	static Scalar sideLength(size_t n)
+	static inline Scalar sideLength(size_t n)
 	{
 		return std::sin(angle(n) / n);
 	}
 
-	static Scalar angle(size_t n)
+	static inline Scalar angle(size_t n)
 	{
 		return (2.0 * M_PI) / n;
 	}

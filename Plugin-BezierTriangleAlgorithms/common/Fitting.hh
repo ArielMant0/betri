@@ -13,6 +13,7 @@ class Fitting
 {
 public:
 
+	// list of available solvers
 	enum Solver
 	{
 		normal_equation,
@@ -58,7 +59,7 @@ protected:
 		Eigen::ComputationInfo info;
 
 		if (solver == adaptive) {
-			solver = A.rows() > 100 ? qr_decomposition : normal_equation;
+			solver = std::max(A.rows(), A.cols()) > 100 ? qr_decomposition : normal_equation;
 		}
 
 		// solve system with specified solver

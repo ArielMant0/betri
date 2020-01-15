@@ -46,25 +46,6 @@ void VoronoiRemesh::prepare()
 
 	if (!m_ctrl.get_property_handle(m_ttv, Props::TRITOVERTEX))
 		m_ctrl.add_property(m_ttv, Props::TRITOVERTEX);
-
-
-	ShortestPath::clear();
-
-	if (m_useColors) {
-		if (!m_mesh.has_face_colors()) {
-			m_mesh.request_face_colors();
-		}
-		if (!m_mesh.has_edge_colors()) {
-			m_mesh.request_edge_colors();
-		}
-		if (!m_mesh.has_vertex_colors()) {
-			m_mesh.request_vertex_colors();
-		}
-
-		if (!m_ctrl.has_face_colors()) {
-			m_ctrl.request_face_colors();
-		}
-	}
 }
 
 void VoronoiRemesh::cleanup()
@@ -186,29 +167,6 @@ void VoronoiRemesh::preventiveEdgeSplits()
 				FH f2 = m_mesh.opposite_face_handle(he);
 
 				fixCrossing(f1, f2);
-
-				// make sure the vertices along this split always belong
-				// to those two regions, so we can actually find a path trough
-				/*VH node = m_mesh.vertex_handle(m_mesh.n_vertices() - 1);
-				const ID id0 = id(f1), id1 = id(f2);
-				assert(id(node) == id0 || id(node) == id1);
-				const ID other = id(node) == id0 ? id1 : id0;
-				setColor(node, m_colors[id(node)]);
-
-				VH v0 = m_mesh.to_vertex_handle(m_mesh.next_halfedge_handle(he));
-				VH v1 = m_mesh.to_vertex_handle(
-					m_mesh.next_halfedge_handle(m_mesh.opposite_halfedge_handle(he))
-				);
-
-				if (id(v0) != other && id(v1) != other) {
-					VH which = adjToRegion(v0, other) ? v0 : v1;
-					id(which) = other;
-					findShortestPath(which, other);
-					pred(node) = which;
-					assert(m_mesh.find_halfedge(which, node).is_valid());
-					dist(node) = dist(which) + (m_mesh.point(which) - m_mesh.point(node)).norm();
-					setColor(which, m_colors[id(which)]);
-				}*/
 			}
 		}
 	}
@@ -343,24 +301,20 @@ void VoronoiRemesh::assignInnerVertices()
 	}
 
 #ifdef BEZIER_DEBUG
-	if (debugCancel()) return;
-
 	for (FH fh : m_ctrl.faces()) {
 		if (!assigned[fh]) {
-			m_mesh.set_color(fh, { 1.f, 1.f, 1.f, 1.f });
+			setColor(fh, { 1.f, 1.f, 1.f, 1.f });
 			debugCancel("face not assigned");
 		}
 	}
 
 	for (VH vh : m_mesh.vertices()) {
 		if (!vtt(vh).isBorder() && !vtt(vh).face.is_valid()) {
-			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
+			setColor(vh, { 1.f, 1.f, 1.f, 1.f });
 			debugCancel("vertex not assigned");
 		}
 	}
 #endif
-
-	debugCancel();
 }
 
 void VoronoiRemesh::splitClosedPaths(std::set<ID> only)
@@ -593,7 +547,9 @@ HalfedgeHandle VoronoiRemesh::fixCrossing(
 
 	// TODO: is this the correct edge
 	m_mesh.copy_all_properties(commonEdge, m_mesh.edge_handle(nedge), false);
-	setColor(m_mesh.edge_handle(nedge), m_mesh.color(commonEdge));
+	if (useColors()) {
+		setColor(m_mesh.edge_handle(nedge), m_mesh.color(commonEdge));
+	}
 	for (nedge+=1; nedge < m_mesh.n_edges(); ++nedge) {
 		crossed(m_mesh.edge_handle(nedge)) = -1;
 	}
@@ -751,12 +707,12 @@ void VoronoiRemesh::shortestPath(
 
 #ifdef BEZIER_DEBUG
 	if (!start1.is_valid()) {
-		m_mesh.set_color(v, { 0.6f, 0.1f, 0.45f, 1.f });
+		setColor(v, { 0.6f, 0.1f, 0.45f, 1.f });
 		debugCancel("invalid FIRST shortest path start vertex");
 		return;
 	}
 	if (!start2.is_valid()) {
-		m_mesh.set_color(start1, { 0.6f, 0.1f, 0.45f, 1.f });
+		setColor(start1, { 0.6f, 0.1f, 0.45f, 1.f });
 		debugCancel("invalid SECOND shortest path start vertex");
 		return;
 	}
@@ -800,8 +756,8 @@ void VoronoiRemesh::shortestPath(
 
 #ifdef BEZIER_DEBUG
 			if (!he.is_valid()) {
-				m_mesh.set_color(node, { 0.6f, 0.1f, 0.45f, 1.f });
-				m_mesh.set_color(path.back(), { 0.6f, 0.45f, 0.1f, 1.f });
+				setColor(node, { 0.6f, 0.1f, 0.45f, 1.f });
+				setColor(path.back(), { 0.6f, 0.45f, 0.1f, 1.f });
 				debugCancel("shortestPath: no connecting edge");
 				return;
 			}
@@ -864,11 +820,13 @@ void VoronoiRemesh::setShortestPath(const VH vh)
 	}
 
 	node = vh;
-	Color col = m_colors[target];
-	for (int i = dists.size() - 1; i >= 0; --i) {
-		dist(node) = distSum - dists[i];
-		setColor(node, col);
-		node = pred(node);
+	if (useColors()) {
+		Color col = m_colors[target];
+		for (int i = dists.size() - 1; i >= 0; --i) {
+			dist(node) = distSum - dists[i];
+			setColor(node, col);
+			node = pred(node);
+		}
 	}
 
 	std::cerr << __FUNCTION__ << " found path\n";
@@ -1207,26 +1165,7 @@ bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 	// attempt max MAX_ATTEMPTS times before we give up #hacky
 	do {
 		if (!stepwise || m_q.empty()) {
-			// prepare (reset)
-			m_seeds.clear();
-			m_colors.clear();
-			m_seedVerts.clear();
-			m_ctrlVerts.clear();
-
-			m_nvertices = 0;
-			m_nedges = 0;
-			m_vertexIdx = 0;
-
-			m_errorMsg = "";
-			m_debugCancel = false;
-
-			const double INF = std::numeric_limits<double>::max();
-			// initialize face properties
-			for (FH face : m_mesh.faces()) {
-				pred(face) = FH();
-				id(face) = -1;
-				dist(face) = INF;
-			}
+			reset();
 
 			std::random_device rd;
 			std::mt19937 gen(rd());
@@ -1239,6 +1178,7 @@ bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 				}
 			}
 		}
+		assert(!m_q.empty());
 
 		std::cerr << "\nPartition: Iteration " << i << '\n' << std::endl;
 		std::cerr << std::endl;
@@ -1253,6 +1193,50 @@ bool VoronoiRemesh::partition(const bool stepwise, bool &done)
 
 	return success;
 }
+void VoronoiRemesh::reset()
+{
+	// clear shortest paths
+	ShortestPath::clear();
+
+	// make sure we have the color properties we need
+	if (useColors()) {
+		if (!m_mesh.has_face_colors()) {
+			m_mesh.request_face_colors();
+		}
+		if (!m_mesh.has_edge_colors()) {
+			m_mesh.request_edge_colors();
+		}
+		if (!m_mesh.has_vertex_colors()) {
+			m_mesh.request_vertex_colors();
+		}
+
+		if (!m_ctrl.has_face_colors()) {
+			m_ctrl.request_face_colors();
+		}
+	}
+
+	// prepare (reset)
+	m_seeds.clear();
+	m_colors.clear();
+	m_seedVerts.clear();
+	m_ctrlVerts.clear();
+
+	m_nvertices = 0;
+	m_nedges = 0;
+	m_vertexIdx = 0;
+
+	m_errorMsg = "";
+	m_debugCancel = false;
+
+	const double INF = std::numeric_limits<double>::max();
+	// initialize face properties
+	for (FH face : m_mesh.faces()) {
+		pred(face) = FH();
+		id(face) = -1;
+		dist(face) = INF;
+	}
+}
+
 bool VoronoiRemesh::calcPartition(const bool stepwise, bool &done)
 {
 	done = faceSP(m_q, stepwise);
@@ -1280,14 +1264,14 @@ bool VoronoiRemesh::calcPartition(const bool stepwise, bool &done)
 	std::cerr << "used " << m_seeds.size() << '/' << m_mesh.n_faces();
 	std::cerr << " faces as seeds" << std::endl;
 
-	if (m_useColors) {
+	if (useColors()) {
 		BezierTMesh::Color boundaryColor(0.f, 0.f, 0.f, 1.f);
 		for (EH edge : m_mesh.edges()) {
 			const auto he = m_mesh.halfedge_handle(edge, 0);
 			const auto f1 = m_mesh.face_handle(he);
 			const auto f2 = m_mesh.opposite_face_handle(he);
 			if (id(f1) == id(f2)) {
-				setColor(edge, m_colors[id(f1)]);
+				setColor(edge, getRegionColor(f1));
 			} else {
 				setColor(edge, boundaryColor);
 			}
@@ -1418,7 +1402,7 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 				assert(dist(minPred) < INF);
 #ifdef BEZIER_DEBUG
 			} else {
-				m_mesh.set_color(vh, { 0.f, 0.f, 0.f, 1.f });
+				setColor(vh, { 0.f, 0.f, 0.f, 1.f });
 				debugCancel("had no id, cannot find pred");
 				continue;
 #endif
@@ -1428,8 +1412,8 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 
 #ifdef BEZIER_DEBUG
 		if (pred(vh).is_valid() && !m_mesh.find_halfedge(pred(vh), vh).is_valid()) {
-			m_mesh.set_color(vh, { 1.f, 1.f, 1.f, 1.f });
-			m_mesh.set_color(pred(vh), { 1.f, 1.f, 1.f, 1.f });
+			setColor(vh, { 1.f, 1.f, 1.f, 1.f });
+			setColor(pred(vh), { 1.f, 1.f, 1.f, 1.f });
 			debugCancel("no edge between vertex and pred");
 			return;
 		}
@@ -1443,7 +1427,7 @@ void VoronoiRemesh::vertexDijkstra(const ID id0, const ID id1)
 		assert(dist(vh) < INF || vtt(vh).isBorder());
 
 		if (!vtt(vh).isBorder()) {
-			setColor(vh, m_colors[id(vh)]);
+			setColor(vh, getRegionColor(vh));
 		}
 	}
 	std::cerr << "inner: " << count << ", outer: " << m_mesh.n_vertices() - count << std::endl;
@@ -1499,10 +1483,10 @@ bool VoronoiRemesh::dualize(bool steps)
 			const FH fh = m_ctrl.add_face(points[0], points[1], points[2], true);
 
 			if (!fh.is_valid()) {
-				m_mesh.set_color(m_seedVerts[seedIDs[0]], { 0.5f, 1.f, 0.5f, 0.f });
-				m_mesh.set_color(m_seedVerts[seedIDs[1]], { 0.5f, 1.f, 0.5f, 0.f });
-				m_mesh.set_color(m_seedVerts[seedIDs[2]], { 0.5f, 1.f, 0.5f, 0.f });
-				m_mesh.set_color(v, { 1.f, 1.f, 1.f, 0.f });
+				setColor(m_seedVerts[seedIDs[0]], { 0.5f, 1.f, 0.5f, 0.f });
+				setColor(m_seedVerts[seedIDs[1]], { 0.5f, 1.f, 0.5f, 0.f });
+				setColor(m_seedVerts[seedIDs[2]], { 0.5f, 1.f, 0.5f, 0.f });
+				setColor(v, { 1.f, 1.f, 1.f, 0.f });
 				debugCancel("face not valid");
 				return false;
 			}
@@ -1552,11 +1536,10 @@ bool VoronoiRemesh::dualize(bool steps)
 
 	// if we finished, assign interior vertices
 	if (m_vertexIdx == m_mesh.n_vertices()) {
-		// TODO: make sure this doesnt happen in partition
-		if (m_ctrl.n_faces() < 3) return false;
-
 		// perform assignment
 		assignInnerVertices();
+
+		if (debugCancel()) return false;
 	}
 
 	return true;
@@ -1567,13 +1550,12 @@ bool VoronoiRemesh::dualize(bool steps)
 //////////////////////////////////////////////////////////
 bool VoronoiRemesh::fitting()
 {
-	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
-	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt, fittingSamples());
-	fit.solver(fittingSolver());
-
 	size_t degree = m_mesh.degree();
 	size_t cpNums = pointsFromDegree(degree);
 
+	VoronoiParametrization param(m_mesh, m_ctrl, m_paramWeights, m_vtt, m_ttv, m_pred);
+	VoronoiFitting fit(m_mesh, m_ctrl, m_ttv, m_vtt, fittingSamples());
+	fit.solver(fittingSolver());
 	fit.degree(degree);
 
 	for (FH face : m_ctrl.faces()) {
@@ -1581,6 +1563,7 @@ bool VoronoiRemesh::fitting()
 	}
 
 	for (FH face : m_ctrl.faces()) {
+
 		if (!param.solveLocal(face)) {
 			std::cerr << "parametrization for face " << face << " failed\n";
 			debugCancel("parametrization failed");
@@ -1904,58 +1887,10 @@ void VoronoiRemesh::reduceAdjRegions(FaceDijkstra & q)
 			}
 
 			if (!target.is_valid()) {
-				m_mesh.set_color(v, { 1.f, 0.5f, 0.5f, 1.f });
+				setColor(v, { 1.f, 0.5f, 0.5f, 1.f });
 				std::cerr << " - already added " << count << " seeds -" << std::endl;
 				debugCancel("too many seeds around vertex");
 				return;
-
-			//	ID chosen = id(*m_mesh.vf_begin(v));
-
-			//	for (auto f = m_mesh.vf_begin(v); f != m_mesh.vf_end(v); ++f) {
-
-			//		ID which = id(*f);
-			//		if (which < 0) continue;
-
-			//		VH middle = m_mesh.splitFaceBarycentric(*f, true);
-			//		resetRegion(which);
-
-			//		//Color col = m_mesh.color(*f);
-			//		//bool assigned = false;
-
-			//		//for (auto ff = m_mesh.cvf_begin(middle); ff != m_mesh.cvf_end(middle); ++ff) {
-
-			//		//	if (assigned || m_mesh.adjToVertex(*ff, v)) {
-			//		//		id(*ff) = -1;
-			//		//		dist(*ff) = INF;
-			//		//		pred(*ff) = FH();
-			//		//	} else {
-			//		//		// make face that is not next to vertex the seed
-			//		//		id(*ff) = which;
-			//		//		dist(*ff) = 0.0;
-			//		//		pred(*ff) = FH();
-			//		//		setColor(*ff, col);
-			//		//		q.insert({ 0.0, *ff });
-			//		//		assigned = true;
-			//		//	}
-			//		//}
-
-
-			//		//Point p = m_mesh.calc_face_centroid(seed);
-			//		//for (auto h_it = m_mesh.cfh_begin(seed); h_it != m_mesh.cfh_end(seed); ++h_it) {
-
-			//		//	FH ff = m_mesh.face_handle(*h_it);
-
-			//		//	if (id(ff) == -1) {
-			//		//		Point mid = m_mesh.calc_edge_midpoint(*h_it);
-			//		//		dist(ff) = (mid-p).norm() + (mid-m_mesh.calc_face_centroid(ff)).norm();
-			//		//		id(ff) = id(seed);
-			//		//		pred(ff) = seed;
-			//		//	}
-			//		//}
-			//	}
-
-			//	return; // TODO: remove?
-
 			} else {
 				addSeed(q, target);
 				count++;
@@ -1971,10 +1906,25 @@ void VoronoiRemesh::copyMesh(BezierTMesh & src, BezierTMesh & dest)
 	dest.clean_keep_reservation();
 
 	auto vs = OpenMesh::makeTemporaryProperty<VH, VH>(dest);
+
+	bool hasVColors = src.has_vertex_colors();
+	if (hasVColors && !dest.has_vertex_colors()) {
+		dest.request_vertex_colors();
+	}
+	bool hasFColors = src.has_face_colors();
+	if (hasFColors && !dest.has_face_colors()) {
+		dest.request_face_colors();
+	}
+
 	// works but seems really stupid
 	for (const VH v : src.vertices()) {
 		vs[v] = dest.add_vertex_dirty(src.point(v));
+		// set color
+		if (hasVColors) {
+			dest.set_color(vs[v], src.color(v));
+		}
 	}
+
 	for (const FH f : src.faces()) {
 		std::vector<VH> verts;
 		for (auto fv = src.cfv_begin(f); fv != src.cfv_end(f); ++fv) {
@@ -1982,7 +1932,10 @@ void VoronoiRemesh::copyMesh(BezierTMesh & src, BezierTMesh & dest)
 		}
 		const FaceHandle fh = dest.add_face(verts);
 		dest.data(fh).points(src.data(f).points());
-		dest.set_color(fh, src.color(f));
+		// set color
+		if (hasVColors) {
+			dest.set_color(fh, src.color(f));
+		}
 	}
 }
 

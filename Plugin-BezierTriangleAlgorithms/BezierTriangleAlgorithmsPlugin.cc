@@ -2,7 +2,7 @@
 
 #include <qpushbutton.h>
 #include <qgridlayout.h>
-// TODO new
+
 #include <qgroupbox.h>
 #include <qlabel.h>
 #include <qinputdialog.h>
@@ -85,6 +85,7 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	QLabel *sampleLabelV = new QLabel(tr("Max. Fitting Samples"));
 	m_numSamples[0] = new QSpinBox;
 	m_numSamples[0]->setMinimum(0);
+	m_numSamples[0]->setMaximum(std::numeric_limits<int>::max()/2);
 	m_numSamples[0]->setValue(0);
 
 	// set layout
@@ -133,6 +134,7 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	m_numSamples[1] = new QSpinBox;
 	m_numSamples[1]->setValue(40);
 	m_numSamples[1]->setMinimum(betri::pointsFromDegree(betri::globalDegree()));
+	m_numSamples[1]->setMaximum(std::numeric_limits<int>::max()/2);
 
 	QGridLayout *deciLayout = new QGridLayout;
 	deciLayout->addWidget(deciInitButton, 0, 0, 1, 2);
@@ -145,12 +147,6 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	deciLayout->addWidget(sampleLabelD, 5, 0, 1, 1);
 	deciLayout->addWidget(m_numSamples[1], 5, 1, 1, 1);
 	deciGroup->setLayout(deciLayout);
-
-	///////////////////////////////////////////////////////////////////////////
-	// Tests
-	///////////////////////////////////////////////////////////////////////////
-	QPushButton *testButton = new QPushButton(tr("Start Test"));
-	connect(testButton, SIGNAL(clicked()), this, SLOT(testAlgorithm()));
 
 	///////////////////////////////////////////////////////////////////////////
 	// Timer
@@ -170,7 +166,6 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 	grid->addWidget(useTimer, 1, 0);
 	grid->addWidget(voronoiGroup, 2, 0, 1, 2);
 	grid->addWidget(deciGroup, 3, 0, 1, 2);
-	grid->addWidget(testButton, 4, 0, 1, 2);
 	m_tool->setLayout(grid);
 
     emit addToolbox(tr("Bezier Triangle Algorithms"), m_tool, toolIcon);
@@ -179,6 +174,9 @@ void BezierTriangleAlgorithmsPlugin::initializePlugin()
 void BezierTriangleAlgorithmsPlugin::setTargetDegree(int degree)
 {
 	betri::globalDegree(degree);
+
+	// make sure no less than the required number of control
+	// points can be set as fitting samples
 	m_numSamples[1]->setMinimum((int)betri::pointsFromDegree(degree));
 }
 
@@ -249,8 +247,8 @@ void BezierTriangleAlgorithmsPlugin::callVoronoi()
 				m_vFlags[2]->isChecked(),
 				m_vFlags[3]->isChecked(),
 				m_vparam->currentIndex(),
-				m_vfit->currentIndex(),
-				m_numSamples[0]->value()
+				m_numSamples[0]->value(),
+				m_vfit->currentIndex()
 			);
 
 			if (m_useTimer) {
@@ -366,8 +364,8 @@ void BezierTriangleAlgorithmsPlugin::callPartitionStep()
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex(),
-					m_vfit->currentIndex(),
-					m_numSamples[0]->value()
+					m_numSamples[0]->value(),
+					m_vfit->currentIndex()
 				);
 
 				m_vinit.insert(meshObj->id());
@@ -660,8 +658,8 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 					m_vFlags[2]->isChecked(),
 					m_vFlags[3]->isChecked(),
 					m_vparam->currentIndex(),
-					m_vfit->currentIndex(),
-					m_numSamples[0]->value()
+					m_numSamples[0]->value(),
+					m_vfit->currentIndex()
 				);
 
 				m_vinit.insert(meshObj->id());
@@ -707,51 +705,6 @@ void BezierTriangleAlgorithmsPlugin::callPartition()
 				error.exec();
 			}
 		}
-	}
-}
-
-void BezierTriangleAlgorithmsPlugin::testAlgorithm()
-{
-	QStringList items;
-	items << tr("Voronoi Parametrization");
-	items << tr("Voronoi Fitting");
-	items << tr("Decimation Parametrization");
-	items << tr("Decimation Fitting");
-
-	bool okay;
-	QString option = QInputDialog::getItem(
-		m_tool,
-		"Test Algorithm",
-		"Please choose an algorithm to test: ",
-		items,
-		// current selection, editable
-		0, false, &okay
-	);
-
-	if (okay && !option.isEmpty()) {
-		int ctrl_id;
-
-		emit addEmptyObject(DATA_BEZIER_TRIANGLE_MESH, ctrl_id);
-		PluginFunctions::getObject(ctrl_id, ctrl_obj);
-		BTMeshObject *ctrlMeshObj = PluginFunctions::btMeshObject(ctrl_obj);
-		ctrlMeshObj->target(true);
-		ctrlMeshObj->setName("test-mesh");
-
-		std::string item = option.toStdString();
-		if (item.compare("Voronoi Parametrization") == 0) {
-			betri::test(betri::TestOptions::voronoi_param, ctrlMeshObj->mesh());
-		} else if (item.compare("Voronoi Fitting") == 0) {
-			betri::test(betri::TestOptions::voronoi_fit, ctrlMeshObj->mesh());
-		} else if (item.compare("Decimation Parametrization") == 0) {
-			betri::test(betri::TestOptions::decimation_param, ctrlMeshObj->mesh());
-		} else if (item.compare("Decimation Fitting") == 0) {
-			betri::test(betri::TestOptions::decimation_fit, ctrlMeshObj->mesh());
-		}
-
-		emit updatedObject(ctrlMeshObj->id(), UPDATE_ALL);
-
-		ctrlMeshObj->mesh()->setRenderable();
-		ctrlMeshObj->show();
 	}
 }
 

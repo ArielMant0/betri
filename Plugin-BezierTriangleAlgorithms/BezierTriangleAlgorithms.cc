@@ -116,9 +116,6 @@ bool voronoiFitting(BaseObjectData *object, BaseObjectData *ctrl)
 
 	bool success = remesher->fitting();
 
-	BezierTMesh *mesh = PluginFunctions::btMeshObject(object)->mesh();
-	mesh->garbage_collection();
-
 	object->setObjectDrawMode(
 		ACG::SceneGraph::DrawModes::SOLID_PHONG_SHADED
 	);
@@ -213,17 +210,6 @@ DecimationInfo decimationInfo(BaseObjectData * object)
 	info.target = std::to_string(decimator->complexity());
 
 	return info;
-}
-
-bool test(TestOptions which, BezierTMesh *mesh)
-{
-	switch (which) {
-		case TestOptions::voronoi_fit: return VoronoiFitting::test(mesh);
-		case TestOptions::voronoi_param: return VoronoiParametrization::test(mesh);
-		case TestOptions::decimation_param: return DecimationParametrization::test(mesh);
-		case TestOptions::decimation_fit: return DecimationFitting::test(mesh);
-		default: return true;
-	}
 }
 
 }

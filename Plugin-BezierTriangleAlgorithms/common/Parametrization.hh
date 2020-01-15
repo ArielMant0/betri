@@ -13,7 +13,7 @@ using EigenTripletT = Eigen::Triplet<Scalar>;
 using EigenVectorT = Eigen::VectorXd;
 
 /**
- * @brief Computes a Laplace-based iterative parametrization of a surface
+ * @brief Computes a Laplace-based iterative parametrization of a given surface
  *
  */
 class Parametrization

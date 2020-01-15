@@ -253,10 +253,8 @@ bool Decimation::decimate(bool stepwise)
 		if (stepwise) break;
 	}
 
-#ifdef BEZIER_DEBUG
 	std::cerr << "\treached complexity: " << m_nverts;
 	std::cerr << "\n\tqueue size: " << m_q->size();
-#endif
 
 	done = m_nverts <= m_complexity || m_q->empty();
 
@@ -277,7 +275,7 @@ bool Decimation::decimate(bool stepwise)
 	// update error statistics
 	calcErrorStatistics();
 
-	if (m_useColors) {
+	if (useColors()) {
 		setColorsFromError();
 	}
 

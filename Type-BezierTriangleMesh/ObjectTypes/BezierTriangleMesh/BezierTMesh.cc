@@ -436,13 +436,6 @@ void BezierTMesh::splitFaceDyadical(
 	for (auto f : neighbors) {
 		if (mark(f)) {
 			status(f).set_tagged(true);
-			// DEBUG: count number of total and tagged vertices of the face
-			//int count = 0, total = 0;
-			//for (auto vh = cfv_begin(f); vh != cfv_end(f); ++vh) {
-			//	if (status(*vh).tagged()) count++;
-			//	total++;
-			//}
-			//assert((count == 1 && total == 4) || (count == 2 && total == 5));
 		}
 	}
 }
@@ -484,7 +477,9 @@ BezierTMesh::VertexHandle BezierTMesh::splitFaceBarycentric(FaceHandle fh, bool 
 
 		if (copy) {
 			copy_all_properties(fh, f, false);
-			set_color(f, color(fh));
+			if (has_face_colors()) {
+				set_color(f, color(fh));
+			}
 		}
 	}
 	set_halfedge_handle(v, opposite_halfedge_handle(hes[3]));
@@ -532,7 +527,9 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHand
 		FaceHandle f1 = new_face();
 		if (copy) {
 			copy_all_properties(f0, f1, false);
-			set_color(f1, color(f0));
+			if (has_face_colors()) {
+				set_color(f1, color(f0));
+			}
 		}
 		set_halfedge_handle(f0, h0);
 		set_halfedge_handle(f1, h2);
@@ -571,7 +568,9 @@ BezierTMesh::VertexHandle BezierTMesh::splitFacesRivara(FaceHandle of1, FaceHand
 		FaceHandle f2 = new_face();
 		if (copy) {
 			copy_all_properties(f3, f2, false);
-			set_color(f2, color(f3));
+			if (has_face_colors()) {
+				set_color(f2, color(f3));
+			}
 		}
 		set_halfedge_handle(f2, o1);
 		set_halfedge_handle(f3, o0);
@@ -674,6 +673,8 @@ void BezierTMesh::splitRivara(const HalfedgeHandle he, const VertexHandle vh, bo
 
 	if (copy) {
 		copy_all_properties(fh, face, false);
-		set_color(face, color(fh));
+		if (has_face_colors()) {
+			set_color(face, color(fh));
+		}
 	}
 }

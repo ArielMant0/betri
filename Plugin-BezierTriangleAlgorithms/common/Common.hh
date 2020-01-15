@@ -5,7 +5,7 @@
 namespace betri
 {
 
-// Useful typedefs
+// Useful typedefs for all algorithms
 using VertexHandle = BezierTMesh::VertexHandle;
 using EdgeHandle = BezierTMesh::EdgeHandle;
 using FaceHandle = BezierTMesh::FaceHandle;
@@ -22,9 +22,8 @@ using EdgeIter = BezierTMesh::EdgeIter;
 using Vec2 = ACG::VectorT<Scalar, 2>;
 using Vec3 = ACG::VectorT<Scalar, 3>;
 
+// for voronoi meshing
 using ID = int;
-
-
 
 struct TriToVertex
 {
@@ -124,8 +123,6 @@ struct VertexToTri
 
 struct FitCollection
 {
-	//using FitPair = std::pair<Vec2, Point>;
-
 	std::vector<Point> points;
 	FaceHandle face;
 

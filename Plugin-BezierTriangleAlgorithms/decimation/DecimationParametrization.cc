@@ -5,11 +5,8 @@
 namespace betri
 {
 
-constexpr std::array<Vec2, 3> CORNER_UV = { { Vec2(0., 0.), Vec2(1., 0.), Vec2(0., 1.) } };
-
 void DecimationParametrization::prepare()
 {
-	// note: we take the degree+1 so we always sample inside the triangle
 	m_sampleUVs = getRandomUVs(m_samples, true);
 
 #ifdef BEZIER_DEBUG
@@ -20,8 +17,7 @@ void DecimationParametrization::prepare()
 #endif
 }
 
-void DecimationParametrization::cleanup()
-{}
+void DecimationParametrization::cleanup() {}
 
 bool DecimationParametrization::solve()
 {
@@ -49,7 +45,6 @@ bool DecimationParametrization::solveLocal(
 	////////////////////////////////////////////////
 	// Calculate (u,v) coordinates
 	////////////////////////////////////////////////
-
 	{
 		Scalar length(0.);
 
@@ -63,11 +58,8 @@ bool DecimationParametrization::solveLocal(
 		}
 		length += (prev - m_mesh.point(*m_mesh.cvv_ccwbegin(from))).norm();
 
-		Scalar conv = M_PI * 2.0;
-		Scalar norm = 1.0 / length;
 		Scalar lens(0.);
 
-		Scalar midNorm(0.);
 		Point midPoint = m_mesh.point(from);
 
 		Scalar acc(0.);
@@ -81,8 +73,6 @@ bool DecimationParametrization::solveLocal(
 			Point tmp = m_mesh.point(*v_it);
 			lens += (prev - tmp).norm();
 			prev = tmp;
-
-			midNorm += (midPoint - tmp).norm();
 
 			{
 				Scalar cotanWeight = 0.0;
@@ -112,20 +102,16 @@ bool DecimationParametrization::solveLocal(
 				cotans.insert({ m_mesh.edge_handle(h0), cotanWeight });
 			}
 
-			Scalar angle = lens * norm * conv;
+			// get angle for this vertex (normalized contangent weight
+			Scalar angle = lens * (1.0 / length) * (M_PI * 2.0);
 
 			vToUV.insert({ *v_it, NGonMapper<Vec2>::cornerFromAngle(angle) });
 		}
-		midNorm = 1.0 / midNorm;
 
 		Vec2 average(0.);
 
 		// set weighted position for interior vertex
 		for (auto hh_it = m_mesh.cvoh_begin(from); hh_it != m_mesh.cvoh_end(from); ++hh_it) {
-
-			// percentage edge length
-			// average += vToUV[*v_it] * (midPoint - m_mesh.point(*v_it)).norm() * midNorm;
-
 			// cotan weights
 			average += vToUV[m_mesh.to_vertex_handle(*hh_it)] * cotans[m_mesh.edge_handle(*hh_it)];
 		}
@@ -191,9 +177,11 @@ bool DecimationParametrization::solveLocal(
 
 		facesOrig.insert({ f, { vToUV[v00], vToUV[v01], vToUV[v02] } });
 
+		// if degenerate triangle -> abort
 		if (!std::isgreater(area(facesOrig[f]), 0.)) return false;
 	}
 
+	// if somehow a face was lost -> abort
 	if (faces.size() != n - 2) return false;
 
 	Vec2 checkTo0 = vToUV[to];
@@ -215,101 +203,13 @@ bool DecimationParametrization::solveLocal(
 			Vec2 facePos = trianglePoint(uv, pair.second);
 			// find the non-collapsed face in which this uv point lies
 			FaceHandle target = findTargetFace(facePos, faceBary, facesOrig);
+			// if no target could be found -> abort
 			if (!target.is_valid()) return false;
 			// sample the target face at its uv position
 			fit.add(evalSurface(m_mesh.data(target).points(), faceBary, degree));
 		}
 
 		fitColl.push_back(fit);
-	}
-
-	return true;
-}
-
-bool DecimationParametrization::test(BezierTMesh *mesh)
-{
-	std::unordered_map<FaceHandle, NGonFace> faces, facesOrig;
-
-	assert(mesh != nullptr);
-
-	VertexHandle a = mesh->add_vertex(Point(1., 0.5, 0.)); // A
-	VertexHandle b = mesh->add_vertex(Point(0.654508, 0.975528, 0.)); // B - to collapse into
-	VertexHandle c = mesh->add_vertex(Point(0.0954915, 0.792893, 0.)); // C
-	VertexHandle d = mesh->add_vertex(Point(0.0954915, 0.206107, 0.)); // D
-	VertexHandle e = mesh->add_vertex(Point(0.654508, 0.0244717, 0.)); // E
-	VertexHandle f = mesh->add_vertex(Point(0.5, 0.5, 0.)); // F - middle
-
-	FaceHandle abf = mesh->add_face(a, b, f, true);
-	FaceHandle bcf = mesh->add_face(b, c, f, true);
-	FaceHandle cdf = mesh->add_face(c, d, f, true);
-	FaceHandle def = mesh->add_face(d, e, f, true);
-	FaceHandle eaf = mesh->add_face(e, a, f, true);
-
-	Point add(0., 0., 0.5);
-
-	size_t degree = mesh->degree();
-
-	for (FaceHandle face : mesh->faces()) {
-		auto it = mesh->cfv_begin(face);
-		Point p0 = mesh->point(*it++);
-		Point p1 = mesh->point(*it++);
-		Point p2 = mesh->point(*it++);
-		facesOrig.insert({ face, { Vec2(p0[0], p0[1]), Vec2(p1[0], p1[1]), Vec2(p2[0], p2[1]) } });
-
-		auto &cp = mesh->data(face);
-		cp.controlPoint(1, cp.controlPoint(1) + add);
-		cp.controlPoint(3, cp.controlPoint(3) + add);
-		cp.controlPoint(4, cp.controlPoint(4) + add);
-	}
-
-	faces.insert({ cdf, {
-		Vec2(0.0954915, 0.792893),
-		Vec2(0.0954915, 0.206107),
-		Vec2(0.654508, 0.975528)
-	} });
-	faces.insert({ def, {
-		Vec2(0.0954915, 0.206107),
-		Vec2(0.654508, 0.0244717),
-		Vec2(0.654508, 0.975528)
-	} });
-	faces.insert({ eaf, {
-		Vec2(0.654508, 0.0244717),
-		Vec2(1., 0.5),
-		Vec2(0.654508, 0.975528)
-	} });
-
-	auto sampleUVs = getSampleUVs(degree);
-
-	for (auto &pair : faces) {
-
-		// only calculate for remaining faces
-
-		Point faceBary;
-
-		for (Vec2 &uv : sampleUVs) {
-			std::cerr << "green face " << pair.first << '\n';
-
-			Vec2 facePos = trianglePoint(uv, pair.second);
-			// find the non-collapsed face in which this uv point lies
-			FaceHandle target = findTargetFace(facePos, faceBary, facesOrig);
-			assert(target.is_valid());
-
-			std::cerr << "blue face " << target << '\n';
-			// sample the target face at its uv position
-			Point surface = evalSurface(mesh->data(target).points(), faceBary, degree);
-
-			std::cerr << "\tgreen uv " << uv << '\n';
-			std::cerr << "\tblue uv " << faceBary << '\n';
-			std::cerr << "\ttriangle point " << facePos << '\n';
-			std::cerr << "\tsurface point " << surface << '\n';
-
-			auto ps = facesOrig[target];
-			auto testPoint = trianglePoint(Vec2(faceBary[0], faceBary[1]), ps);
-			std::cerr << "\ttest point " << testPoint << '\n';
-
-			assert((facePos - testPoint).norm() <= 0.00001);
-		}
-		std::cerr << std::endl << std::endl;
 	}
 
 	return true;
@@ -365,7 +265,14 @@ std::vector<Vec2> DecimationParametrization::getRandomUVs(const size_t n, bool s
 			// see if shifting the coordinate a little is already enough
 			tmp[0] = dis(gen);
 			tmp[1] = dis(gen);
-			bary += Vec2(1.0 - tmp[1], tmp[1] - tmp[0]);
+			// "sort"
+			if (tmp[0] < tmp[1]) {
+				auto swap = tmp[0];
+				tmp[0] = tmp[1];
+				tmp[1] = swap;
+			}
+
+			bary += Vec2(1.0 - tmp[1], tmp[1] - tmp[0]) * 0.01;
 
 			if (!std::any_of(uvs.begin(), uvs.end(), [&](const Vec2 &vec) {
 				return (vec - bary).norm() < 0.0001;
@@ -390,21 +297,20 @@ FaceHandle DecimationParametrization::findTargetFace(
 	const Vec2 &point, Point &faceBary,
 	const std::unordered_map<FaceHandle, NGonFace> &faces
 ) {
-	//std::cerr << __FUNCTION__ << " with point " << point << '\n';
-
 	Point bary;
 
-	Scalar positive = -0.001; //std::nextafter(std::nextafter(0., -1.), -1.);
+	Scalar positive = -0.00001;
 
 	for (auto &pair : faces) {
 		bary = bary2D(point, pair.second);
-		//std::cerr << "\tcalculated bary coords " << bary << '\n';
+
+		// if barycentric coords are all positive, we found the right triangle
 		if (std::isgreater(bary[0], positive) &&
 			std::isgreater(bary[1], positive) &&
 			std::isgreater(bary[2], positive)
 		) {
-			//std::cerr << "\tfound face " << pair.first << '\n';
-			faceBary[0] = std::min(1., std::max(0., bary[0]));
+			// make sure we not just close to 0 or 1
+			faceBary[0] =  std::min(1., std::max(0., bary[0]));
 			faceBary[1] = std::min(1., std::max(0., bary[1]));
 			faceBary[2] = std::min(1., std::max(0., bary[2]));
 			return pair.first;

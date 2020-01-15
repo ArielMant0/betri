@@ -36,12 +36,7 @@ public:
 
 	BezierTriangleAlgorithmsPlugin() : m_tool(0), m_useTimer(false) {}
 
-	~BezierTriangleAlgorithmsPlugin()
-	{
-		if (m_tool != nullptr) {
-			delete m_tool;
-		}
-	};
+	~BezierTriangleAlgorithmsPlugin() {};
 
 	QString name() { return QString("BezierTriangleAlgorithmsPlugin"); };
 
@@ -115,8 +110,6 @@ private slots:
 	void callDualStep();
 	void callDual();
 	void callFitting();
-
-	void testAlgorithm();
 
 	// decimation meshing functions
 	void callDecimationInit();

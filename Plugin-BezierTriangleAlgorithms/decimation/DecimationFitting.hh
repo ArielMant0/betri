@@ -29,8 +29,6 @@ public:
 		const bool interpolate
 	);
 
-	static bool test(BezierTMesh *mesh);
-
 private:
 
 	std::vector<Vec2> m_samples;
