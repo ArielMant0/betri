@@ -58,37 +58,115 @@ public:
 		GENUS = 3
 	};
 
+	/**
+	 * Get a benchmarker
+	 */
 	static Benchmarker* instance();
 
+	/**
+	 * Start measuring. This is using GL queries, possible options
+	 * are time and samples.
+	 * https://www.khronos.org/opengl/wiki/Query_Object
+	 */
 	void startFrame();
+
+	/**
+	 * Should be called, to collect the querie data given by the GPU
+	 * calls glEndQuery and saves the data in an array
+	 */
 	void endFrame();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Mode getter/setter
 ///////////////////////////////////////////////////////////////////////////////
+	/**
+	 * Activate the benchmarker
+	 * @param activate
+	 */
 	void active(bool activate);
+	/**
+	 * Return true if the benchmarker is active.
+	 * Can be used to suspend other rendering, to not interfere with the results.
+	 * @returns active
+	 */
 	bool active() const;
+	/**
+	 * Return if one rendermode finished and if the buffer should be updated.
+	 * @return update
+	 */
 	bool update();
 
+	/**
+	 * Set the type to test
+	 * @param testType
+	 */
 	void testType(TEST_TYPE testType);
+	/**
+	 * Set the type to test against
+	 * @param againstType
+	 */
 	void againstType(AGAINST_TYPE againstType);
+	/**
+	 * Shall the results be averaged?
+	 * @param state
+	 */
 	void average(bool state);
+	/**
+	 * Shall the results be appended to the given file path?
+	 * @param state
+	 */
 	void append(bool state);
 
+	/**
+	 * Defines which rendermodes are iteratied, an int should be given where each bit
+	 * defines whether a rendermode is run
+	 * @param rmode
+	 */
 	void renderMode(int rmode);
+	/**
+	 * Return which rendermode is at the moment active.
+	 * @return rendermode
+	 */
 	int renderMode() const;
+	/**
+	 * Return which boundingvolume is at the moment active if any.
+	 * @return bvolume
+	 */
 	int bVolume() const;
 
+	/**
+	 * Set the attributes of the mesh, such that it can be saved in the filename
+	 * @param name
+	 * @param triangleCount
+	 * @param degree
+	 */
 	void meshInfo(std::string name, int triangleCount, int degree);
 
 ///////////////////////////////////////////////////////////////////////////////
 // File string setter
 ///////////////////////////////////////////////////////////////////////////////
+	/**
+	 * Set the file path
+	 * @param path
+	 */
 	void filePath(std::string path);
+	/**
+	 * Set the file name
+	 * @param name
+	 */
 	void fileName(std::string name);
+	/**
+	 * Set the file type
+	 * @param type
+	 */
 	void fileType(std::string type);
 
 private:
+	/**
+	 * Constuctor
+	 * Creates the initial Benchmarker object and sets up all variables.
+	 * Also prepares the query array
+	 */
 	Benchmarker() :
 		active_(false), current_query_(0), updateBuffers_(false),
 		renderModes_(0), renderModesDump_(0),
@@ -100,11 +178,32 @@ private:
 			glGenQueries(QUERY_COUNT, queries_[i].data());
 	}
 
+	/**
+	 * Advances render mode. Can be done when other one finished.
+	 */
 	void advanceRenderMode();
 
+	/**
+	 * Use functions to get the cpu name
+	 * @return cpuname
+	 */
 	std::string getCPUName();
+	/**
+	 * Construct filename from cpu and gpu, this is done by determine which system has
+	 * these components
+	 * @return filename addition
+	 */
 	std::string generateFileName(std::string cpuName, std::string gpuName);
+	/**
+	 * Returns a string for the type of the first column. Corresponds directly to the
+	 * againsttypes
+	 * @param which one to use
+	 * @returns the against type
+	 */
 	std::string columnOne(int i);
+	/**
+	 * Print all information and data into the specified file
+	 */
 	void dumpToFile();
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,17 +214,25 @@ private:
 	std::array<std::array<GLuint, QUERY_COUNT>, RENDERMODE_NUM> queries_;
 	int current_query_;
 
-
+	//! Is the benchmarkes acitve
 	bool active_;
+	//! Should the buffer be updated
 	bool updateBuffers_;
+	//! Should the result be averages
 	bool average_;
+	//! Should the resuls be appended
 	bool append_;
 
+	//! For what should be tested
 	TEST_TYPE testType_;
+	//! Against what should be tested
 	int againstType_;
 
+	//! Which rendermodes to run (is modified)
 	int renderModes_;
+	//! Not modified rendermodes version
 	int renderModesDump_;
+	//! Activated render mode
 	int activeRMode_;
 	int activeBVol_;
 	int shifted_;

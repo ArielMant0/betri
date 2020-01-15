@@ -1,9 +1,22 @@
 ///////////////////////////////////////////////////////////////////////////////
+// Defines
+///////////////////////////////////////////////////////////////////////////////
+#if defined(_WIN32)
+#define PLATFORM_NAME windows
+#elif defined(_WIN64)
+#define PLATFORM_NAME windows
+#elif defined(__CYGWIN__) && !defined(_WIN32)
+#define PLATFORM_NAME windows
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
 // Includes
 ///////////////////////////////////////////////////////////////////////////////
 #include "Benchmarker.hh"
 #include <cctype>
+#if PLATFORM_NAME == windows
 #include <intrin.h>
+#endif
 #include <experimental/filesystem>
 
 static ACG::Benchmarker *bench = nullptr;
@@ -24,7 +37,6 @@ Benchmarker* Benchmarker::instance()
 	return bench;
 }
 
-// https://www.khronos.org/opengl/wiki/Query_Object
 void Benchmarker::startFrame()
 {
 	if (active()) {
@@ -45,11 +57,10 @@ void Benchmarker::startFrame()
 void Benchmarker::endFrame()
 {
 	if (active()) {
-		// end query
 		switch (testType_) {
 			case TEST_TYPE::FTIME: glEndQuery(GL_TIME_ELAPSED); break;
 			case TEST_TYPE::OCCL: glEndQuery(GL_SAMPLES_PASSED); break;
-			default: // TODO
+			default:
 				std::cerr << __FUNCTION__ << " nothing done" << std::endl; 
 		}
 
@@ -189,6 +200,7 @@ void Benchmarker::advanceRenderMode()
 // https://weseetips.wordpress.com/tag/c-get-cpu-name/
 std::string Benchmarker::getCPUName()
 {
+#if PLATFORM_NAME == windows
 	// Get extended ids.
 	int CPUInfo[4] = { -1 };
 	__cpuid(CPUInfo, 0x80000000);
@@ -210,6 +222,9 @@ std::string Benchmarker::getCPUName()
 	}
 
 	return std::string(CPUBrandString);
+#elif
+	return std::string("");
+#endif
 }
 
 std::string Benchmarker::generateFileName(
