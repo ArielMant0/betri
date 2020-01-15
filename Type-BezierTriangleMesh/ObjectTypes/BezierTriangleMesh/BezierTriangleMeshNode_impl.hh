@@ -23,7 +23,6 @@
 // Defines
 ///////////////////////////////////////////////////////////////////////////////
 #define ITERATIONS betri::option(betri::BezierOption::TESSELLATION_AMOUNT)
-//#define RENDER_DEBUG
 
 ///////////////////////////////////////////////////////////////////////////////
 // Namespaces
@@ -35,10 +34,10 @@ namespace SceneGraph {
 // Setup
 ///////////////////////////////////////////////////////////////////////////////
 
-// TODO look if the order should be changed - see MeshNode2T_impl.hh for that
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 {
+	// TODO
 	if (!bezierTriangleMesh_.isRenderable()) return;
 
 	const int controlPointsPerFace = cpSum();
@@ -66,7 +65,6 @@ DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 	drawModes |= DrawModes::WIREFRAME;
 	drawModes |= DrawModes::HALFEDGES;
 
-	// TODO was das?
 	drawModes |= DrawModes::SOLID_SHADER;
 
 	if (bezierTriangleMesh_.has_vertex_normals()) {
@@ -98,9 +96,6 @@ DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 	if (bezierTriangleMesh_.has_halfedge_colors()) {
 		drawModes |= DrawModes::HALFEDGES_COLORED;
 	}
-
-	// TODO
-	//bool enableTexturedFaces = drawMesh_->perFaceTextureCoordinateAvailable() != 0;
 
 	if (bezierTriangleMesh_.has_face_colors()) {
 		drawModes |= DrawModes::SOLID_FACES_COLORED;
@@ -138,42 +133,34 @@ DrawModes::DrawMode BezierTriangleMeshNode<MeshT>::availableDrawModes() const
 ///////////////////////////////////////////////////////////////////////////////
 // Draw Deferred Functions
 ///////////////////////////////////////////////////////////////////////////////
-
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	IRenderer* _renderer, GLState& _state,
 	const DrawModes::DrawMode& _drawMode, const Material* _mat
 )
 {
-	// https://github.com/progschj/OpenGL-Examples/blob/master/10queries_conditional_render.cpp
-	// https://community.khronos.org/t/how-to-measure-timing-in-opengl/61544/22
-	// https://stackoverflow.com/questions/28530798/how-to-make-a-basic-fps-counter
-	std::clock_t start = std::clock();
-
-	// TODO this should propably be done differently
 	state_ = &_state;
 
 	// only render mesh if that is possible (e.g. has control points)
 	if (!bezierTriangleMesh_.isRenderable())
 		return;
 
-
 	// check if textures are still valid
 	if (bspline_selection_draw_mode_ == CONTROLPOINT
 		&& controlPointSelectionTexture_valid_ == false)
 		updateControlPointSelectionTexture(_state);
-	if (bspline_selection_draw_mode_ == KNOTVECTOR
-		&& knotVectorSelectionTexture_valid_ == false)
-		updateKnotVectorSelectionTexture(_state);
 
+	// Save render settings
 	int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
 	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
 
+	// Ask the benchmarker if it is working, since its settings have priority
 	if (Benchmarker::instance()->active()) {
 		renderOption = Benchmarker::instance()->renderMode();
 		bVolume = Benchmarker::instance()->bVolume();
 	}
 
+	// Does the mesh need an update?
 	if (Benchmarker::instance()->update() || (
 			bVolume == betri::boundingVolumeType::BoundingBillboard && 
 			renderOption == betri::TESSELLATION_TYPE::RAYTRACING
@@ -186,7 +173,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		if (_drawMode.getLayer(i)->primitive() == DrawModes::PRIMITIVE_POLYGON)
 			layer = i;
 	}
-	// TODO is this a good way to do it?
 	if (drawModeProps_ != *(_drawMode.getLayer(layer))) {
 		// TODO dont update always
 		invalidateSurfaceMesh_ = true;
@@ -203,22 +189,18 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 	updateSurfaceMesh(renderOption);
 
 	RenderObject ro;
-	ro.debugName = "BTMeshNode"; // TODO geht das so?
+	ro.debugName = "BTMeshNode";
 
 	for (size_t i = 0; i < _drawMode.getNumLayers(); ++i) {
 		const DrawModes::DrawModeProperties* props = _drawMode.getLayer(i);
 
-		// TODO this can propably be done differently
-		//ACG::GLState::enable(GL_CULL_FACE);
-		//ACG::GLState::cullFace(GL_BACK);
-		//std::cerr << bool(glIsEnabled(GL_CULL_FACE)) << " " << _state.isStateEnabled(GL_CULL_FACE) << std::endl;
+		// TODO improve culling option selection
 		if (betri::option(betri::BezierOption::CULL_FACES) > 0 &&
 			(
 				renderOption != betri::TESSELLATION_TYPE::RAYTRACING ||
 				bVolume != betri::boundingVolumeType::BoundingBillboard
 			)
 		) {
-			//glFrontFace(GL_CW); // TODO
 			_state.enable(GL_CULL_FACE);
 			if (renderOption == betri::TESSELLATION_TYPE::CPU)
 				_state.cullFace(GL_FRONT);
@@ -231,17 +213,15 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		ro.setupShaderGenFromDrawmode(props);
 		ro.depthTest = true;
 
-		///////////////////////////////////////////////////////////////////////
-		//
-		///////////////////////////////////////////////////////////////////////
-		// generated texcoords for environment mapping should be computed in fragment shader,
-		// because normals aren't available in the vertex shader
+		// Texturing
 		ro.shaderDesc.texGenPerFragment = true;
 
-		//	ro.addTexture(ACG::RenderObject::Texture(arb_texture_idx_), 0);
-		if (props->textured())// && arb_texture_idx_)
+		if (props->textured())
 			ro.addTexture(RenderObject::Texture(checkerBoardTex_.id(), GL_TEXTURE_2D), 1, true);
 
+		///////////////////////////////////////////////////////////////////////
+		// Select primitive to draw
+		///////////////////////////////////////////////////////////////////////
 		if (props->primitive() == DrawModes::PRIMITIVE_POINT ||
 			props->primitive() == DrawModes::PRIMITIVE_POLYGON ||
 			props->primitive() == DrawModes::PRIMITIVE_WIREFRAME ||
@@ -260,16 +240,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			GLenum roPrimitives = GL_TRIANGLES;
 
 			if (props->primitive() == DrawModes::PRIMITIVE_POINT) {
-				//ro.setupPointRendering(_mat->pointSize(), Vec2f((float)_state.viewport_width(), (float)_state.viewport_height()));
-				//applyRenderObjectSettings(props->primitive(), &ro);
-
-				//roPrimitives = GL_POINTS;
-				//ro.fillMode = GL_POINT;
+				// TODO points are not rendered as expected
 			}
 
 			if (renderOption == betri::TESSELLATION_TYPE::RAYTRACING) {
-
-				// TODO this is a doublication
 				if (!controlPointTex_.is_valid()) {
 					updateTexBuffers();
 				}
@@ -283,7 +257,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				// Set Shader //
 				////////////////
 				ro.shaderDesc.vertexTemplateFile = "BezierTriangle/vertex.glsl";
-				//ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/fragment.glsl";
 				ro.shaderDesc.fragmentTemplateFile = "BezierTriangle/raytracing_gen_fs.glsl";
 
 				/////////////
@@ -327,14 +300,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//////////////
 				// Uniforms //
 				//////////////
-				//std::cerr << _state.eye() << std::endl;
-				//std::cerr << _renderer->camPosWS_ << std::endl;
-				//std::cerr << _renderer->viewMatrix_(0, 3) << " " << _renderer->viewMatrix_(1, 3) << " " << _renderer->viewMatrix_(2, 3) << " " << _renderer->viewMatrix_(3, 3) << std::endl;
-
 				// vertex shader uniforms
-				//ro.setUniform("campos", _renderer->camPosWS_);
-				//ro.setUniform("viewMatrix", _renderer->viewMatrix_);
-				//ro.setUniform("cameraPos", );
 				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
 
 				// fragment shader uniforms
@@ -356,10 +322,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 #ifdef GL_ARB_tessellation_shader
 			bool tessellationMode = ACG::openGLVersion(4, 0) && Texture::supportsTextureBuffer(); // TODO
 
+			// dynamic lod tessellation and spline evaluation on gpu
 			if (tessellationMode && renderOption == betri::TESSELLATION_TYPE::GPU)
 			{
-				// dynamic lod tessellation and spline evaluation on gpu
-
+				// Update control point texture if necessary
 				if (!controlPointTex_.is_valid())
 					updateTexBuffers();
 
@@ -372,9 +338,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				/////////////
 				// Defines //
 				/////////////
-				// TODO why is it possible to submit the degree
-				// as an define but not as an uniform?
-				// Liegt das an der for-schleife?
 				QString shaderMacro;
 				shaderMacro.sprintf("#define DEGREE %i", grad());
 				ro.shaderDesc.macros.push_back(shaderMacro);
@@ -399,8 +362,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				// Textures ---------------------------------------------------
 				ro.setUniform("controlPointTex", int(0));
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 0, false);
-				//ro.addTexture(RenderObject::Texture(knotTexBufferU_.id(), GL_TEXTURE_BUFFER), 2, false);
-				//ro.addTexture(RenderObject::Texture(knotTexBufferV_.id(), GL_TEXTURE_BUFFER), 3, false);
 
 				roPrimitives = GL_PATCHES;
 			}
@@ -415,12 +376,9 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 		}
 	}
 
-
 	///////////////////////////////////////////////////////////////////////////
 	// draw the control net (includes selection on the net)
 	///////////////////////////////////////////////////////////////////////////
-
-	// TODO
 	if (render_control_net())
 	{
 		// update if necessary
@@ -482,10 +440,6 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 			_renderer->addRenderObject(&ro);
 		}
 	}
-
-	double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-
-	//std::cerr << "duration: " << duration << " FPS " << (1 / duration) << '\n';
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -494,6 +448,8 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 /**
  * This function is not called if the getRenderObjects() is used
+ * and is in general not supported anymore since it does not provide gpu
+ * tesselation
  */
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::draw(
@@ -512,10 +468,6 @@ void BezierTriangleMeshNode<MeshT>::draw(
 	if (bspline_selection_draw_mode_ == CONTROLPOINT
 		&& controlPointSelectionTexture_valid_ == false)
 		updateControlPointSelectionTexture(_state);
-	if (bspline_selection_draw_mode_ == KNOTVECTOR
-		&& knotVectorSelectionTexture_valid_ == false)
-		updateKnotVectorSelectionTexture(_state);
-
 
 	if (_drawMode & DrawModes::POINTS)
 	{
@@ -672,8 +624,7 @@ template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::render(GLState& _state, bool _fill)
 {
 	// draw the control net (includes selection on the net)
-
-	if (render_control_net_) // TODO diese variable muss setzbar sein
+	if (render_control_net_)
 	{
 		if (bspline_draw_mode_ == NORMAL)
 			drawControlNet(_state);
@@ -681,17 +632,13 @@ void BezierTriangleMeshNode<MeshT>::render(GLState& _state, bool _fill)
 			drawFancyControlNet(_state);
 	}
 
-
 	// draw the spline curve itself, depending on the type of visualization
 	if (render_bspline_surface_)
 	{
 		if (bspline_selection_draw_mode_ == NONE)
 			drawSurface(_state, _fill);
-		// TODO wo kommt die textur her und wie wird eingestellt das die gesampled wird?
 		else if (bspline_selection_draw_mode_ == CONTROLPOINT)
 			drawTexturedSurface(_state, cp_selection_texture_idx_);
-		//else if (bspline_selection_draw_mode_ == KNOTVECTOR)
-		//	drawTexturedSurface(_state, knot_selection_texture_idx_);
 	}
 }
 
@@ -699,7 +646,6 @@ void BezierTriangleMeshNode<MeshT>::render(GLState& _state, bool _fill)
 
 /**
  * This method is evaluated once everytime the user moves the Camera.
- * This works since there are no dynamic elements (lights) that whould change the image.
  */
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::drawSurface(GLState& _state, bool _fill)
@@ -729,8 +675,6 @@ void BezierTriangleMeshNode<MeshT>::drawTexturedSurface(
 )
 {
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	//  ACG::GLState::enable( GL_COLOR_MATERIAL );
-	//  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 
 	ACG::GLState::enable(GL_TEXTURE_2D);
 
@@ -756,7 +700,6 @@ void BezierTriangleMeshNode<MeshT>::drawTexturedSurface(
 
 	ACG::GLState::bindTexture(GL_TEXTURE_2D, 0);
 	ACG::GLState::disable(GL_TEXTURE_2D);
-	//  ACG::GLState::disable( GL_COLOR_MATERIAL );
 	glPopAttrib();
 }
 
@@ -764,6 +707,9 @@ void BezierTriangleMeshNode<MeshT>::drawTexturedSurface(
 // Controllnet Functions
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * TODO enable control net selection
+ */
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 {
@@ -771,13 +717,11 @@ void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 	Vec4f base_color_old = _state.base_color();
 
 	// draw control net
-	//   glPushAttrib(GL_ENABLE_BIT);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 
 	ACG::GLState::disable(GL_CULL_FACE);
 	ACG::GLState::disable(GL_LIGHTING);
 	ACG::GLState::shadeModel(GL_FLAT);
-
 
 	// update controlnet buffers
 	updateControlNetMesh();
@@ -790,7 +734,7 @@ void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 	// draw points
 
 	// draw selection
-	if (controlNetSelIndices_) // TODO
+	if (controlNetSelIndices_)
 	{
 		glColor(generateHighlightColor(controlnet_color_));
 		glPointSize(10);
@@ -811,43 +755,8 @@ void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 	glDrawArrays(GL_POINTS, 0, numControlPoints);
 
 	glPointSize((int)point_size_old);
-	/*
 
-	// draw line segments
-
-	// draw selection
-	if( bezierTriangleMesh_.edge_selections_available())
-	{
-	  // save old values
-	  Vec4f base_color_old = _state.base_color();
-	  float line_width_old = _state.line_width();
-
-	  glColor(controlnet_highlight_color_);
-	  glLineWidth(2*line_width_old);
-
-	  glBegin(GL_LINES);
-	  // draw bspline control net
-	  int num_edges_m = (int)(bezierTriangleMesh_.n_control_points_m()) - 1;
-	  int num_edges_n = (int)(bezierTriangleMesh_.n_control_points_n()) - 1;
-	  for (int i = 0; i < num_edges_m; ++i) // #edges
-	  {
-		for (int j = 0; j < num_edges_n; ++j) // #edges
-		{
-		  if( bezierTriangleMesh_.edge_selection(i, j))
-		  {
-			glVertex(bezierTriangleMesh_(i,j));
-			glVertex(bezierTriangleMesh_(i+1, j));
-		  }
-		}
-	  }
-	  glEnd();
-
-	  glLineWidth(line_width_old);
-	  glColor( base_color_old );
-	}
-	*/
 	// draw all line segments
-
 	glColor(controlnet_color_);
 
 	float line_width_old = _state.line_width();
@@ -870,15 +779,16 @@ void BezierTriangleMeshNode<MeshT>::drawControlNet(GLState& _state)
 
 //-----------------------------------------------------------------------------
 
+/**
+ * It is not possible to decide which to use in the gui
+ */
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 {
-
 	// remember old color
 	Vec4f base_color_old = _state.base_color();
 
 	// draw control net
-  //   glPushAttrib(GL_ENABLE_BIT);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 
 	ACG::GLState::disable(GL_CULL_FACE);
@@ -892,30 +802,6 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 
 	// draw points
 	double sphereRadius = _state.point_size() * 0.05;
-	/*
-	// draw selection
-	if (bezierTriangleMesh_.controlpoint_selections_available())
-	{
-		// save old values
-		float point_size_old = _state.point_size();
-
-		// save old values
-	//     glColor(controlnet_highlight_color_);
-		glColor(generateHighlightColor(controlnet_color_));
-
-		// draw control polygon
-		for (unsigned int i = 0; i < bezierTriangleMesh_.n_control_points_m(); ++i)
-		{
-			for (unsigned int j = 0; j < bezierTriangleMesh_.n_control_points_n(); ++j)
-			{
-				if (bezierTriangleMesh_.controlpoint_selection(i, j))
-					draw_sphere(bezierTriangleMesh_(i, j), sphereRadius, _state, fancySphere_);
-			}
-		}
-
-		glPointSize(point_size_old);
-	}
-	*/
 
 	// draw all points
 	glColor(controlpoints_color_);
@@ -932,7 +818,6 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 	}
 
 	// draw line segments
-
 	double cylinderRadius = _state.line_width() * 0.05;
 
 	glColor(controlnet_color_);
@@ -970,18 +855,6 @@ void BezierTriangleMeshNode<MeshT>::drawFancyControlNet(GLState& _state)
 		}
 	}
 
-	/* OLD
-	// draw bezierTriangle control net
-	for (unsigned int i = 0; i < bezierTriangleMesh_.n_control_points_m(); ++i)
-	{
-		for (int j = 0; j < (int)bezierTriangleMesh_.n_control_points_n() - 1; ++j)
-		{
-			Vec3d p = bezierTriangleMesh_(i, j);
-			Vec3d p_next = bezierTriangleMesh_(i, j + 1);
-			draw_cylinder(p, p_next - p, cylinderRadius, _state);
-		}
-	}
-	*/
 	// reset old color
 	glColor(base_color_old);
 
@@ -1045,7 +918,6 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	invalidateSurfaceMesh_ = true;
 	invalidateControlNetMesh_ = true;
 
-	// TODO
 	NEWVERTICES = betri::mersennePrime(ITERATIONS);
 	VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
 	STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
@@ -1053,7 +925,7 @@ void BezierTriangleMeshNode<MeshT>::updateGeometry()
 	// reset number of control points
 	cpSum_ = -1;
 
-	updateTexBuffers(); // TODO
+	updateTexBuffers();
 }
 
 // Surface --------------------------------------------------------------------
@@ -1073,11 +945,10 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
 	surfaceDecl_.clear();
 	if (!surfaceDecl_.getNumElements()) {
 		int renderOption = betri::option(betri::BezierOption::TESSELLATION_TYPE);
-		if (Benchmarker::instance()->active()) // TODO
+		if (Benchmarker::instance()->active())
 			renderOption = Benchmarker::instance()->renderMode();
 
 		surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
-		// TODO the normal is not needed for raytracing but i was not able to remove it from the shader
 		if (renderOption != betri::TESSELLATION_TYPE::RAYTRACING) {
 			surfaceDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_NORMAL);
 		}
@@ -1087,7 +958,8 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
 		if (drawModeProps_.colored() && renderOption != betri::TESSELLATION_TYPE::RAYTRACING) {
 			surfaceDecl_.addElement(GL_FLOAT, 4, VERTEX_USAGE_COLOR);
 		}
-		//surfaceDecl_.addElement(GL_UNSIGNED_BYTE, 4, VERTEX_USAGE_COLOR); TODO
+		// TODO use unsigned byte instead of float
+		//surfaceDecl_.addElement(GL_UNSIGNED_BYTE, 4, VERTEX_USAGE_COLOR);
 
 		if (provideDebugInfo) {
 			surfaceDecl_.addElement(GL_FLOAT, 2, VERTEX_USAGE_SHADER_INPUT, size_t(0), "a2v_span");
@@ -1106,7 +978,6 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceDecl()
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 {
-	// TODO this is dump
 	if (!invalidateSurfaceMesh_)
 		return;
 
@@ -1115,12 +986,10 @@ void BezierTriangleMeshNode<MeshT>::updateSurfaceMesh(const int meshOption)
 		OpenFlipper::Options::shaderDir().absolutePath().toLocal8Bit().constData()
 	);
 
-	//if (betri::option(betri::BezierOption::BOUNDING_VOLUME) != betri::boundingVolumeType::BoundingBillboard || i == 0) {
-		surfaceVBO_.del();
-		surfaceIBO_.del();
+	surfaceVBO_.del();
+	surfaceIBO_.del();
 	
-		updateSurfaceDecl();
-	//}
+	updateSurfaceDecl();
 
 	// Generate a VBO from the Mesh without CPU tesselation
 	if (meshOption == betri::TESSELLATION_TYPE::GPU || meshOption == betri::TESSELLATION_TYPE::NONE) {
@@ -1148,7 +1017,6 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 	// vertex layout:
 	//  float3 pos
 
-	// TODO Hä?
 	if (!controlNetDecl_.getNumElements())
 		controlNetDecl_.addElement(GL_FLOAT, 3, VERTEX_USAGE_POSITION);
 
@@ -1161,11 +1029,6 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 
 	int elementOffset = 0;
 	for (auto &face : bezierTriangleMesh_.faces()) {
-		// write counter
-
-		//auto faceControlP = bezierTriangleMesh_.data(face);
-		//Point pt = faceControlP.controlPoint(i); // TODO
-
 		auto faceControlP = bezierTriangleMesh_.data(face);
 		Point cp;
 		for (int i = 0; i < controlPointsPerFace; i++) {
@@ -1180,10 +1043,7 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 
 	vboData.clear();
 
-	// TODO more tests that this is correct for all cases and that the index counts are corrects (idxOffset vs numIndices)
-
 	int bottomTriangles = betri::gaussSum(grad());
-	// TODO unterschiedliche Faces können unterschiedliche kontrollpunkte haben auch wenn sie aneinanderliegen?! deswegen mehrere Linien an der grenze ?
 	const int linesPerTriangle = 3;
 	const int pointPerLine = 2;
 	int numIndices = bottomTriangles * linesPerTriangle * pointPerLine * bezierTriangleMesh_.n_faces();
@@ -1236,34 +1096,6 @@ void BezierTriangleMeshNode<MeshT>::updateControlNetMesh()
 template <class MeshT>
 void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 {
-	/*
-	const size_t knotBufSizeU = bezierTriangleMesh_.get_knots_m().size();
-	const size_t knotBufSizeV = bezierTriangleMesh_.get_knots_n().size();
-
-
-
-
-	if (knotBufSizeU)
-	{
-		std::vector<float> knotBufU(knotBufSizeU);
-
-		for (size_t i = 0; i < knotBufSizeU; ++i)
-			knotBufU[i] = float(bezierTriangleMesh_.get_knot_m(i));
-
-		knotTexBufferU_.setBufferData(knotBufSizeU * 4, &knotBufU[0], GL_R32F);
-	}
-
-	if (knotBufSizeV)
-	{
-		std::vector<float> knotBufV(knotBufSizeV);
-
-		for (size_t i = 0; i < knotBufSizeV; ++i)
-			knotBufV[i] = float(bezierTriangleMesh_.get_knot_n(i));
-
-		knotTexBufferV_.setBufferData(knotBufSizeV * 4, &knotBufV[0], GL_R32F);
-	}
-
-	*/
 #ifdef GL_VERSION_3_0
 
 	const int controlPointsPerFace = cpSum();
@@ -1285,33 +1117,44 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 		}
 
 		controlPointTex_.bind();
-		controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+		// disable filtering
+		controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, bezierTriangleMesh_.n_faces(), GL_RGB, GL_FLOAT, &controlPointBuf[0]);
+		controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, 
+			bezierTriangleMesh_.n_faces(), 
+			GL_RGB, GL_FLOAT, &controlPointBuf[0]);
 	}
 
 	MeshT::TexCoord2D texCoord;
 	const int texCoordsPerFace = 3;
-	const size_t texCoordBufSize = texCoordsPerFace * bezierTriangleMesh_.n_faces();
+	const size_t texCoordBufSize = 
+		texCoordsPerFace * bezierTriangleMesh_.n_faces();
 
-	if (texCoordBufSize && drawModeProps_.texcoordSource() != DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE) {
+	if (texCoordBufSize && 
+		drawModeProps_.texcoordSource() != 
+		DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE
+	) {
 		std::vector<float> texCoordBuf(texCoordBufSize * 2);
 
 		// write counter
 		int elementOffset = 0;
 		for (auto &face : bezierTriangleMesh_.faces()) {
-			for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
+			for (auto v = bezierTriangleMesh_.fv_begin(face); 
+				v != bezierTriangleMesh_.fv_end(face); ++v) 
+			{
 
-				texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
+				texCoord = bezierTriangleMesh_.texcoord2D(v);
 				for (int m = 0; m < 2; ++m)
 					texCoordBuf[elementOffset++] = texCoord[m];
 			}
 		}
 
 		texCoordTex_.bind();
-		texCoordTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); // disable filtering
+		// disable filtering
+		texCoordTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		texCoordTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		texCoordTex_.setData(0, GL_RG32F, texCoordsPerFace, bezierTriangleMesh_.n_faces(), GL_RG, GL_FLOAT, &texCoordBuf[0]);
+		texCoordTex_.setData(0, GL_RG32F, texCoordsPerFace, 
+			bezierTriangleMesh_.n_faces(), GL_RG, GL_FLOAT, &texCoordBuf[0]);
 	}
 
 #endif
@@ -1436,7 +1279,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 
 	Point pos;
 	MeshT::Normal normal;
-	MeshT::TexCoord2D texCoord; // TODO haben wir nicht brauchen wir noch
+	MeshT::TexCoord2D texCoord;
 	for (auto face : bezierTriangleMesh_.faces()) {
 		auto vertexHandle = bezierTriangleMesh_.fv_begin(face);
 		auto vh0 = *(vertexHandle++);
@@ -1492,7 +1335,9 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 				///////////
 				// Color //
 				///////////
-				if (drawModeProps_.colorSource() != DrawModes::DrawModeColorSource::COLOR_NONE) {
+				if (drawModeProps_.colorSource() != 
+					DrawModes::DrawModeColorSource::COLOR_NONE) 
+				{
 					MeshT::Color color(0.0, 0.0, 0.0, 1.0);
 					switch (drawModeProps_.colorSource()) {
 						case DrawModes::DrawModeColorSource::COLOR_PER_VERTEX:
@@ -1517,16 +1362,6 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 							vboData[elementOffset++] = float(color[m]);
 						}
 				}
-
-				/*
-				// TODO use ints instead of floats
-				Vec4uc vecCol(0, 0, 0, 1);
-				DrawMeshT<Mesh>::readVertex(
-				byteCol[col] = (unsigned char)(vecCol[0]);
-				byteCol[col] |= ((unsigned char)(vecCol[1])) << 8;
-				byteCol[col] |= ((unsigned char)(vecCol[2])) << 16;
-				byteCol[col] |= ((unsigned char)(vecCol[3])) << 24;
-				*/
 			}
 		}
 	}
@@ -1537,7 +1372,7 @@ void BezierTriangleMeshNode<MeshT>::VBOtesselatedFromMesh() {
 	vboData.clear();
 
 	// create index buffer
-	// TODO geht das besser?
+	// TODO improve filling
 	int numIndices = pow(4, ITERATIONS) * 3 * bezierTriangleMesh_.n_faces();
 	std::vector<int> iboData(numIndices);
 
@@ -1598,10 +1433,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	// create vertex buffer
 	int vertexCount = bezierTriangleMesh_.n_faces() * 3;
 
-	//assert(bezierTriangleMesh_.n_vertices() == 6);
-	//assert(bezierTriangleMesh_.n_edges() == 10);
-	//assert(bezierTriangleMesh_.n_faces() == 5);
-
 	GLsizeiptr vboSize = vertexCount * surfaceDecl_.getVertexStride(); // bytes
 	std::vector<float> vboData(vboSize / 4); // float: 4 bytes
 
@@ -1612,12 +1443,13 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	MeshT::Normal normal;
 	MeshT::TexCoord2D texCoord;
 	for (FaceHandle face : bezierTriangleMesh_.faces()) {
-		for (auto v = bezierTriangleMesh_.fv_begin(face); v != bezierTriangleMesh_.fv_end(face); ++v) {
+		for (auto v = bezierTriangleMesh_.fv_begin(face); 
+			v != bezierTriangleMesh_.fv_end(face); ++v) 
+		{
 			//////////////
 			// Position //
 			//////////////
 			pos = bezierTriangleMesh_.point(v);
-			//std::cerr << "vertex pos " << pos << '\n';
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = float(pos[m]);
 
@@ -1625,7 +1457,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 			// Normals //
 			/////////////
 			normal = bezierTriangleMesh_.normal(v);
-			//std::cerr << "vertex normal " << normal << '\n';
 			for (int m = 0; m < 3; ++m)
 				vboData[elementOffset++] = float(normal[m]);
 
@@ -1636,7 +1467,7 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 			switch (drawModeProps_.texcoordSource()) {
 				case DrawModes::DrawModeTexCoordSource::TEXCOORD_PER_VERTEX:
 				{
-					texCoord = bezierTriangleMesh_.texcoord2D(v); // TODO
+					texCoord = bezierTriangleMesh_.texcoord2D(v);
 					vboData[elementOffset++] = texCoord[0];
 					vboData[elementOffset++] = texCoord[1];
 					break;
@@ -1693,7 +1524,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 		iboData[idxOffset] = idxOffset;
 	}
 
-	// TODO i think the numIndices should be *4 and the numIndices-count itself is wrong, try to compare it with idxOffset
 	if (numIndices)
 		surfaceIBO_.upload(numIndices * 4, iboData.data(), GL_STATIC_DRAW);
 
@@ -1712,16 +1542,9 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	///////////////////////
 	// Setup VBO and IBO //
 	///////////////////////
-
-	// TODO different bounding volumes
 	int bVolume = betri::option(betri::BezierOption::BOUNDING_VOLUME);
 	if (Benchmarker::instance()->active())
 		bVolume = Benchmarker::instance()->bVolume();
-	/*
-	// TODO
-	std::cerr << Benchmarker::instance()->active() << " "
-		<< Benchmarker::instance()->renderMode()
-		<< Benchmarker::instance()->bVolume() << std::endl;*/
 
 	int numVerts;
 	int numIndices;
@@ -1756,7 +1579,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 		switch (bVolume) {
 			case betri::boundingVolumeType::BoundingTetraeder:
 			{
-				// TODO is this the correct way to call this?
 				betri::addBoundingTetraederFromPoints(
 					controlPointsPerFace,
 					grad(),
@@ -1771,7 +1593,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			case betri::boundingVolumeType::AABB:
 			{
-				// TODO is this the correct way to call this?
 				betri::addBoundingBoxFromPoints(
 					controlPointsPerFace,
 					vboIndex,
@@ -1785,7 +1606,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			case betri::boundingVolumeType::PrismVolume:
 			{
-				// TODO is this the correct way to call this?
 				betri::addPrismVolumeFromPoints(
 					controlPointsPerFace,
 					grad(),
@@ -1800,7 +1620,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			case betri::boundingVolumeType::ConvexHull:
 			{
-				// TODO is this the correct way to call this?
 				betri::addConvexHullFromPoints(
 					controlPointsPerFace,
 					grad(),
@@ -1815,7 +1634,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			case betri::boundingVolumeType::BoundingMesh:
 			{
-				// TODO is this the correct way to call this?
 				betri::addBoundingMeshFromPoints(
 					controlPointsPerFace,
 					grad(),
@@ -1830,15 +1648,14 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			case betri::boundingVolumeType::BoundingBillboard:
 			{
-				// TODO is this the correct way to call this?
 				betri::addBoundingBillboardFromPoints(
 					controlPointsPerFace,
 					grad(),
 					vboIndex,
 					iboIndex,
 					face_index,
-					state_->eye(), // TODO it kind of sucks that we need this vars here
-					state_->viewing_direction(), // since only for that we need the state_
+					state_->eye(),
+					state_->viewing_direction(),
 					state_->near_plane(),
 					vboData,
 					iboData,
@@ -1848,7 +1665,6 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 			}
 			default:
 			{
-				// TODO is this the correct way to call this?
 				betri::addBoundingBoxFromPoints(
 					controlPointsPerFace,
 					vboIndex,
@@ -1888,15 +1704,9 @@ void BezierTriangleMeshNode<MeshT>::VBOfromBoundingMesh()
 	}
 
 	if (vboSize) {
-		//if (bVolume == betri::boundingVolumeType::BoundingBillboard) {
-			//if (i == 0)
-		//		surfaceVBO_.upload(vboSize, vboData.data(), GL_STREAM_DRAW);
-			//else
-			//	surfaceVBO_.uploadSubData(0, vboSize, vboData.data());
-			//i++;
-		//}
-		//else
-			surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
+		surfaceVBO_.upload(vboSize, vboData.data(), GL_STATIC_DRAW);
+		// TODO improve the billboard by using
+		//surfaceVBO_.upload(vboSize, vboData.data(), GL_STREAM_DRAW);
 	}
 
 	vboData.clear();
@@ -1927,9 +1737,8 @@ void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 		case PICK_VERTEX:
 		{
 			if (render_control_net_) {
-				// TODO ist der Count hier richtig, was soll da überhaupt hin?
 				_state.pick_set_maximum(bezierTriangleMesh_.n_vertices() * 2);
-				pick_vertices(_state); // TODO tut das jetzt was ?
+				pick_vertices(_state);
 			}
 			break;
 		}
@@ -1950,7 +1759,6 @@ void BezierTriangleMeshNode<MeshT>::pick(GLState& _state, PickTarget _target)
 
 		case PICK_ANYTHING:
 		{
-			//_state.pick_set_maximum(bezierTriangleMesh_.n_control_points_m() * bezierTriangleMesh_.n_control_points_n() + 1);
 			_state.pick_set_maximum(bezierTriangleMesh_.n_vertices() * 2 + 1);
 			pick_vertices(_state);
 			pick_surface(_state, bezierTriangleMesh_.n_vertices() * 2);
@@ -1995,25 +1803,6 @@ void BezierTriangleMeshNode<MeshT>::pick_vertices(GLState& _state)
 			draw_sphere(cp, r, _state, sphere_);
 		}
 	}
-	/*
-	for (unsigned int i = 0; i < bezierTriangleMesh_.n_control_points_m(); ++i)
-	{
-		for (unsigned int j = 0; j < bezierTriangleMesh_.n_control_points_n(); ++j)
-		{
-			_state.pick_set_name(i * bezierTriangleMesh_.n_control_points_n() + j);
-
-			// compute 3d radius of sphere
-			Vec3d window_pos = _state.project((Vec3d)bezierTriangleMesh_(i, j));
-			int px = round(window_pos[0]);
-			int py = round(window_pos[1]);
-			double angle = acos(_state.viewing_direction(px, py).normalize() | _state.viewing_direction(px + psize, py).normalize());
-			double l = (_state.eye() - (Vec3d)bezierTriangleMesh_(i, j)).norm();
-			double r = l * tan(angle);
-
-			// draw 3d sphere
-			draw_sphere(bezierTriangleMesh_(i, j), r, _state, sphere_);
-		}
-	}*/
 }
 
 //-----------------------------------------------------------------------------
@@ -2154,16 +1943,6 @@ void BezierTriangleMeshNode<MeshT>::updateControlPointSelectionTexture(
 	invalidateControlNetMeshSel_ = true;
 }
 
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::updateKnotVectorSelectionTexture(
-	GLState& _state
-)
-{
-	create_knot_selection_texture(_state);
-	knotVectorSelectionTexture_valid_ = true;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Init Functions
@@ -2295,145 +2074,6 @@ void BezierTriangleMeshNode<MeshT>::create_cp_selection_texture(
 	glTexImage2D(GL_TEXTURE_2D,
 		0, GL_RGBA, cp_selection_texture_image_.width(), cp_selection_texture_image_.height(),
 		0, GL_RGBA, GL_UNSIGNED_BYTE, cp_selection_texture_image_.bits());
-	*/
-}
-
-//-----------------------------------------------------------------------------
-
-template <class MeshT>
-void BezierTriangleMeshNode<MeshT>::create_knot_selection_texture(
-	GLState& _state
-)
-{
-	/*
-	if (bezierTriangleMesh_.n_knots_m() == 0 || bezierTriangleMesh_.n_knots_n() == 0)
-		return;
-
-	if (knot_selection_texture_idx_ == 0)
-		selection_init_texturing(knot_selection_texture_idx_);
-
-	QImage b(knot_selection_texture_res_, knot_selection_texture_res_, QImage::Format_ARGB32);
-
-	int degree_m = bezierTriangleMesh_.degree_m();
-	int degree_n = bezierTriangleMesh_.degree_n();
-
-	int numKnots_m = bezierTriangleMesh_.n_knots_m();
-	int numKnots_n = bezierTriangleMesh_.n_knots_n();
-
-	Knotvector knotvec_m = bezierTriangleMesh_.get_knotvector_m();
-	Knotvector knotvec_n = bezierTriangleMesh_.get_knotvector_n();
-
-	double minu = bezierTriangleMesh_.get_knot_m(degree_m);
-	double maxu = bezierTriangleMesh_.get_knot_m(numKnots_m - degree_m - 1);
-	double diffu = maxu - minu;
-
-	double minv = bezierTriangleMesh_.get_knot_n(degree_n);
-	double maxv = bezierTriangleMesh_.get_knot_n(numKnots_n - degree_n - 1);
-	double diffv = maxv - minv;
-
-	if (diffu == 0.0 || diffv == 0.0)
-		return;
-
-	int texelIdx_u = 0;
-
-	// if a knot is selected, select all knots in the span of this knot, too
-	std::vector<bool> selectedKnotSpans_m(numKnots_m, false);
-	for (int i = 0; i < numKnots_m; ++i)
-	{
-		if (bezierTriangleMesh_.get_knotvector_m_ref()->selection(i))
-		{
-			// get the span and check which knots are selected
-			ACG::Vec2i span = bezierTriangleMesh_.spanm(bezierTriangleMesh_.get_knot_m(i));
-			// check for incomple spline
-			if (span[0] < 0 || span[1] < 0)
-				return;
-
-			for (int j = span[0]; j <= span[1] + degree_m; ++j)
-				selectedKnotSpans_m[j] = true;
-		}
-	}
-	//   std::cout << "selectedKnotSpans_m: " << std::flush;
-	//   for (unsigned int i = 0; i < selectedKnotSpans_m.size(); ++i)
-	//     std::cout << selectedKnotSpans_m[i] << ", " << std::flush;
-	//   std::cout << std::endl;
-
-
-	std::vector<bool> selectedKnotSpans_n(numKnots_n, false);
-	for (int i = 0; i < numKnots_n; ++i)
-	{
-		if (bezierTriangleMesh_.get_knotvector_n_ref()->selection(i))
-		{
-			// get the span and check which knots are selected
-			ACG::Vec2i span = bezierTriangleMesh_.spann(bezierTriangleMesh_.get_knot_n(i));
-			// check for incomple spline
-			if (span[0] < 0 || span[1] < 0)
-				return;
-
-			for (int j = span[0]; j <= span[1] + degree_n; ++j)
-				selectedKnotSpans_n[j] = true;
-		}
-	}
-	//   std::cout << "selectedKnotSpans_n: " << std::flush;
-	//   for (unsigned int i = 0; i < selectedKnotSpans_n.size(); ++i)
-	//     std::cout << selectedKnotSpans_n[i] << ", " << std::flush;
-	//   std::cout << std::endl;
-
-
-	for (int m = 0; m < knot_selection_texture_res_; ++m)
-	{
-		double step_m = (double)m / (double)knot_selection_texture_res_;
-		double u = step_m * diffu;
-
-		Vec2i interval_m = bezierTriangleMesh_.interval_m(u);
-
-		// reset texture v coord for every new u coord
-		int texelIdx_v = 0;
-
-		for (int n = 0; n < knot_selection_texture_res_; ++n)
-		{
-			double step_n = (double)n / (double)knot_selection_texture_res_;
-			double v = step_n * diffv;
-
-			Vec2i interval_n = bezierTriangleMesh_.interval_n(v);
-
-			// check if highlighted
-			bool selected_m = (selectedKnotSpans_m[interval_m[0]] && selectedKnotSpans_m[interval_m[1]]);
-			bool selected_n = (selectedKnotSpans_n[interval_n[0]] && selectedKnotSpans_n[interval_n[1]]);
-
-			Vec4f color;
-			if (selected_m && selected_n)
-				//         color = _state.specular_color();
-				//         color = _state.base_color();
-				color = surface_highlight_color_;
-			else if ((selected_m && !selected_n) || (!selected_m && selected_n))
-				//         color = _state.ambient_color() *0.5 + _state.specular_color() * 0.5;
-				//         color = _state.base_color() *0.5 + _state.specular_color() * 0.5;
-				color = surface_highlight_color_ * 0.5 + surface_color_ * 0.5;
-			else
-				//         color = _state.ambient_color() *0.5 + _state.diffuse_color() * 0.5;
-				//         color = _state.base_color() *0.5 + _state.diffuse_color() * 0.5;
-				color = surface_color_;
-
-
-			// fill texture
-			b.setPixel(texelIdx_u, 255 - texelIdx_v, qRgba((int)(color[0] * 255.0), (int)(color[1] * 255.0), (int)(color[2] * 255.0), 255));
-
-			++texelIdx_v;
-		} // end of v direction
-
-		++texelIdx_u;
-	} // end of u direction
-
-	// debug, output image
-	// b.save("surfaceKnotSelectionTexture.png", "PNG");
-
-	knot_selection_texture_image_ = QGLWidget::convertToGLFormat(b);
-
-	// bind texture
-	ACG::GLState::bindTexture(GL_TEXTURE_2D, knot_selection_texture_idx_);
-	glTexImage2D(GL_TEXTURE_2D,
-		0, GL_RGBA, knot_selection_texture_image_.width(), knot_selection_texture_image_.height(),
-		0, GL_RGBA, GL_UNSIGNED_BYTE, knot_selection_texture_image_.bits());
 	*/
 }
 
