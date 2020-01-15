@@ -341,29 +341,47 @@ std::vector<Vec2> DecimationParametrization::getRandomUVs(const size_t n, bool s
 		uvs = getSampleUVs(5);
 	}
 
-	size_t remain = n - uvs.size();
-
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_real_distribution<> dis(0.0, 1.0);
 
-	std::array<double, 3> tmp;
-	for (size_t i = 0; i < remain; ++i) {
+	std::array<double, 2> tmp;
+	while (uvs.size() < n) {
+
+		// generate three random values [0,1]
 		tmp[0] = dis(gen);
 		tmp[1] = dis(gen);
 		tmp[2] = dis(gen);
 		std::sort(tmp.begin(), tmp.end());
 
-		uvs.push_back(Vec2(tmp[0], tmp[2]-tmp[1]));
+		// construct barycentric coordinate
+		Vec2 bary(tmp[1]-tmp[0], 1.0-tmp[1]);
 
-		Vec2 test = uvs.back();
-		assert(std::islessequal(test[0], 1.0));
-		assert(std::islessequal(test[1], 1.0));
-		assert(std::isgreaterequal(test[0], 0.0));
-		assert(std::isgreaterequal(test[1], 0.0));
-		assert(std::islessequal(test[0] + test[1], 1.0));
+		if (!std::any_of(uvs.begin(), uvs.end(), [&](const Vec2 &vec) {
+			return (vec - bary).norm() < 0.0001;
+		})) {
+			uvs.push_back(std::move(bary));
+		} else {
+			// see if shifting the coordinate a little is already enough
+			tmp[0] = dis(gen);
+			tmp[1] = dis(gen);
+			bary += Vec2(1.0 - tmp[1], tmp[1] - tmp[0]);
+
+			if (!std::any_of(uvs.begin(), uvs.end(), [&](const Vec2 &vec) {
+				return (vec - bary).norm() < 0.0001;
+			})) {
+				uvs.push_back(std::move(bary));
+			}
+		}
+
+		assert(std::islessequal(bary[0], 1.0));
+		assert(std::islessequal(bary[1], 1.0));
+		assert(std::isgreaterequal(bary[0], 0.0));
+		assert(std::isgreaterequal(bary[1], 0.0));
+		assert(std::islessequal(bary[0] + bary[1], 1.0));
 
 	}
+	assert(uvs.size() == n);
 
 	return uvs;
 }
