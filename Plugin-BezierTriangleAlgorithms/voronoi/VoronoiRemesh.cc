@@ -9,7 +9,6 @@
 #include <fstream>
 
 #include <OpenFlipper/BasePlugin/PluginFunctions.hh>
-//#include <OpenFlipper/libs_required/ACG/GL/ColorTranslator.hh>
 
 namespace betri
 {
@@ -411,8 +410,6 @@ void VoronoiRemesh::splitClosedPaths(std::set<ID> only)
 
 void VoronoiRemesh::fixPredecessor(const FH fh, const bool rewrite)
 {
-	//std::cerr << "fixing predecessor for " << fh << "(" << pred(fh) << ")\n";
-
 	// we acutally dont have to care about face predecessors
 	// since all shortest path are foudn using vertices
 	return;
@@ -776,74 +773,10 @@ void VoronoiRemesh::shortestPath(
 	std::cerr << "\tfound path using " << path.size() << " vertices\n";
 }
 
-void VoronoiRemesh::setShortestPath(const VH vh)
-{
-	std::vector<Scalar> dists;
-	Scalar distSum = 0., INF = std::numeric_limits<Scalar>::max();
-
-	ID target = id(vh);
-	VH node = vh, targetVertex = m_seedVerts[target], vertex;
-
-	while (vertex != targetVertex) {
-
-		vertex.invalidate();
-
-		Point p = m_mesh.point(node);
-		Scalar minDist = INF;
-
-		for (auto v_it = m_mesh.cvv_begin(node); v_it != m_mesh.cvv_end(node); ++v_it) {
-			Scalar d = (m_mesh.point(*v_it) - p).norm();
-			if (!vtt(*v_it).isBorder() && adjToRegion(*v_it, target)) {
-				if (dist(*v_it) < INF && id(*v_it) == target) {
-					minDist = d;
-					vertex = *v_it;
-					break;
-				} else if (d < minDist) {
-					minDist = d;
-					vertex = *v_it;
-				}
-			}
-		}
-
-		if (vertex.is_valid()) {
-			dists.push_back(minDist);
-			distSum += minDist;
-
-			id(vertex) = target;
-			pred(node) = vertex;
-
-			node = vertex;
-		} else {
-			debugCancel("vertex not valid");
-			return;
-		}
-	}
-
-	node = vh;
-	if (useColors()) {
-		Color col = m_colors[target];
-		for (int i = dists.size() - 1; i >= 0; --i) {
-			dist(node) = distSum - dists[i];
-			setColor(node, col);
-			node = pred(node);
-		}
-	}
-
-	std::cerr << __FUNCTION__ << " found path\n";
-}
-
 bool VoronoiRemesh::addExtraSeed(FaceDijkstra &q)
 {
 	FH add;
 	Scalar maxDist = -1.0;
-
-	//for (FH face : m_mesh.faces()) {
-
-	//	if (dist(face) > maxDist && !adjToSeedFace(face)) {
-	//		add = face;
-	//		maxDist = dist(face);
-	//	}
-	//}
 
 	for (FH face : m_seeds) {
 
@@ -968,30 +901,6 @@ bool VoronoiRemesh::faceSP(FaceDijkstra & q, const bool stepwise)
 	} while (!stepwise && !q.empty());
 
 	return q.empty();
-}
-
-void VoronoiRemesh::ensureReachable(const ID id0)
-{
-	// ensure that each vertex in a region can actually be reached from the seed vertex
-	// check all paths that cross this face
-	// if a path goes from border to border and does not contain the seed vertex
-	//  - then the region without the seed vertex must become its own region
-
-	//const VH src = m_seedVerts[id0];
-
-	//VH start;
-
-	//bool lastWasCrossed = false;
-	//for (auto h_it = m_mesh.cvoh_begin(src); h_it != m_mesh.cvoh_end(src); ++h_it) {
-	//	if (lastWasCrossed && isCrossed(*h_it)) {
-	//		start = m_mesh.to_vertex_handle(*h_it);
-	//	}
-	//	lastWasCrossed = isCrossed(*h_it);
-	//}
-
-	//if (start.is_valid()) {
-
-	//}
 }
 
 void VoronoiRemesh::vertexSP(VertexDijkstra & q)
@@ -1617,22 +1526,6 @@ bool VoronoiRemesh::remesh()
 	std::cerr << "----------- DONE -----------" << std::endl;
 
 	return true;
-}
-
-void VoronoiRemesh::resetPath(FaceDijkstra &q, const FH face)
-{
-	const FH prevPred = pred(face);
-	pred(face) = FH();
-	dist(face) = std::numeric_limits<double>::max();
-
-	for (auto fh = m_mesh.cfh_begin(face); fh != m_mesh.cfh_end(face); ++fh) {
-		const FH f = m_mesh.opposite_face_handle(*fh);
-		if (pred(f) == face) {
-
-		} else if (f != prevPred) {
-			q.insert({ dist(f), f });
-		}
-	}
 }
 
 void VoronoiRemesh::findRegionCuts(std::vector<std::vector<std::vector<FH>>>& cuts)
