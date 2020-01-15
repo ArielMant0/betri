@@ -41,7 +41,6 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	modeComboBox->addItem(tr("Ray casting"));
 
 	// set the connection to the setTessType
-	// TODO warum ist das hier anders als bei der tessspinbox
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::activated),
 		this, &BezierTriangleRenderingPlugin::setTessType);
 
@@ -126,7 +125,7 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	QComboBox *boundVComboBox = new QComboBox;
 	//boundVComboBox->addItem(tr("NONE"));
 	boundVComboBox->addItem(tr("BOUNDING Tetraeder"));
-	boundVComboBox->addItem(tr("AABB")); // TODO the value should be betri::beziermathutil.hh::PRISM ...
+	boundVComboBox->addItem(tr("AABB"));
 	boundVComboBox->addItem(tr("PRISM"));
 	boundVComboBox->addItem(tr("CONVEX HULL"));
 	boundVComboBox->addItem(tr("BOUNDING MESH"));
@@ -507,7 +506,6 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 void BezierTriangleRenderingPlugin::setTessType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_TYPE, value);
-	// TODO does franziska approves this?
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
 	);
@@ -530,7 +528,6 @@ void BezierTriangleRenderingPlugin::setTessAmount(int value)
 void BezierTriangleRenderingPlugin::setTessMode(int value)
 {
 	PluginFunctions::betriOption(BezierOption::TESSELLATION_ADAPTIVE, value);
-	// TODO does franziska approves this?
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
 	);
@@ -542,7 +539,6 @@ void BezierTriangleRenderingPlugin::setTessMode(int value)
 void BezierTriangleRenderingPlugin::setBoundVType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::BOUNDING_VOLUME, value);
-	// TODO does franziska approves this?
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
 	);
@@ -554,7 +550,6 @@ void BezierTriangleRenderingPlugin::setBoundVType(int value)
 void BezierTriangleRenderingPlugin::setVisulisationType(int value)
 {
 	PluginFunctions::betriOption(BezierOption::VISUALISATION_MODE, value);
-	// TODO does franziska approves this?
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
 	);

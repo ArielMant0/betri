@@ -8,6 +8,7 @@
 
 #include "BezierMathUtil.hh"
 
+// TODO reserve the vectors?
 static void updateRaycastingFormula(int n, std::string shaderDir)
 {
 	assert(n > 0);
@@ -66,15 +67,6 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 					next = endNeg < endPos;
 				}
 
-				/*
-				for (auto s : negFormulaVec) {
-					std::cerr << "Neg: " << tmp << " -> " << s << std::endl;
-				}
-				for (auto s : posFormulaVec) {
-					std::cerr << "Pos: " << tmp << " -> " << s << std::endl;
-				}
-				*/
-
 				tmpFormula.clear();
 				for (auto s : negFormulaVec) {
 					tmpFormula += " - 1.0 * " + s;
@@ -98,32 +90,12 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 				}
 
 				subFormula = tmpFormula;
-				/*
-				if (cpIndex == 3) {
-					std::cerr << "//////////////" << tmp << std::endl;
-					std::cerr << subFormula << "\n" << std::endl;
-
-					std::cerr << "Negative" << std::endl;
-					for (auto elem : negFormulaVec)
-						std::cerr << elem << std::endl;
-					std::cerr << "Positive" << std::endl;
-					for (auto elem : posFormulaVec)
-						std::cerr << elem << std::endl;
-					std::cerr << std::endl;
-				}
-				*/
 			}
-
-			//std::cerr << "form " << subFormula << std::endl;
-
-			//std::cerr << " j " << j << " k " << k << " " << subFormula << std::endl;
-
 			subFormula += "\n";
 			formula += subFormula;
 		}
 	}
 
-	//s.erase(std::find(s.begin(), s.end(), ' '));
 	// https://en.cppreference.com/w/cpp/regex/regex_replace
 	// http://www.cplusplus.com/reference/regex/ECMAScript/
 	// http://www.informit.com/articles/article.aspx?p=2064649&seqNum=2
@@ -176,7 +148,6 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 		}
 	}
 
-	// TODO reserve oben auch
 	std::vector<std::string> qVec;
 
 	std::string tmp;
@@ -211,13 +182,12 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 	for (int stringIt = 0; stringIt != regexVec.size(); stringIt++) {
 		combinedBuv += " + q_" + std::to_string(stringIt) + regexVec[regexVec.size() - stringIt - 1] + "\n";
 	}
-	combinedBuv += ";"; // TODO
+	combinedBuv += ";";
 
 	////////////////////////////////////
 	// Calculate partial derivate (s) //
 	////////////////////////////////////
 	// TODO All four derivates can be done in one double loop
-	// TODO reserve
 	std::vector<std::string> derivateVec;
 	std::string derivate;
 	for (int i = 0; i <= n; i++) {
@@ -350,7 +320,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dtdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
 	}
-	// TODO just ask infront whether degree is 1
+
 	if (derivateVec.size() == 3 && derivateVec[0] == "-1" && 
 		derivateVec[1] == "-1" && derivateVec[2] == "-1")
 		dtdtB += " vec3(0)";
@@ -390,7 +360,7 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 		if (derivateVec[derivateVec.size() - stringIt - 1] != "-1")
 			dsdtB += " + q_" + std::to_string(stringIt) + derivateVec[derivateVec.size() - stringIt - 1] + "\n";
 	}
-	// TODO just ask infront whether degree is 1
+
 	if (derivateVec.size() == 3 && derivateVec[0] == "-1" &&
 		derivateVec[1] == "-1" && derivateVec[2] == "-1")
 		dsdtB += " vec3(0)";
@@ -456,6 +426,4 @@ static void updateRaycastingFormula(int n, std::string shaderDir)
 			fileout << dtdtB;
 		}
 	}
-
-	// TODO clear all vectors
 }

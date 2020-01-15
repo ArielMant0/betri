@@ -79,13 +79,11 @@ void Benchmarker::endFrame()
 ///////////////////////////////////////////////////////////////////////////////
 void Benchmarker::active(bool activate)
 {
-	// TODO current_query_ = 0
 	active_ = activate;
 }
 
 bool Benchmarker::active() const
 {
-	// TODO return current_query_ < QUERY_COUNT
 	return active_;
 }
 
@@ -165,6 +163,8 @@ void Benchmarker::advanceRenderMode()
 {
 	updateBuffers_ = true;
 
+	// If everthing is finished deactivate the benchmarker and print the file
+	// Clear the queries
 	if (renderModes_ == 0) {
 		active(false);
 		dumpToFile();
@@ -176,10 +176,12 @@ void Benchmarker::advanceRenderMode()
 		return;
 	}
 
+	// If not finished shift the rendermode
 	for (; !(renderModes_ & 1); shifted_++) {
 		renderModes_ = renderModes_ >> 1;
 	}
 
+	// determine what should be rendered based on the mode
 	switch (shifted_)
 	{
 		case 0: activeRMode_ = 1; break;
@@ -231,6 +233,8 @@ std::string Benchmarker::generateFileName(
 	std::string cpuName, std::string gpuName
 )
 {
+	// Compare the strings to the prepared systems, if it none of 
+	// the no system informations are added
 	std::string sys = "";
 	if (cpuName.compare("AMD Ryzen 3 1300X Quad-Core Processor") == 0 &&
 		gpuName.compare("GeForce GTX 1050 Ti/PCIe/SSE2") == 0
@@ -258,6 +262,7 @@ std::string Benchmarker::generateFileName(
 		sys = "Sys5";
 	}
 
+	// Chose prefix
 	int cgr = RENDER_MODE::CPU | RENDER_MODE::GPU | RENDER_MODE::RAYPRISM;
 	int ray = RENDER_MODE::RAYAABB | RENDER_MODE::RAYPRISM;
 	std::string prefix = "";
@@ -267,6 +272,7 @@ std::string Benchmarker::generateFileName(
 		prefix = "Ray";
 	}
 
+	// Choose the basetype
 	std::string baseType;
 	switch (testType_) {
 		case TEST_TYPE::FTIME: baseType = "Ftime"; break;
@@ -274,6 +280,7 @@ std::string Benchmarker::generateFileName(
 		default: baseType = "";
 	}
 
+	// Chose the type to compare against
 	std::string againstType;
 	switch (againstType_) {
 		case 0: 
@@ -291,6 +298,7 @@ std::string Benchmarker::generateFileName(
 		default: againstType = "";
 	}
 
+	// Combine
 	return prefix + baseType + "Vs" + againstType + sys;
 }
 
@@ -307,20 +315,22 @@ std::string Benchmarker::columnOne(int i)
 
 void Benchmarker::dumpToFile()
 {
+	// Get the gpu name
 	// https://www.khronos.org/opengl/wiki/OpenGL_Context#Context_information_queries
 	// https://stackoverflow.com/questions/42245870/how-to-get-the-graphics-card-model-name-in-opengl-or-win32
 	std::string gpuName(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
 	auto cpuName = getCPUName();
 
+	// Construct the path
 	std::string complete;
 	if (name_.size() > 0)
 		complete = path_ + name_ + type_;
 	else
 		complete = path_ + generateFileName(cpuName, gpuName) + type_;
 
+	// Detect whether the file exists
 	// https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
 	auto exists = std::experimental::filesystem::exists(complete);
-
 	std::ofstream fileout(complete, append_ ? std::ofstream::app : std::ofstream::trunc);
 
 	if (!fileout) {
@@ -361,6 +371,7 @@ void Benchmarker::dumpToFile()
 	// Content //
 	/////////////
 	if (!average_) {
+		// Iterate all queries and print the results sorted after the mode
 		for (int i = 0; i < QUERY_COUNT; i++) {
 			fileout << columnOne(i);
 			tmp = renderModesDump_;
@@ -382,6 +393,7 @@ void Benchmarker::dumpToFile()
 	} else {
 		tmp = renderModesDump_;
 		fileout << columnOne(1);
+		// Iterate all rendermodes and average the data
 		for (int i = 0; i < RENDERMODE_NUM; i++) {
 			double avg = 0.0;
 			if (tmp & 1) {

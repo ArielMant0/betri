@@ -234,15 +234,23 @@ private:
 	int renderModesDump_;
 	//! Activated render mode
 	int activeRMode_;
+	//! Activated bounding volume
 	int activeBVol_;
+	//! How much the rendermode is shifted
 	int shifted_;
 
+	//! Filepath
 	std::string path_;
+	//! Filename
 	std::string name_;
+	//! Filetype
 	std::string type_;
 
+	//! How the mesh is called
 	std::string meshName_;
+	//! How many triangles it has
 	int triangleCount_;
+	//! What is the degree
 	int degree_;
 };
 

@@ -59,12 +59,13 @@ public:
 
 	using DrawMesh = DrawMeshT<MeshT>;
 
-	/// Constructor
+	/**
+	 *Constructor
+	 */
 	BezierTriangleMeshNode(MeshT& _bss,
 		BaseNode*    _parent = 0,
 		std::string  _name = "<BezierTriangleMeshNode>") :
-		MeshNodeBase(_parent, _name), // TODO
-		//BaseNode(_parent, _name),
+		MeshNodeBase(_parent, _name),
 		bezierTriangleMesh_(_bss),
 		cpSum_(-1),
 		bspline_draw_mode_(NORMAL),
@@ -80,14 +81,11 @@ public:
 		render_bspline_surface_(true),
 		adaptive_sampling_(false),
 		controlPointSelectionTexture_valid_(false),
-		knotVectorSelectionTexture_valid_(false),
 		pick_texture_idx_(0),
 		pick_texture_res_(256),
 		pick_texture_baseidx_(0),
 		cp_selection_texture_idx_(0),
 		cp_selection_texture_res_(256),
-		knot_selection_texture_idx_(0),
-		knot_selection_texture_res_(256),
 		arb_texture_idx_(0),
 		arb_texture_used_(false),
 		arb_texture_repeat_(false),
@@ -99,24 +97,21 @@ public:
 		controlNetLineIndices_(0),
 		invalidateControlNetMesh_(true),
 		invalidateControlNetMeshSel_(true),
-		NEWVERTICES(0), // TODO
-		VERTEXSUM(3), // TODO
-		STEPSIZE(1.0), // TODO
-		textureMap_(0), // TODO
-		checkerboard_idx_(0) // TODO
+		NEWVERTICES(0), // TODO correct capitel letters
+		VERTEXSUM(3),
+		STEPSIZE(1.0),
+		textureMap_(0),
+		checkerboard_idx_(0)
 	{
 		cylinder_ = new GLCylinder(16, 1, 1.0f, true, true);
 		sphere_ = new GLSphere(5, 5);
 		fancySphere_ = new GLSphere(16, 16);
-		//PluginFunctions::setDrawMode(ACG::SceneGraph::DrawModes::SOLID_FACES_COLORED);
 
 		drawBTMesh_ = new DrawMesh(bezierTriangleMesh_);
 
-		// TODO why is this nessessary?
 		// Hand draw mesh down to super class.
 		MeshNodeBase::supplyDrawMesh(drawBTMesh_);
 
-		// TODO
 		drawModeProps_ = DrawModes::DrawModeProperties();
 		createCheckerBoardTex();
 	}
@@ -193,7 +188,6 @@ public:
 	///////////////////////////////////////////////////////////////////////////
 	// Getter/Setter
 	///////////////////////////////////////////////////////////////////////////
-
 	void set_rendering_resolution(int _res) {
 		resolution_ = _res;
 	};
@@ -234,10 +228,6 @@ public:
 		controlPointSelectionTexture_valid_ = _valid;
 	};
 
-	void knotSelectionTextureValid(bool _valid) {
-		knotVectorSelectionTexture_valid_ = _valid;
-	};
-
 	//! Should be a power of 2
 	int& pick_texture_res() {
 		return pick_texture_res_;
@@ -248,7 +238,6 @@ public:
 	///////////////////////////////////////////////////////////////////////////
 
 	// ARB Texture ------------------------------------------------------------
-
 	/// use arbitrary texture (in SOLID_TEXTURED mode)
 	void set_arb_texture(
 		const QImage& _texture, bool _repeat = false,
@@ -343,7 +332,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Getter/Setter
 	///////////////////////////////////////////////////////////////////////////
-
 	int grad() const
 	{
 		return bezierTriangleMesh_.degree();
@@ -428,7 +416,6 @@ private:
 	bool adaptive_sampling_;
 
 	bool controlPointSelectionTexture_valid_;
-	bool knotVectorSelectionTexture_valid_;
 
 	///////////////////////////////////////////////////////////////////////////
 	// Setup
@@ -436,7 +423,7 @@ private:
 
 	// Color Variables --------------------------------------------------------
 	Vec4f controlnet_color_;
-	Vec4f controlpoints_color_; // TODO
+	Vec4f controlpoints_color_;
 	Vec4f controlnet_highlight_color_;
 
 	Vec4f surface_color_;
@@ -470,9 +457,6 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Textures
 	///////////////////////////////////////////////////////////////////////////
-	TextureBuffer knotTexBufferU_;
-	TextureBuffer knotTexBufferV_;
-
 	QImage checkerboard_image_;
 	GLuint checkerboard_idx_;
 	Texture2D controlPointTex_;
@@ -484,18 +468,11 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	int cpSum_;
 
-	// TODO welche von diesen werden ueberhaupt benoetigt?
-	// Additional Vertices per edge trough subdivision
+	//! Additional Vertices per edge trough subdivision
 	int NEWVERTICES;
-	//static int NEWVERTICES = betri::mersennePrime(ITERATIONS);
-
-	// Sum of all new Trianglevertices
-	//static int VERTEXSUM = betri::gaussSum(NEWVERTICES + 2);
+	//! Sum of all new Trianglevertices
 	int VERTEXSUM;
-	// TODO does it make sence to have two different stepsizes?
-	// TODO Capital letters?
-	// TODO calculate the other two values if one of them is given
-	//static double STEPSIZE = 1.0 / (double(NEWVERTICES) + 1.0);
+	//! The stepsize
 	double STEPSIZE;
 
 	///////////////////////////////////////////////////////////////////////////
@@ -510,16 +487,10 @@ private:
 	///////////////////////////////////////////////////////////////////////////
 	// Unused
 	///////////////////////////////////////////////////////////////////////////
-
 	// texturing stuff for control point selection highlighting
 	QImage cp_selection_texture_image_;
 	GLuint cp_selection_texture_idx_;
 	int    cp_selection_texture_res_;
-
-	// texturing stuff for knot vector selection highlighting
-	QImage knot_selection_texture_image_;
-	GLuint knot_selection_texture_idx_;
-	int    knot_selection_texture_res_;
 
 	// texturing stuff for using arbitrary textures
 	QImage arb_texture_image_;
