@@ -246,7 +246,8 @@ void main(void)
 			texelFetch(uvCoordTex, ivec2(2, index), 0).xy * hit.baryCoords.z;
 		vec4 color = texture(exampleTex, uv);
 #else
-		vec4 color = vec4(0.0);
+		vec2 uv = vec2(0.5);
+		vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
 #endif
 		vec4 sg_cColor = color;
 

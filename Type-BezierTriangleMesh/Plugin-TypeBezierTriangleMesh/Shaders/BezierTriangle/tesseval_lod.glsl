@@ -21,15 +21,15 @@ uniform float FACTORIALS[13] = {
 
 /**
  * Function to calculate Exponentiation.
- * This Function is nessessary, because the default pow() does not 
+ * This Function is nessessary, because the default pow() does not
  * give the results that the calculation formular for the beziertriangles
- * needs. Therefore the special cases are treated and otherwise the default 
+ * needs. Therefore the special cases are treated and otherwise the default
  * function is called.
  * @param base The base which should be raised
  * @param expo The exponent which is used to raise the first argument
  * @return The resulting number
  */
-float myPow(float base, float expo) 
+float myPow(float base, float expo)
 {
 	if (expo == 0.0)
 		return 1.0;
@@ -74,8 +74,6 @@ vec3 getCP(int i, int j, int k)
 	return texelFetch(controlPointTex, controlPtID, 0).xyz;
 }
 
-vec3 offset = vec3(0.0); // TODO remove offset
-
 /**
  * Get one Entry for a secific set of i,j,k (control points)
  * multiply these with the barycentric coords
@@ -84,9 +82,9 @@ vec3 oneEntry(int i, int j, int k)
 {
 	// TODO float nessessary?
 	vec3 entry = (FACTORIALS[DEGREE] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]))
-		* myPow(gl_TessCoord.x + offset.x, float(i)) 
-		* myPow(gl_TessCoord.y + offset.y, float(j)) 
-		* myPow(gl_TessCoord.z + offset.z, float(k))
+		* myPow(gl_TessCoord.x, float(i))
+		* myPow(gl_TessCoord.y, float(j))
+		* myPow(gl_TessCoord.z, float(k))
 		* getCP(i, j, k);
 
 	return entry;
@@ -100,22 +98,8 @@ vec3 oneEntry(int i, int j, int k)
 vec3 newPosition()
 {
 	vec3 sum = vec3(0.0);
-
-	/*
-	ivec2 controlPtID = ivec2(0, gl_PrimitiveID);
-	vec3 cp0 = texelFetch(controlPointTex, controlPtID, 0).xyz;
-
-	controlPtID = ivec2(3, gl_PrimitiveID);
-	vec3 cp1 =  texelFetch(controlPointTex, controlPtID, 0).xyz;
-
-	controlPtID = ivec2(9, gl_PrimitiveID);
-	vec3 cp2 =  texelFetch(controlPointTex, controlPtID, 0).xyz;
-
-	sum = gl_TessCoord.x * cp0 + gl_TessCoord.y * cp1 + gl_TessCoord.z * cp2;
-	*/
-
-	// TODO should there be a special treatment for the points that are on 
-	// the edges or corners? because it should in generell be easier to 
+	// TODO should there be a special treatment for the points that are on
+	// the edges or corners? because it should in generell be easier to
 	// evaluate them
 	// i is the row-index
 	for (int i = 0; i <= DEGREE; i++)
@@ -123,12 +107,11 @@ vec3 newPosition()
 		// j is the column-index
 		for (int j = 0; j + i <= DEGREE; j++)
 		{
-			
-			//TODO should not be needed anyway
-			//TODO Both variant should be the same, which is more readable?
+			// TODO should not be needed anyway
+			// TODO Both variant should be the same, which is more readable?
 			//int k = DEGREE - i - j;
-			//if (k >= 0) 
-			
+			//if (k >= 0)
+
 			// k is directly dependent from i and j
 			for (int k = DEGREE - i - j; k + j + i == DEGREE && k >= 0; k++)
 			{
@@ -143,13 +126,9 @@ vec3 newPosition()
 ///////////////////////////////////////////////////////////////////////////////
 // Normal
 ///////////////////////////////////////////////////////////////////////////////
-/**
- * Get one Entry for a secific set of i,j,k (control points)
- * multiply these with the barycentric coords
- */
 float derives(int i, int j, int k)
 {
-	float deriv = float(i) * myPow(gl_TessCoord.x, float(i-1)) 
+	float deriv = float(i) * myPow(gl_TessCoord.x, float(i-1))
 		* myPow(gl_TessCoord.y, float(j))
 		* myPow(gl_TessCoord.z, float(k));
 
@@ -165,11 +144,6 @@ float derivet(int i, int j, int k)
 	return deriv;
 }
 
-/**
- * Sum over all combinations of ControlPoints
- * To achive this we iterate the Points row-wise from left to right
- * and from bottom to top.
- */
 vec3 newNormal()
 {
 
@@ -185,8 +159,8 @@ vec3 newNormal()
 			int k = DEGREE - i - j;
 			vec3 entry = (FACTORIALS[DEGREE] / (FACTORIALS[i] * FACTORIALS[j] * FACTORIALS[k]))
 				* getCP(i, j, k);
-			float minusTerm = - float(k) * myPow(gl_TessCoord.x, float(i)) 
-				* myPow(gl_TessCoord.y, float(j)) 
+			float minusTerm = - float(k) * myPow(gl_TessCoord.x, float(i))
+				* myPow(gl_TessCoord.y, float(j))
 				* myPow(gl_TessCoord.z, float(k-1));
 			float sDeriv = derives(i, j, k) + minusTerm;
 			float tDeriv = derivet(i, j, k) + minusTerm;
@@ -197,7 +171,6 @@ vec3 newNormal()
 	}
 
 	return normalize(cross(ds, dt));
-	//return vec3(1.0, 0.0, 0.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -231,7 +204,7 @@ void main()
 #endif
 #ifdef SG_OUTPUT_TEXCOORD
 	SG_OUTPUT_TEXCOORD = SG_INPUT_TEXCOORD[0] * gl_TessCoord.x
-		+ SG_INPUT_TEXCOORD[1] * gl_TessCoord.y 
+		+ SG_INPUT_TEXCOORD[1] * gl_TessCoord.y
 		+ SG_INPUT_TEXCOORD[2] * gl_TessCoord.z;
 #endif
 }

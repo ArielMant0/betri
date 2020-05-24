@@ -5,7 +5,10 @@
 #define SG_REQUEST_NORMALVS
 
 #define EPSILON 0.0001
+// Influences the maximum distance at which the distance tessellation kicks in
 #define DIMMUL 6.0
+// Scaling term for the flatness tessellation
+#define FLATMUL 10.0
 
 uniform int tessAmount;
 uniform vec3 campos;
@@ -68,24 +71,24 @@ vec3 sumDistForLines()
 	// and the barycentric coordinates of this control point
 	for (int i = DEGREE; i < DEGREE * DEGREE; i += DEGREE)
 	{
-		float stepSize = float(i)/float(DEGREE*DEGREE);
+		float stepPos = float(i)/float(DEGREE*DEGREE);
 
 		//    100
 		// 001 - 010
 		// bot edge
 		sumDist.x += getAbsDistance(
-			vec3(0.0, stepSize, 1.0 - stepSize),
+			vec3(0.0, stepPos, 1.0 - stepPos),
 			texelFetch(controlPointTex, ivec2(i/DEGREE, gl_PrimitiveID), 0).xyz
 		);
 		// left edge
 		sumDist.y += getAbsDistance(
 			//vec3(0.0, 1.0 - stepSize, stepSize),
-			vec3(stepSize, 0.0, 1.0 - stepSize),
+			vec3(stepPos, 0.0, 1.0 - stepPos),
 			texelFetch(controlPointTex, ivec2(indexL, gl_PrimitiveID), 0).xyz
 		);
 		// right edge
 		sumDist.z += getAbsDistance(
-			vec3(stepSize, 1.0 - stepSize, 0.0),
+			vec3(stepPos, 1.0 - stepPos, 0.0),
 			texelFetch(controlPointTex, ivec2(indexR, gl_PrimitiveID), 0).xyz
 		);
 
@@ -99,13 +102,31 @@ vec3 sumDistForLines()
 }
 
 /**
- * TODO
  * Calculate inner barycoords and use them to compare
  * the control point positions to these
  */
 float sumDistForInside()
 {
 	float dist = 0.0;
+	int left = DEGREE + 1;
+	int right = DEGREE * 2;
+
+	for (int i = 1; i < DEGREE; i++) 
+	{
+		for (int index = left + 1; index < right; index++)
+		{
+			float stepPos = float(index)/float(right);
+
+			dist += getAbsDistance(
+				vec3(float(i) / float(DEGREE), stepPos, 1.0 - stepPos),
+				texelFetch(controlPointTex, ivec2(index, gl_PrimitiveID), 0).xyz
+			);
+		}
+
+		int x = DEGREE - i;
+		right += x;
+		left += x + 1;
+	}
 
 	return dist;
 }
@@ -126,12 +147,16 @@ void setTessLevel()
 	vec3 lineDists = sumDistForLines();
 	float centerDist = sumDistForInside();
 	lineDists /= max(EPSILON, area);
+	centerDist /= max(EPSILON, area);
 
-	gl_TessLevelOuter[0] = max(1.0, lineDists.x * tessAmount);
-    gl_TessLevelOuter[1] = max(1.0, lineDists.y * tessAmount);
-    gl_TessLevelOuter[2] = max(1.0, lineDists.z * tessAmount);
-    gl_TessLevelInner[0] = 
-		(lineDists.x + lineDists.y + lineDists.z) / 3.0 + centerDist;
+	// define how big the deviation must be so the tessallations get increased
+	float scale = 5.0;//dimMax * FLATMUL;
+
+	gl_TessLevelOuter[0] = max(1.0, (lineDists.x / scale) * tessAmount);
+    gl_TessLevelOuter[1] = max(1.0, (lineDists.y / scale) * tessAmount);
+    gl_TessLevelOuter[2] = max(1.0, (lineDists.z / scale) * tessAmount);
+    gl_TessLevelInner[0] = tessAmount *
+		((lineDists.x + lineDists.y + lineDists.z) / 3.0 + centerDist) / scale;
 }
 #endif
 
