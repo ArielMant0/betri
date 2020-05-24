@@ -50,6 +50,7 @@ void BezierTriangleMeshNode<MeshT>::boundingBox(Vec3d& _bbMin, Vec3d& _bbMax)
 			_bbMax.maximize(cp);
 		}
 	}
+	dimMax = std::max(std::max(_bbMax[0], _bbMax[1]), _bbMax[2]) / 2.0;
 }
 
 //-----------------------------------------------------------------------------
@@ -358,6 +359,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				//////////////
 				ro.setUniform("tessAmount", betri::mersennePrime(ITERATIONS) + 1);
 				ro.setUniform("campos", ACG::Vec3f(_state.eye()));
+				ro.setUniform("dimMax", dimMax);
 
 				// Textures ---------------------------------------------------
 				ro.setUniform("controlPointTex", int(0));

@@ -100,6 +100,7 @@ public:
 		NEWVERTICES(0), // TODO correct capitel letters
 		VERTEXSUM(3),
 		STEPSIZE(1.0),
+		dimMax(0.0f),
 		textureMap_(0),
 		checkerboard_idx_(0)
 	{
@@ -474,6 +475,7 @@ private:
 	int VERTEXSUM;
 	//! The stepsize
 	double STEPSIZE;
+	float dimMax;
 
 	///////////////////////////////////////////////////////////////////////////
 	// Picking

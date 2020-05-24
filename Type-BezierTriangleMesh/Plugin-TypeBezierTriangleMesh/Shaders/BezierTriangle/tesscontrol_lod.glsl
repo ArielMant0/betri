@@ -5,8 +5,11 @@
 #define SG_REQUEST_NORMALVS
 
 #define EPSILON 0.0001
+#define DIMMUL 6.0
 
 uniform int tessAmount;
+uniform vec3 campos;
+uniform float dimMax;
 
 uniform sampler2D controlPointTex;
 
@@ -18,12 +21,18 @@ layout(vertices = 3) out;
 ///////////////////////////////////////////////////////////////////////////////
 // TODO try out different attenuations for the distance
 // sq, lin, const ...
-// const vec3 atten = vec3(0.001, 0.08, 0.3);
+/**
+ * Calculate the tess level by using the distance of the camera to each
+ * Vertex. Use the dimension of the object to scale the distance such 
+ * that a the distance needed is smaller when the object is smaller.
+ */
 #ifdef TESS_DISTANCE
-float getTessLevel(float Distance0, float Distance1)
+float getTessLevel(float distance0, float distance1)
 {
-    float AvgDistance = (Distance0 + Distance1) / 2.0;
-	return tessAmount / max(AvgDistance, 1);
+    float avgDistance = (distance0 + distance1) / 2.0;
+	return max(
+		max(1.0 - avgDistance / (dimMax * DIMMUL), 0.0) * tessAmount, 1.0
+	);
 }
 #endif
 
@@ -142,15 +151,17 @@ void main()
 #endif
 #ifdef TESS_DISTANCE
 	// Calculate the distance from the camera to the three control points
-    float EyeToVertexDistance0 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[0]);
-    float EyeToVertexDistance1 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[1]);
-    float EyeToVertexDistance2 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[2]);
+    float EyeToVtxDistance0 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[0]);
+    float EyeToVtxDistance1 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[1]);
+    float EyeToVtxDistance2 = distance(vec4(campos, 1.0), SG_INPUT_POSOS[2]);
 
     // Calculate the tessellation levels
-    gl_TessLevelOuter[0] = getTessLevel(EyeToVertexDistance1, EyeToVertexDistance2);
-    gl_TessLevelOuter[1] = getTessLevel(EyeToVertexDistance2, EyeToVertexDistance0);
-    gl_TessLevelOuter[2] = getTessLevel(EyeToVertexDistance0, EyeToVertexDistance1);
-    gl_TessLevelInner[0] = (gl_TessLevelOuter[0] + gl_TessLevelOuter[1] + gl_TessLevelOuter[2]) / 3.0;
+    gl_TessLevelOuter[0] = getTessLevel(EyeToVtxDistance1, EyeToVtxDistance2);
+    gl_TessLevelOuter[1] = getTessLevel(EyeToVtxDistance2, EyeToVtxDistance0);
+    gl_TessLevelOuter[2] = getTessLevel(EyeToVtxDistance0, EyeToVtxDistance1);
+    gl_TessLevelInner[0] = (
+		gl_TessLevelOuter[0] + gl_TessLevelOuter[1] + gl_TessLevelOuter[2]
+	) / 3.0;
 #endif
 #ifdef TESS_FLATNESS
 	setTessLevel();
