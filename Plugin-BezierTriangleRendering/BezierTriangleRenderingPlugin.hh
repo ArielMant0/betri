@@ -92,6 +92,7 @@ private slots:
 	void setBError(int);
 	void setDError(int);
 	void setNewtonIt(int);
+	void setCurvatureScale(int);
 
 	void setCulling(bool);
 	void setBoundVShow(bool);

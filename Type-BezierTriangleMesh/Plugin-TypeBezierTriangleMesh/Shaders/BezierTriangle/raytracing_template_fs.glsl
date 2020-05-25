@@ -20,6 +20,7 @@ uniform vec3 campos;
 
 uniform float b_error;
 uniform float d_error;
+uniform float uCurvatureScale;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Structs
@@ -181,9 +182,10 @@ void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 			// Curvature calculation
 			// http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
 			// http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node29.html
-#ifdef SG_OUTPUT_CURVATURE
+			// http://u.math.biu.ac.il/~katzmik/goldman05.pdf
+#ifdef SG_OUTPUT_GAUSS_CURVATURE
 			// BEGIN dsdsB
-			// END dsdtB
+			// END dsdsB
 
 			// BEGIN dsdtB
 			// END dsdtB
@@ -191,18 +193,45 @@ void intersectBTriangle(vec3 ray_origin, vec3 ray_direction)
 			// BEGIN dtdtB
 			// END dtdtB
 
-			mat2 secFund = mat2(
-				dot(dsdsB, hit.normal), dot(dsdtB, hit.normal),
-				dot(dsdtB, hit.normal), dot(dtdtB, hit.normal)
+			float tDots = dot(dBt, dBs);
+			mat2 fi = mat2(
+				dot(dBs, dBs), tDots,
+				tDots, dot(dBt, dBt)
 			);
+			float stDotNormal = dot(dsdtB, hit.normal);
+			mat2 fii = mat2(
+				dot(dsdsB, hit.normal), stDotNormal,
+				stDotNormal, dot(dtdtB, hit.normal)
+			);
+			float gauss = (fii[0][0] * fii[1][1] - fii[1][0] * fii[0][1]) / (fi[0][0] * fi[1][1] - fi[1][0] * fi[0][1]);
 
-			float trace = secFund[0][0] + secFund[1][1];
-			float det = secFund[0][0] * secFund[1][1] - secFund[1][0] * secFund[1][0];
+			// set gauss curvature
+			hit.curve = vec3(gauss, 0.0, -gauss) / uCurvatureScale;
+#endif
+#ifdef SG_OUTPUT_MEAN_CURVATURE
+			// BEGIN dsdsB
+			// END dsdsB
 
-			float l1 = trace * 0.5 + sqrt(trace * trace * 0.25 - det);
-			float l2 = trace * 0.5 - sqrt(trace * trace * 0.25 - det);
+			// BEGIN dsdtB
+			// END dsdtB
 
-			hit.curve = vec3(-l1, -l2, 0.0);
+			// BEGIN dtdtB
+			// END dtdtB
+
+			float tDots = dot(dBt, dBs);
+			mat2 fi = mat2(
+				dot(dBs, dBs), tDots,
+				tDots, dot(dBt, dBt)
+			);
+			float stDotNormal = -dot(dsdtB, hit.normal);
+			mat2 combine =  fi * mat2(
+				dot(dtdtB, hit.normal), stDotNormal,
+				stDotNormal, dot(dsdsB, hit.normal)
+			);
+			float mean = (combine[0][0] + combine[1][1]) / (2.0 * (fi[0][0] * fi[1][1] - fi[1][0] * fi[0][1]));
+
+			// set mean curvature
+			hit.curve = vec3(mean, 0.0, -mean) / uCurvatureScale;
 #endif
 
 			return;
@@ -288,7 +317,10 @@ void main(void)
 #ifdef SG_OUTPUT_UV
 		color.rg = uv;
 #endif
-#ifdef SG_OUTPUT_CURVATURE
+#ifdef SG_OUTPUT_MEAN_CURVATURE
+		color.rgb = hit.curve;
+#endif
+#ifdef SG_OUTPUT_GAUSS_CURVATURE
 		color.rgb = hit.curve;
 #endif
 		outFragment = vec4(color.rgb, 1.0);
