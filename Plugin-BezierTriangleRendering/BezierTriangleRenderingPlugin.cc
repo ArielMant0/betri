@@ -145,16 +145,23 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	QSpinBox *derrorSpinBox = new QSpinBox;
 	derrorSpinBox->setRange(0, 10000);
 
+	QLabel *curvScaleLabel = new QLabel(tr("curvature scale:"));
+	QSpinBox *curvScaleSpinBox = new QSpinBox;
+	curvScaleSpinBox->setRange(1, 100000);
+
 	QLabel *niterationLabel = new QLabel(tr("Newton Iteration Count:"));
 	QSpinBox *niterationSpinBox = new QSpinBox;
 	niterationSpinBox->setRange(0, 20);
 
 	connect(berrorSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setBError(int)));
 	connect(derrorSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setDError(int)));
+	connect(curvScaleSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setCurvatureScale(int)));
 	connect(niterationSpinBox, SIGNAL(valueChanged(int)), this, SLOT(setNewtonIt(int)));
 
 	berrorSpinBox->setValue(10000);
 	derrorSpinBox->setValue(10000);
+	curvScaleSpinBox->setValue(1);
+	setCurvatureScale(1);
 	niterationSpinBox->setValue(6);
 
 	// hide/show the appropriate widgets
@@ -182,8 +189,10 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	rayLayout->addWidget(berrorSpinBox, 1, 1);
 	rayLayout->addWidget(derrorLabel, 2, 0);
 	rayLayout->addWidget(derrorSpinBox, 2, 1);
-	rayLayout->addWidget(niterationLabel, 3, 0);
-	rayLayout->addWidget(niterationSpinBox, 3, 1);
+	rayLayout->addWidget(curvScaleLabel, 3, 0);
+	rayLayout->addWidget(curvScaleSpinBox, 3, 1);
+	rayLayout->addWidget(niterationLabel, 4, 0);
+	rayLayout->addWidget(niterationSpinBox, 4, 1);
 	raytracingGroup->setLayout(rayLayout);
 	raytracingGroup->hide();
 
@@ -201,7 +210,8 @@ void BezierTriangleRenderingPlugin::initializePlugin()
 	visComboBox->addItem(tr("Normal"));
 	visComboBox->addItem(tr("Depth"));
 	visComboBox->addItem(tr("UV"));
-	visComboBox->addItem(tr("Curvature"));
+	visComboBox->addItem(tr("Mean Curvature"));
+	visComboBox->addItem(tr("Gauss Curvature"));
 
 	// hide/show the appropriate widgets
 	connect(modeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -582,6 +592,17 @@ void BezierTriangleRenderingPlugin::setBError(int value)
 void BezierTriangleRenderingPlugin::setDError(int value)
 {
 	PluginFunctions::betriOption(BezierOption::D_ERROR, value);
+	PluginFunctions::ObjectIterator o_it(
+		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
+	);
+	for (; o_it != PluginFunctions::objectsEnd(); ++o_it) {
+		emit updatedObject(o_it->id(), UPDATE_GEOMETRY);
+	}
+}
+
+void BezierTriangleRenderingPlugin::setCurvatureScale(int value)
+{
+	PluginFunctions::betriOption(BezierOption::CURVATURE_SCALE, value);
 	PluginFunctions::ObjectIterator o_it(
 		PluginFunctions::ALL_OBJECTS, DATA_BEZIER_TRIANGLE_MESH
 	);

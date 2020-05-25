@@ -17,6 +17,7 @@ enum BezierOption : int
 	CULL_FACES,
 	B_ERROR,
 	D_ERROR,
+	CURVATURE_SCALE,
 	NEWTON_IT_COUNT,
 	VISUALISATION_MODE,
 	N
@@ -38,7 +39,8 @@ enum VIS_MODE : int
 	NORMAL,
 	DEPTH,
 	UV,
-	CURVATURE
+	MEAN_CURVATURE,
+	GAUSS_CURVATURE
 };
 
 int option(BezierOption b);

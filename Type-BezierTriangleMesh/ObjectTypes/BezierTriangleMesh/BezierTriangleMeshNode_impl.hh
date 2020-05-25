@@ -162,7 +162,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 	// Does the mesh need an update?
 	if (Benchmarker::instance()->update() || (
-			bVolume == betri::boundingVolumeType::BoundingBillboard && 
+			bVolume == betri::boundingVolumeType::BoundingBillboard &&
 			renderOption == betri::TESSELLATION_TYPE::RAYTRACING
 		)
 	)
@@ -206,7 +206,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 				_state.cullFace(GL_FRONT);
 			else
 				_state.cullFace(GL_BACK);
-		} else 
+		} else
 			_state.disable(GL_CULL_FACE);
 
 		ro.initFromState(&_state);
@@ -276,8 +276,10 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 					shaderMacro.sprintf("#define SG_OUTPUT_DEPTH");
 				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::UV)
 					shaderMacro.sprintf("#define SG_OUTPUT_UV");
+				else if (betri::option(betri::BezierOption::VISUALISATION_MODE) == betri::VIS_MODE::MEAN_CURVATURE)
+					shaderMacro.sprintf("#define SG_OUTPUT_MEAN_CURVATURE");
 				else
-					shaderMacro.sprintf("#define SG_OUTPUT_CURVATURE");
+					shaderMacro.sprintf("#define SG_OUTPUT_GAUSS_CURVATURE");
 				ro.shaderDesc.macros.push_back(shaderMacro);
 
 				shaderMacro.sprintf("#define CPSUM %i", cpSum());
@@ -309,6 +311,7 @@ void BezierTriangleMeshNode<MeshT>::getRenderObjects(
 
 				ro.setUniform("controlPointTex", int(0));
 				ro.addTexture(RenderObject::Texture(controlPointTex_.id(), GL_TEXTURE_2D), 0, false);
+				ro.setUniform("uCurvatureScale", float(betri::option(betri::BezierOption::CURVATURE_SCALE)));
 
 				if (drawModeProps_.texcoordSource() != DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE) {
 					ro.setUniform("uvCoordTex", int(1));
@@ -1120,18 +1123,18 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 		// disable filtering
 		controlPointTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		controlPointTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace, 
-			bezierTriangleMesh_.n_faces(), 
+		controlPointTex_.setData(0, GL_RGB32F, controlPointsPerFace,
+			bezierTriangleMesh_.n_faces(),
 			GL_RGB, GL_FLOAT, &controlPointBuf[0]);
 	}
 
 	MeshT::TexCoord2D texCoord;
 	const int texCoordsPerFace = 3;
-	const size_t texCoordBufSize = 
+	const size_t texCoordBufSize =
 		texCoordsPerFace * bezierTriangleMesh_.n_faces();
 
-	if (texCoordBufSize && 
-		drawModeProps_.texcoordSource() != 
+	if (texCoordBufSize &&
+		drawModeProps_.texcoordSource() !=
 		DrawModes::DrawModeTexCoordSource::TEXCOORD_NONE
 	) {
 		std::vector<float> texCoordBuf(texCoordBufSize * 2);
@@ -1139,8 +1142,8 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 		// write counter
 		int elementOffset = 0;
 		for (auto &face : bezierTriangleMesh_.faces()) {
-			for (auto v = bezierTriangleMesh_.fv_begin(face); 
-				v != bezierTriangleMesh_.fv_end(face); ++v) 
+			for (auto v = bezierTriangleMesh_.fv_begin(face);
+				v != bezierTriangleMesh_.fv_end(face); ++v)
 			{
 
 				texCoord = bezierTriangleMesh_.texcoord2D(v);
@@ -1153,7 +1156,7 @@ void BezierTriangleMeshNode<MeshT>::updateTexBuffers()
 		// disable filtering
 		texCoordTex_.parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		texCoordTex_.parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		texCoordTex_.setData(0, GL_RG32F, texCoordsPerFace, 
+		texCoordTex_.setData(0, GL_RG32F, texCoordsPerFace,
 			bezierTriangleMesh_.n_faces(), GL_RG, GL_FLOAT, &texCoordBuf[0]);
 	}
 
@@ -1443,8 +1446,8 @@ void BezierTriangleMeshNode<MeshT>::VBOfromMesh() {
 	MeshT::Normal normal;
 	MeshT::TexCoord2D texCoord;
 	for (FaceHandle face : bezierTriangleMesh_.faces()) {
-		for (auto v = bezierTriangleMesh_.fv_begin(face); 
-			v != bezierTriangleMesh_.fv_end(face); ++v) 
+		for (auto v = bezierTriangleMesh_.fv_begin(face);
+			v != bezierTriangleMesh_.fv_end(face); ++v)
 		{
 			//////////////
 			// Position //
