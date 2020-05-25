@@ -142,87 +142,27 @@ void BezierTriangleUtilsPlugin::addTextureCoordinates()
 		using TexCoord2D = BezierTMesh::TexCoord2D;
 		using VertexHandle = BezierTMesh::VertexHandle;
 
-		auto visited = OpenMesh::makeTemporaryProperty<VertexHandle, bool>(*mesh);
-
 		if (!mesh->has_vertex_texcoords2D()) {
 			mesh->request_vertex_texcoords2D();
 		}
 
-		for (auto f_it = mesh->faces_sbegin(); f_it != mesh->faces_end(); ++f_it) {
+		Point min = Point(0.0);
+		Point max = Point(0.0);
+		for (auto v_it = mesh->vertices_sbegin(); v_it != mesh->vertices_end(); ++v_it) {
+			auto p = mesh->point(v_it);
+			min[0] = std::min(p[0], min[0]);
+			min[1] = std::min(p[1], min[1]);
+			min[2] = std::min(p[2], min[2]);
 
-			// TODO shorten this method
-			auto fv_it = mesh->fv_iter(*f_it);
-			auto vh0 = *fv_it++;
-			auto vh1 = *fv_it++;
-			auto vh2 = *fv_it;
+			max[0] = std::max(p[0], max[0]);
+			max[1] = std::max(p[1], max[1]);
+			max[2] = std::max(p[2], max[2]);
+		}
 
-			// Fill all three if they are empty
-			if (!visited[vh0] && !visited[vh1] && !visited[vh2]) {
-
-				TexCoord2D tcZero(0.0, 0.0);
-				TexCoord2D tcZDir(1.0, 0.0);
-				mesh->set_texcoord2D(vh0, tcZero);
-
-				auto vecV01 = mesh->point(vh1) - mesh->point(vh0);
-				auto vecV01_n = vecV01;
-				auto vecV02 = mesh->point(vh2) - mesh->point(vh0);
-				auto vecV02_n = vecV02;
-				auto angle = acos(dot(normalize(vecV01_n), normalize(vecV02_n)));
-
-				mesh->set_texcoord2D(vh1, tcZDir * betri::length(vecV01));
-				auto tc = TexCoord2D(
-					cos(angle) * tcZDir[0] - sin(angle) * tcZDir[1],
-					sin(angle) * tcZDir[0] + cos(angle) * tcZDir[1]
-				) * betri::length(vecV02);
-				mesh->set_texcoord2D(vh2, tc);
-
-				visited[vh0] = true;
-				visited[vh1] = true;
-				visited[vh2] = true;
-			}
-			// Fill two if they are empty
-			else if (visited[vh0] ^ visited[vh1] ^ visited[vh2]) {
-
-				continue;
-			}
-			// Fill one if it is empty
-			else if (!visited[vh0] ^ !visited[vh1] ^ !visited[vh2]) {
-
-				VertexHandle first;
-				VertexHandle second;
-				VertexHandle third;
-
-				if (!visited[vh0]) {
-					first = vh1;
-					second = vh2;
-					third = vh0;
-				} else if (!visited[vh1]) {
-					first = vh2;
-					second = vh0;
-					third = vh1;
-				} else if (!visited[vh2]) {
-					first = vh0;
-					second = vh1;
-					third = vh2;
-				}
-
-				TexCoord2D tcSecond = mesh->texcoord2D(second) - mesh->texcoord2D(first);
-
-				auto vecV01 = mesh->point(second) - mesh->point(first);
-				auto vecV01_n = vecV01;
-				auto vecV02 = mesh->point(third) - mesh->point(first);
-				auto vecV02_n = vecV02;
-				auto angle = acos(dot(normalize(vecV01_n), normalize(vecV02_n)));
-
-				TexCoord2D tc = TexCoord2D(
-					cos(angle) * tcSecond[0] - sin(angle) * tcSecond[1],
-					sin(angle) * tcSecond[0] + cos(angle) * tcSecond[1]
-				) * betri::length(vecV02) + mesh->texcoord2D(first);
-
-				mesh->set_texcoord2D(third, tc);
-
-				visited[third] = true;
-			}
+		for (auto v_it = mesh->vertices_sbegin(); v_it != mesh->vertices_end(); ++v_it) {
+			auto p = mesh->point(v_it);
+			TexCoord2D tcZero(p[0] / (max[0] - min[0]), p[1] / (max[1] - min[1]));
+			mesh->set_texcoord2D(v_it, tcZero);
 		}
 
 		emit updatedObject(meshObj->id(), UPDATE_ALL);

@@ -270,9 +270,9 @@ void main(void)
 		// Get Color //
 		///////////////
 #ifdef TEXTURED
-		vec2 uv = texelFetch(uvCoordTex, ivec2(0, index), 0).xy * hit.baryCoords.x +
-			texelFetch(uvCoordTex, ivec2(1, index), 0).xy * hit.baryCoords.y +
-			texelFetch(uvCoordTex, ivec2(2, index), 0).xy * hit.baryCoords.z;
+		vec2 uv = texelFetch(uvCoordTex, ivec2(0, index), 0).xy * hit.baryCoords.y +
+			texelFetch(uvCoordTex, ivec2(1, index), 0).xy * hit.baryCoords.z +
+			texelFetch(uvCoordTex, ivec2(2, index), 0).xy * hit.baryCoords.x;
 		vec4 color = texture(exampleTex, uv);
 #else
 		vec2 uv = vec2(0.5);
@@ -315,7 +315,7 @@ void main(void)
 		color.rgb = vec3(gl_FragDepth);
 #endif
 #ifdef SG_OUTPUT_UV
-		color.rg = uv;
+		color.rgb = vec3(uv, 0.0);
 #endif
 #ifdef SG_OUTPUT_MEAN_CURVATURE
 		color.rgb = hit.curve;
